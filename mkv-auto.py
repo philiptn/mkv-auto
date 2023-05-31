@@ -26,10 +26,14 @@ if total_files == 0:
     print(f"[INFO] No files found in input directory.")
     exit(0)
 
+dirpaths = []
 for dirpath, dirnames, filenames in os.walk(input_dir):
     # Skip directories or files starting with '.'
     if '/.' in dirpath or dirpath.startswith('./.'):
         continue
+
+    if not dirpath == 'input/':
+        dirpaths.append(dirpath)
 
     structure = os.path.join(output_dir, os.path.relpath(dirpath, input_dir))
     if not os.path.isdir(structure):
@@ -109,7 +113,11 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
             continue
         move_file(input_file, output_file)
         file_index += 1
-    if not dirpath == 'input/':
-        safe_delete_dir(dirpath)
+
+# Sorting the dirpaths such that entries with
+# the longest subdirectories are removed first
+dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
+for dirpath in dirpaths:
+    safe_delete_dir(dirpath)
 
 print(f"\n[INFO] All files successfully processed.\n")
