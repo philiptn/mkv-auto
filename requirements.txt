@@ -1,0 +1,15 @@
+# For removing SDH (Deaf or Hard-of-Hearing) entries and other tags
+# https://pypi.org/project/subtitle-filter/
+subtitle-filter==1.4.6
+
+# For progress bar support
+# https://pypi.org/project/tqdm/
+tqdm==4.65.0
+
+# For parsing .ini files
+# https://pypi.org/project/configparser/
+configparser==5.3.0
+
+# For converting PGS subtitles to SRT
+# https://pypi.org/project/pgsrip/
+pgsrip==0.1.9
