@@ -80,15 +80,23 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages):
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
     temp_filename = new_base + extension
+    default_locked = False
+    default_track_str = []
 
     for index, filetype in enumerate(sub_filetypes):
         # mkvmerge does not support the .sub file as input,
         # and requires the .idx specified instead
         if filetype == "sub":
             filetype = "idx"
+        if not default_locked:
+            if filetype == "srt":
+                default_track_str = "0:yes"
+                default_locked = True
+        else:
+            default_track_str = "0:no"
         langs_str = f"0:{sub_languages[index]}"
         filelist_str = f"{base}.{sub_languages[index][:-1]}.{filetype}"
-        sub_files_list += '--language', langs_str, filelist_str
+        sub_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
     # Remove all subtitle tracks first
     print(f"[MKVMERGE] Removing existing subtitles in mkv...")
