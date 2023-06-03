@@ -13,3 +13,7 @@ configparser==5.3.0
 # For converting PGS subtitles to SRT
 # https://pypi.org/project/pgsrip/
 pgsrip==0.1.9
+
+# For converting Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT
+# https://pypi.org/project/asstosrt/
+asstosrt==0.1.6

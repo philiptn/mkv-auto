@@ -1,6 +1,8 @@
 import csv
 import re
 from subtitle_filter import Subtitles
+import asstosrt
+import os
 
 
 # In development, not currently used
@@ -28,3 +30,21 @@ def remove_sdh(input_files):
         subs = Subtitles(input_file)
         subs.filter()
         subs.save()
+
+
+def convert_ass_to_srt(subtitle_files, languages):
+    print(f"[SSA] Converting SSA subtitles to SRT...")
+    output_subtitles = []
+    updated_subtitle_languages = languages
+
+    for index, file in enumerate(subtitle_files):
+        base, _, extension = file.rpartition('.')
+
+        ass_file = open(file)
+        asstosrt.convert(ass_file)
+        os.remove(file)
+
+        output_subtitles.append(f"{base}.srt")
+        updated_subtitle_languages.insert(0, languages[index])
+
+    return output_subtitles, updated_subtitle_languages

@@ -55,11 +55,11 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
             wanted_audio_tracks, \
                 default_audio_track, needs_processing_audio = get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary)
             wanted_subs_tracks, default_subs_track, \
-                needs_sdh_removal, needs_ocr, a, b, needs_processing_subs = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
+                needs_sdh_removal, needs_convert, a, b, needs_processing_subs = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
             print_track_audio_str = 'tracks' if len(wanted_audio_tracks) != 1 else 'track'
             print_track_subs_str = 'tracks' if len(wanted_subs_tracks) != 1 else 'track'
 
-            if needs_processing_audio or needs_processing_subs or needs_sdh_removal or needs_ocr:
+            if needs_processing_audio or needs_processing_subs or needs_sdh_removal or needs_convert:
                 strip_tracks_in_mkv(input_file, wanted_audio_tracks, default_audio_track,
                                     wanted_subs_tracks, default_subs_track, always_enable_subs)
             else:
@@ -73,7 +73,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
                 updated_subtitle_languages = subs_track_languages
                 # Check if any of the subtitle tracks needs to be converted using OCR
-                if needs_ocr:
+                if needs_convert:
                     print(f"[MKVEXTRACT] Some subtitles need to be converted to SRT, extracting subtitles...")
                     output_subtitles = []
                     generated_srt_files = []
@@ -91,6 +91,12 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                             output_subtitles, updated_subtitle_languages = ocr_pgs_subtitles(subtitle_files, subs_track_languages)
                             generated_srt_files.append('srt')
 
+                        elif sub_filetype == "ass":
+                            subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
+                                                                  sub_filetype, subs_track_languages)
+                            output_subtitles, updated_subtitle_languages = convert_ass_to_srt(subtitle_files, subs_track_languages)
+                            generated_srt_files.append('srt')
+
                         if always_remove_sdh:
                             remove_sdh(output_subtitles)
                             needs_sdh_removal = False
@@ -100,7 +106,6 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
                 # If an SDH track is spotted in the input file, and preference is set to remove
                 if needs_sdh_removal and always_remove_sdh:
-                    output_subtitles = []
                     subtitle_files = []
                     for sub_filetype in sub_filetypes:
                         subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
