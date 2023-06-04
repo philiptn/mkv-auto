@@ -73,6 +73,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
                 updated_subtitle_languages = subs_track_languages
                 # Check if any of the subtitle tracks needs to be converted using OCR
+
                 if needs_convert:
                     print(f"[MKVEXTRACT] Some subtitles need to be converted to SRT, extracting subtitles...")
                     output_subtitles = []
@@ -82,24 +83,24 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                         if sub_filetype == "sub":
                             subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
                                                                   sub_filetype, subs_track_languages)
-                            output_subtitles, updated_subtitle_languages = ocr_vobsub_subtitles(subtitle_files, subs_track_languages)
-                            generated_srt_files.append('srt')
+                            output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_vobsub_subtitles(subtitle_files, subs_track_languages)
 
                         elif sub_filetype == "sup":
                             subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
                                                                   sub_filetype, subs_track_languages)
-                            output_subtitles, updated_subtitle_languages = ocr_pgs_subtitles(subtitle_files, subs_track_languages)
-                            generated_srt_files.append('srt')
+                            output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_pgs_subtitles(subtitle_files, subs_track_languages)
 
                         elif sub_filetype == "ass":
                             subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
                                                                   sub_filetype, subs_track_languages)
-                            output_subtitles, updated_subtitle_languages = convert_ass_to_srt(subtitle_files, subs_track_languages)
-                            generated_srt_files.append('srt')
+                            output_subtitles, updated_subtitle_languages, generated_srt_files = convert_ass_to_srt(subtitle_files, subs_track_languages)
 
                         if always_remove_sdh:
                             remove_sdh(output_subtitles)
                             needs_sdh_removal = False
+                            break
+                        else:
+                            break
 
                     for file in generated_srt_files:
                         sub_filetypes.insert(0, file)

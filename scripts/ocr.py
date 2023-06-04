@@ -6,6 +6,8 @@ import xml.etree.ElementTree as ET
 def ocr_pgs_subtitles(subtitle_files, languages):
     print(f"[OCR] Performing OCR on PGS subtitles (this may take a while)...")
     output_subtitles = []
+    generated_srt_files = []
+    replaced_index = 0
     updated_subtitle_languages = languages
 
     for index, file in enumerate(subtitle_files):
@@ -20,9 +22,11 @@ def ocr_pgs_subtitles(subtitle_files, languages):
             raise Exception("Error executing pgsrip command: " + result.stderr)
 
         output_subtitles.append(f"{base}.srt")
-        updated_subtitle_languages.insert(0, languages[index])
+        generated_srt_files.append('srt')
+        updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
+        replaced_index += 1
 
-    return output_subtitles, updated_subtitle_languages
+    return output_subtitles, updated_subtitle_languages, generated_srt_files
 
 
 def ocr_vobsub_subtitles(subtitle_files, languages):
@@ -31,6 +35,8 @@ def ocr_vobsub_subtitles(subtitle_files, languages):
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
     output_subtitles = []
+    generated_srt_files = []
+    replaced_index = 0
     updated_subtitle_languages = languages
 
     for index, file in enumerate(subtitle_files):
@@ -47,9 +53,11 @@ def ocr_vobsub_subtitles(subtitle_files, languages):
             raise Exception("Error executing SubtitleEdit command: " + result.stderr)
 
         output_subtitles.append(f"{base}.srt")
-        updated_subtitle_languages.insert(0, languages[index])
+        generated_srt_files.append('srt')
+        updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
+        replaced_index += 1
 
-    return output_subtitles, updated_subtitle_languages
+    return output_subtitles, updated_subtitle_languages, generated_srt_files
 
 
 def update_tesseract_lang_xml(new_language):

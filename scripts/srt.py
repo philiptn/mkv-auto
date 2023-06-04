@@ -36,15 +36,20 @@ def convert_ass_to_srt(subtitle_files, languages):
     print(f"[SSA] Converting SSA subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = languages
+    replaced_index = 0
+    generated_srt_files = []
 
     for index, file in enumerate(subtitle_files):
         base, _, extension = file.rpartition('.')
 
         ass_file = open(file)
-        asstosrt.convert(ass_file)
-        os.remove(file)
+        srt_output = asstosrt.convert(ass_file)
+        with open(f"{base}.srt", "w") as srt_file:
+            srt_file.write(srt_output)
+        generated_srt_files.append('srt')
 
         output_subtitles.append(f"{base}.srt")
-        updated_subtitle_languages.insert(0, languages[index])
+        updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
+        replaced_index += 1
 
-    return output_subtitles, updated_subtitle_languages
+    return output_subtitles, updated_subtitle_languages, generated_srt_files

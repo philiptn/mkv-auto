@@ -189,7 +189,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
             elif track["codec"] == "SubRip/SRT":
                 sub_filetypes.append('srt')
                 needs_convert = False
-            elif track["codec"] == "S_TEXT/ASS":
+            elif track["codec"] == "SubStationAlpha":
                 sub_filetypes.append('ass')
                 needs_convert = True
                 needs_processing = True
