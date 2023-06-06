@@ -17,3 +17,7 @@ pgsrip==0.1.9
 # For converting Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT
 # https://pypi.org/project/asstosrt/
 asstosrt==0.1.6
+
+# For automatically resyncing SRT subtitles to audio stream
+# https://pypi.org/project/ffsubsync/
+ffsubsync==0.4.25

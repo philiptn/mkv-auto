@@ -18,6 +18,7 @@ remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lo
 pref_subs_langs = [item.strip() for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
 always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lower() == "true" else False
 always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
+resync_subtitles = True if variables.get('subtitles', 'RESYNC_SUBTITLES').lower() == "true" else False
 
 total_files = get_total_mkv_files(input_dir)
 file_index = 1
@@ -39,6 +40,10 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
     if not os.path.isdir(structure):
         os.mkdir(structure)  # creates the directory structure
 
+    output_file_mkv = ''
+    external_subs_print = True
+    quiet = False
+
     for file_name in filenames:
         if file_name.startswith('.'):
             continue
@@ -47,6 +52,9 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
         output_file = os.path.join(structure, file_name)
 
         if file_name.endswith('.mkv'):
+            external_subs_print = True
+            quiet = False
+            output_file_mkv = output_file
             print(f"\n[INFO] Processing file {file_index} of {total_files}:\n")
             print(f"[FILE] '{file_name}'")
             # Get file info using mkvinfo
@@ -96,7 +104,9 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                             output_subtitles, updated_subtitle_languages, generated_srt_files = convert_ass_to_srt(subtitle_files, subs_track_languages)
 
                         if always_remove_sdh:
-                            remove_sdh(output_subtitles)
+                            remove_sdh(output_subtitles, quiet)
+                            if resync_subtitles:
+                                resync_srt_subs(input_file, output_subtitles, quiet)
                             needs_sdh_removal = False
                             break
                         else:
@@ -111,9 +121,24 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                     for sub_filetype in sub_filetypes:
                         subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
                                                          sub_filetype, subs_track_languages)
-                    remove_sdh(subtitle_files)
-
+                    remove_sdh(subtitle_files, quiet)
+                    if resync_subtitles:
+                        resync_srt_subs(input_file, subtitle_files, quiet)
                 repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages)
+        elif file_name.endswith('.srt'):
+            if external_subs_print:
+                quiet = True
+            input_files = [input_file]
+            if always_remove_sdh:
+                if external_subs_print:
+                    print("[SRT_EXT] Removing SDH in external subtitles...")
+                remove_sdh(input_files, quiet)
+            if resync_subtitles:
+                if external_subs_print:
+                    print("[SRT_EXT] Synchronizing external subtitles to audio track...")
+                resync_srt_subs(output_file_mkv, input_files, quiet)
+            external_subs_print = False
+
         else:
             move_file(input_file, output_file)
             continue

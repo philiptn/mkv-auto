@@ -2,6 +2,7 @@ import csv
 import re
 from subtitle_filter import Subtitles
 import asstosrt
+import subprocess
 import os
 
 
@@ -24,8 +25,9 @@ def find_and_replace_srt(input_files):
             file.write(data)
 
 
-def remove_sdh(input_files):
-    print(f"[SRT] Removing SDH in subtitles...")
+def remove_sdh(input_files, quiet):
+    if not quiet:
+        print(f"[SRT] Removing SDH in subtitles...")
     for index, input_file in enumerate(input_files):
         subs = Subtitles(input_file)
         subs.filter()
@@ -53,3 +55,24 @@ def convert_ass_to_srt(subtitle_files, languages):
         replaced_index += 1
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files
+
+
+def resync_srt_subs(input_file, subtitle_files, quiet):
+    if not quiet:
+        print(f"[SRT] Synchronizing subtitles to audio track...")
+
+    for index, subfile in enumerate(subtitle_files):
+        base, _, extension = subfile.rpartition('.')
+        base_nolang, _, extension = base.rpartition('.')
+        subtitle_filename = subfile
+        temp_filename = f"{base_nolang}_tmp.srt"
+
+        command = ["ffs", input_file, "-i", subtitle_filename,
+                   "-o", temp_filename]
+
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception("Error executing FFsubsync command: " + result.stderr)
+
+        os.remove(subtitle_filename)
+        os.rename(temp_filename, subtitle_filename)
