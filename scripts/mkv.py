@@ -167,7 +167,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
     default_subs_track = ''
     sub_filetypes = []
     needs_sdh_removal = False
-    needs_ocr = False
+    needs_convert = False
     needs_processing = False
     default_track_locked = False
 
@@ -180,15 +180,19 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
 
             if track["codec"] == "HDMV PGS":
                 sub_filetypes.append('sup')
-                needs_ocr = True
+                needs_convert = True
                 needs_processing = True
             elif track["codec"] == "VobSub":
                 sub_filetypes.append('sub')
-                needs_ocr = True
+                needs_convert = True
                 needs_processing = True
             elif track["codec"] == "SubRip/SRT":
                 sub_filetypes.append('srt')
-                needs_ocr = False
+                needs_convert = False
+            elif track["codec"] == "SubStationAlpha":
+                sub_filetypes.append('ass')
+                needs_convert = True
+                needs_processing = True
 
             for key, value in track["properties"].items():
                 if key == 'track_name':
@@ -221,7 +225,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
     subs_track_ids.sort()
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True
-    return subs_track_ids, default_subs_track, needs_sdh_removal, needs_ocr, \
+    return subs_track_ids, default_subs_track, needs_sdh_removal, needs_convert, \
         sub_filetypes, subs_track_languages, needs_processing
 
 

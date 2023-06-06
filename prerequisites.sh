@@ -11,6 +11,10 @@ sudo apt install python3.10-venv -y
 # Installing MKVToolNix
 sudo apt-get install mkvtoolnix -y
 
+# Installing flatpak and HandBrakeCLI (via flatpak)
+sudo apt-get install flatpak -y
+flatpak install fr.handbrake.ghb -y
+
 # Installing packages required for SubtitleEdit (in 'utlities/') to work
 sudo apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 -y
 
