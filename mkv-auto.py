@@ -10,7 +10,12 @@ output_dir = "output/"
 
 # Get user preferences
 variables = ConfigParser()
-variables.read('preferences.ini')
+# If user-specific config file has been created, load it
+# else, load defaults from preferences.ini
+if os.path.isfile('user.ini'):
+    variables.read('user.ini')
+else:
+    variables.read('defaults.ini')
 # Audio
 pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
 remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False

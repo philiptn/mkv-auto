@@ -11,7 +11,7 @@ Most of the utility's functionality can be performed cross-platform as long as P
 Note: Depending on your language preferences you may need to install additional tesseract language packs, modify script as needed.
 
 ## Usage
-Note: Inspect the `preferences.ini` file to tweak any preferences before running the utility.
+Note: `defaults.ini` contains the default options set for this utility. If you want to make any changes, create a new file named `user.ini` with all the same parameters to override the default settings.
 
 1. Place the mkv files inside the `input/` folder (files inside folders are also supported).
 2. Activate the Python virtual environment using `source venv/bin/activate`
