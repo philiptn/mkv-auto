@@ -35,7 +35,7 @@ def remove_sdh(input_files, quiet):
 
 
 def convert_ass_to_srt(subtitle_files, languages):
-    print(f"[SSA] Converting SSA subtitles to SRT...")
+    print(f"[ASS] Converting ASS subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = languages
     replaced_index = 0

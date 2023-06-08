@@ -134,3 +134,6 @@ output/
 
 # Pycharm
 .idea/
+
+# User-specific preferences
+user.ini
