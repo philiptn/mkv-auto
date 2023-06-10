@@ -1,5 +1,12 @@
 # mkv-auto
-A utility made in Python that aims to automatically remove any unwanted audio or subtitle tracks from Matroska (mkv) files. By using technology such as OCR, the utility will automatically convert any picture-based subtitles to SubRip/SRT to maximise playback compatibility.  
+A utility made in Python that aims to automatically remove any unwanted audio or subtitle tracks from Matroska (mkv) files. By using technology such as OCR, the utility will automatically convert any picture-based subtitles to SubRip/SRT to maximise playback compatibility. If the subtitles are not properly synced to the audio of the video file, this can also be done automatically using AI & machine learning (at the cost of processing time).
+
+### Features
+- Removes any audio or subtitle tracks in video file that does not match user preferences
+- Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using Tesseract OCR
+- Converts Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT for maximizing compatibility
+- Removes SDH (such as `[GUNSHOTS]` or `[LAUGHING]`) from SRT subtitles
+- Resync subtitles to properly match the speech in audio using AI & machine learning
 
 ## Prerequisites
 Most of the utility's functionality can be performed cross-platform as long as Python and the other packages is installed and available in PATH, however some features (such as DVD VobSub conversion) are only available when using Linux/WSL. Therefore, this utility mainly focuses its support on Linux-based operating systems.
@@ -23,8 +30,20 @@ Note: `defaults.ini` contains the default options set for this utility. If you w
 
 ### Acknowledgments
 
-Thanks to NikseDK for SubtitleEdit (OCR)  
+Thanks to: 
+
+Matt Lyon for subtitle-filter (SDH removal)  
+https://github.com/m-lyon/filter-subs
+
+ratoaq2 for PGSRip (OCR of BluRay subtitles)  
+https://github.com/ratoaq2/pgsrip
+
+NikseDK for SubtitleEdit (OCR of DVD subtitles)  
 https://github.com/SubtitleEdit/subtitleedit/releases  
 https://www.nikse.dk/subtitleedit/help#linux
 
+qqq1243 for asstosrt (SSA/ASS to SRT conversion)  
+https://github.com/sorz/asstosrt/
 
+oseiskar for autosubsync (Resyncing subtitles to audio using AI & machine learning)  
+https://github.com/oseiskar/autosubsync

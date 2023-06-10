@@ -47,6 +47,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
     input_file_mkv = ''
     output_file_mkv = ''
+    mkv_dirpath = ''
     file_names = []
     file_name_printed = False
     external_subs_print = True
@@ -67,23 +68,28 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
             for file in filenames:
                 if file.endswith('.mkv'):
                     input_file_mkv = os.path.join(dirpath, file)
+                    mkv_dirpath = dirpath
                     if not file_name_printed:
                         print(f"\n[INFO] Processing file {file_index} of {total_files}:\n")
                         print(f"[FILE] '{file}'")
                         file_name_printed = True
-            if external_subs_print:
-                quiet = True
-            input_files = [input_file]
-            if always_remove_sdh:
+            if input_file_mkv:
                 if external_subs_print:
-                    print("[SRT_EXT] Removing SDH in external subtitles...")
-                remove_sdh(input_files, quiet)
-            if resync_subtitles:
-                if external_subs_print:
-                    print("[SRT_EXT] Synchronizing external subtitles to audio track (this may take a while)...")
-                resync_srt_subs(input_file_mkv, input_files, quiet)
-            external_subs_print = False
-            move_file(input_file, output_file)
+                    quiet = True
+                input_files = [input_file]
+                if always_remove_sdh:
+                    if external_subs_print:
+                        print("[SRT_EXT] Removing SDH in external subtitles...")
+                    remove_sdh(input_files, quiet)
+                if resync_subtitles:
+                    if external_subs_print:
+                        print("[SRT_EXT] Synchronizing external subtitles to audio track (this may take a while)...")
+                    resync_srt_subs(input_file_mkv, input_files, quiet)
+                external_subs_print = False
+                move_file(input_file, output_file)
+            else:
+                move_file(input_file, output_file)
+                continue
 
         elif file_name.endswith('.mkv'):
             if not file_name_printed:
