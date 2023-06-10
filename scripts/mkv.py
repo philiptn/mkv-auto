@@ -74,8 +74,24 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
     os.rename(temp_filename, filename)
 
 
-def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages):
+def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs):
     sub_files_list = []
+    final_sub_languages = sub_languages
+
+    # If the first preferred language is found in the sub languages,
+    # reorder the list to place the preferred language first
+    if pref_subs_langs[0] in sub_languages:
+        pattern = []
+        for lang in sub_languages:
+            if lang not in pattern:
+                pattern.append(lang)
+        # Reorder the pattern so the preferred language is first
+        while pattern[0] != pref_subs_langs[0]:
+            pattern.append(pattern.pop(0))
+        # Repeat the pattern for the length of the languages list
+        pattern *= len(sub_languages) // len(pattern)
+        # Truncate to the length of the languages list
+        final_sub_languages = pattern[:len(sub_languages)]
 
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
@@ -94,8 +110,8 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages):
                 default_locked = True
         else:
             default_track_str = "0:no"
-        langs_str = f"0:{sub_languages[index]}"
-        filelist_str = f"{base}.{sub_languages[index][:-1]}.{filetype}"
+        langs_str = f"0:{final_sub_languages[index]}"
+        filelist_str = f"{base}.{final_sub_languages[index][:-1]}.{filetype}"
         sub_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
     # Remove all subtitle tracks first
@@ -122,9 +138,9 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages):
     for index, filetype in enumerate(sub_filetypes):
         if filetype == "sub":
             sub_filetypes.append('idx')
-            sub_languages.append(sub_languages[index])
+            final_sub_languages.append(final_sub_languages[index])
     for index, filetype in enumerate(sub_filetypes):
-        os.remove(f"{base}.{sub_languages[index][:-1]}.{filetype}")
+        os.remove(f"{base}.{final_sub_languages[index][:-1]}.{filetype}")
 
 
 def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary):
@@ -200,41 +216,33 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                 if key == 'language':
                     track_language = value
             if track_language in pref_subs_langs:
-                subs_track_ids.append(track["id"])
-                subs_track_languages.append(track_language)
-
-                # Removes the SDH track if non-SDH of same language is already added
-                if "SDH" in track_name.upper() and track_language in subs_track_languages:
-                    subs_track_ids.remove(track["id"])
-                    subs_track_languages.remove(track_language)
-                    needs_sdh_removal = False
-                    needs_processing = False
-                else:
-                    needs_sdh_removal = True
-                    # Sets the default subtitle track to first entry in preferences,
-                    # reverts to any entry if not first
-                    if not default_track_locked:
-                        needs_processing = True
-                        if track_language == pref_subs_langs[0]:
-                            default_subs_track = track["id"]
-                            default_track_locked = True
-                        elif track_language in pref_subs_langs:
-                            default_subs_track = track["id"]
-                    else:
-                        needs_processing = False
+                needs_processing = True
+                needs_sdh_removal = True
+                if track_language not in subs_track_languages:
+                    subs_track_ids.append(track["id"])
+                    subs_track_languages.append(track_language)
+                # Sets the default subtitle track to first entry in preferences,
+                # reverts to any entry if not first
+                if not default_track_locked:
+                    if track_language == pref_subs_langs[0]:
+                        default_subs_track = track["id"]
+                        default_track_locked = True
+                    elif track_language in pref_subs_langs:
+                        default_subs_track = track["id"]
     subs_track_ids.sort()
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True
+
     return subs_track_ids, default_subs_track, needs_sdh_removal, needs_convert, \
         sub_filetypes, subs_track_languages, needs_processing
 
 
-def extract_subs_in_mkv(filename, track_numbers, output_filetype, subs_languages):
+def extract_subs_in_mkv(filename, track_numbers, output_filetypes, subs_languages):
     subtitle_files = []
     base, _, extension = filename.rpartition('.')
 
     for index, track in enumerate(track_numbers):
-        subtitle_filename = f"{base}.{subs_languages[index][:-1]}.{output_filetype}"
+        subtitle_filename = f"{base}.{subs_languages[index][:-1]}.{output_filetypes[index]}"
         command = ["mkvextract", filename, "tracks",
                    f"{track}:{subtitle_filename}"]
 
