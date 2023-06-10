@@ -2,7 +2,7 @@ import csv
 import re
 from subtitle_filter import Subtitles
 import asstosrt
-import subprocess
+import autosubsync
 import os
 
 
@@ -59,7 +59,7 @@ def convert_ass_to_srt(subtitle_files, languages):
 
 def resync_srt_subs(input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[SRT] Synchronizing subtitles to audio track...")
+        print(f"[SRT] Synchronizing subtitles to audio track (this may take a while)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')
@@ -67,12 +67,12 @@ def resync_srt_subs(input_file, subtitle_files, quiet):
         subtitle_filename = subfile
         temp_filename = f"{base_nolang}_tmp.srt"
 
-        command = ["ffs", input_file, "-i", subtitle_filename,
-                   "-o", temp_filename]
+        #command = ["autosubsync", input_file, subtitle_filename, temp_filename]
+        #result = subprocess.run(command, capture_output=True, text=True)
+        #if result.returncode != 0:
+        #    continue
 
-        result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise Exception("Error executing FFsubsync command: " + result.stderr)
+        autosubsync.synchronize(input_file, subtitle_filename, temp_filename)
 
         os.remove(subtitle_filename)
         os.rename(temp_filename, subtitle_filename)

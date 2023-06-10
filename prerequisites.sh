@@ -15,8 +15,8 @@ sudo apt-get install mkvtoolnix -y
 sudo apt-get install flatpak -y
 flatpak install fr.handbrake.ghb -y
 
-# Installing packages required for SubtitleEdit (in 'utlities/') to work
-sudo apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 -y
+# Installing packages required for SubtitleEdit (in 'utlities/') to work, as well as autosubsync
+sudo apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 libsndfile1 -y
 
 # Installing tesseract-ocr (for use with SubtitleEdit)
 # Reference: https://pypi.org/project/pgsrip/
@@ -37,4 +37,5 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install required PyPI packages using Pip
+pip3 install --upgrade pip
 pip3 install -r requirements.txt
