@@ -16,6 +16,8 @@ if os.path.isfile('user.ini'):
     variables.read('user.ini')
 else:
     variables.read('defaults.ini')
+# General
+file_tag = variables.get('general', 'FILE_TAG')
 # Audio
 pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
 remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
@@ -162,6 +164,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                     if resync_subtitles:
                         resync_srt_subs(input_file, subtitle_files, quiet)
                 repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
+            remove_all_mkv_track_tags(input_file)
             move_file(input_file, output_file)
             file_index += 1
             file_name_printed = False
@@ -175,4 +178,7 @@ dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
 for dirpath in dirpaths:
     safe_delete_dir(dirpath)
 
-print(f"\n[INFO] All files successfully processed.\n")
+if file_tag != "default":
+    replace_tags(output_dir, file_tag)
+
+print("\n[INFO] All files successfully processed.\n")
