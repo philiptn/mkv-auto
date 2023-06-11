@@ -44,7 +44,7 @@ def ocr_vobsub_subtitles(subtitle_files, languages):
         env = os.environ.copy()
         env['TESSDATA_PREFIX'] = os.path.expanduser(tessdata_location)
 
-        update_tesseract_lang_xml(languages[index])
+        update_tesseract_lang_xml(languages[index + replaced_index])
         command = ["mono", subtitleedit, "/convert", file,
                    "srt", "/FixCommonErrors", "/encoding:utf-8"]
 
