@@ -206,4 +206,6 @@ if file_tag != "default":
 if flatten_directories:
     flatten_dirs(output_dir)
 
+fix_episodes_naming(output_dir)
+
 print("\n[INFO] All files successfully processed.\n")

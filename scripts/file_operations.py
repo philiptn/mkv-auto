@@ -89,3 +89,29 @@ def remove_sample_files_and_dirs(root_dir):
             if not filename.startswith('.'):
                 if filename.lower().endswith("-sample"):
                     os.remove(os.path.join(dirpath, filename))
+
+
+def fix_episodes_naming(directory):
+    for dirpath, _, filenames in os.walk(directory):
+        for file_name in filenames:
+            if file_name.endswith(".mkv") or file_name.endswith(".srt"):
+                parts = os.path.splitext(file_name)[0].split(".")
+                extension = os.path.splitext(file_name)[1]
+                season_index = next((i for i, part in enumerate(parts) if part.lower() == 'season'), None)
+                episode_index = next((i for i, part in enumerate(parts) if part.lower() == 'episode'), None)
+
+                if season_index is not None and episode_index is not None:
+                    # Preserve all parts of the original name before "season" and after "episode"
+                    show_name = '.'.join(parts[:season_index])
+                    post_episode = '.'.join(parts[episode_index+2:]) if episode_index + 2 < len(parts) else ""
+
+                    # Determine the case for 'S' and 'E'
+                    se_case = 'S' if parts[season_index][0].isupper() else 's'
+                    ee_case = 'E' if parts[episode_index][0].isupper() else 'e'
+
+                    # Generate new file name, preserving case of "season" and "episode"
+                    new_name = f"{show_name}.{se_case}{int(parts[season_index+1]):02}{ee_case}{int(parts[episode_index+1]):02}"
+                    new_name += f".{post_episode}" if post_episode else ""
+                    new_name += extension
+
+                    os.rename(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
