@@ -4,6 +4,7 @@ from subtitle_filter import Subtitles
 import asstosrt
 import autosubsync
 import os
+import subprocess
 
 
 # In development, not currently used
@@ -57,9 +58,9 @@ def convert_ass_to_srt(subtitle_files, languages):
     return output_subtitles, updated_subtitle_languages, generated_srt_files
 
 
-def resync_srt_subs(input_file, subtitle_files, quiet):
+def resync_srt_subs_ai(input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[SRT] Synchronizing subtitles to audio track (this may take a while)...")
+        print(f"[SRT] Synchronizing subtitles to audio track (AI)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')
@@ -67,12 +68,28 @@ def resync_srt_subs(input_file, subtitle_files, quiet):
         subtitle_filename = subfile
         temp_filename = f"{base_nolang}_tmp.srt"
 
-        #command = ["autosubsync", input_file, subtitle_filename, temp_filename]
-        #result = subprocess.run(command, capture_output=True, text=True)
-        #if result.returncode != 0:
-        #    continue
-
         autosubsync.synchronize(input_file, subtitle_filename, temp_filename)
+
+        os.remove(subtitle_filename)
+        os.rename(temp_filename, subtitle_filename)
+
+
+def resync_srt_subs_fast(input_file, subtitle_files, quiet):
+    if not quiet:
+        print(f"[SRT] Synchronizing subtitles to audio track (fast)...")
+
+    for index, subfile in enumerate(subtitle_files):
+        base, _, extension = subfile.rpartition('.')
+        base_nolang, _, extension = base.rpartition('.')
+        subtitle_filename = subfile
+        temp_filename = f"{base_nolang}_tmp.srt"
+
+        command = ["ffs", input_file, "-i", subtitle_filename,
+                   "-o", temp_filename]
+
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception("Error executing FFsubsync command: " + result.stderr)
 
         os.remove(subtitle_filename)
         os.rename(temp_filename, subtitle_filename)

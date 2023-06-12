@@ -18,6 +18,10 @@ pgsrip==0.1.9
 # https://pypi.org/project/asstosrt/
 asstosrt==0.1.6
 
-# For automatically resyncing SRT subtitles to audio stream
+# For automatically resyncing SRT subtitles to audio stream (AI)
 # https://pypi.org/project/autosubsync/
 autosubsync==1.0.1
+
+# For automatically resyncing SRT subtitles to audio stream (fast)
+# https://pypi.org/project/ffsubsync/
+ffsubsync==0.4.25
