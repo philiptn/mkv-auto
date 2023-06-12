@@ -32,6 +32,12 @@ resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
 if remove_samples:
     remove_sample_files_and_dirs(input_dir)
 
+if file_tag != "default":
+    replace_tags(input_dir, file_tag)
+if flatten_directories:
+    flatten_dirs(input_dir)
+fix_episodes_naming(input_dir)
+
 total_files = get_total_mkv_files(input_dir)
 file_index = 1
 
@@ -41,6 +47,9 @@ if total_files == 0:
 
 dirpaths = []
 for dirpath, dirnames, filenames in os.walk(input_dir):
+
+    dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
+
     # Skip directories or files starting with '.'
     if '/.' in dirpath or dirpath.startswith('./.'):
         continue
@@ -62,7 +71,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
     filenames.sort(key=lambda x: not x.endswith(".srt"))
 
-    for file_name in filenames:
+    for file_name in sorted(filenames, key=lambda fn: (not fn.lower().endswith('.srt'), fn.lower())):
 
         if file_name.startswith('.'):
             continue
@@ -200,12 +209,5 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
 for dirpath in dirpaths:
     safe_delete_dir(dirpath)
-
-if file_tag != "default":
-    replace_tags(output_dir, file_tag)
-if flatten_directories:
-    flatten_dirs(output_dir)
-
-fix_episodes_naming(output_dir)
 
 print("\n[INFO] All files successfully processed.\n")
