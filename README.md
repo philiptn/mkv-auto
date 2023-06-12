@@ -1,12 +1,12 @@
 # mkv-auto
-A utility made in Python that aims to automatically remove any unwanted audio or subtitle tracks from Matroska (mkv) files. By using technology such as OCR, the utility will automatically convert any picture-based subtitles to SubRip/SRT to maximise playback compatibility. If the subtitles are not properly synced to the audio of the video file, this can also be done automatically using AI & machine learning (at the cost of processing time).
+A utility made in Python that aims to automatically remove any unwanted audio or subtitle tracks from Matroska (mkv) files, as well as converting/cleaning/resyncing any subtitles from the source video.
 
 ### Features
 - Removes any audio or subtitle tracks in video file that does not match user preferences
 - Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using Tesseract OCR
 - Converts Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT for maximizing compatibility
 - Removes SDH (such as `[GUNSHOTS]` or `[LAUGHING]`) from SRT subtitles
-- Resync subtitles to properly match the speech in audio using AI & machine learning
+- Resyncs subtitles to properly match the speech in audio using language-agnostic automatic synchronization (fast) or AI & machine learning (AI)
 
 ## Prerequisites
 Most of the utility's functionality can be performed cross-platform as long as Python and the other packages is installed and available in PATH, however some features (such as DVD VobSub conversion) are only available when using Linux/WSL. Therefore, this utility mainly focuses its support on Linux-based operating systems.
@@ -45,5 +45,8 @@ https://www.nikse.dk/subtitleedit/help#linux
 qqq1243 for asstosrt (SSA/ASS to SRT conversion)  
 https://github.com/sorz/asstosrt/
 
-oseiskar for autosubsync (Resyncing subtitles to audio using AI & machine learning)  
+smacke for ffsubsync (Resyncing subtitles to audio) [fast]  
+https://github.com/smacke/ffsubsync  
+
+oseiskar for autosubsync (Resyncing subtitles to audio) [AI]  
 https://github.com/oseiskar/autosubsync

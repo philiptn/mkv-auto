@@ -34,40 +34,58 @@ def get_total_mkv_files(path):
 
 
 def replace_tags(root_dir, replacement):
-    # Regex pattern to match tags (starting with "-" followed by any letters,
-    # possibly followed by "-sample", before file extension if exists), case-insensitive
-    pattern = re.compile(r"-\w*((-sample)?(?=\.\w+$|$))", re.IGNORECASE)
+    tag_regex = re.compile(r"-\w*(-sample)?(\.\w{2,3})?$", re.IGNORECASE)
 
-    # Walk through all directories and files recursively, bottom-up
     for dirpath, dirnames, filenames in os.walk(root_dir, topdown=False):
-        # Process files
-        for name in filenames:
-            # Check if a tag exists
-            if pattern.search(name):
-                new_name = pattern.sub(lambda m: replacement + (m.group(2) if m.group(2) else ""), name)
-            elif name.endswith('.mkv'):  # No tag exists, so add one at the end of the name (before the extension)
-                base_name, ext = os.path.splitext(name)
-                new_name = base_name + replacement + ext
-            else:  # Skip non-mkv files that don't have a tag
-                continue
+        # rename files
+        for filename in filenames:
+            base, ext = os.path.splitext(filename)
+            if ext in {".mkv", ".srt"}:
+                match = tag_regex.search(base)
+                if match:
+                    base = tag_regex.sub(replacement + (match.group(2) or ""), base)
+                elif ext == ".mkv":
+                    base += replacement
+                os.rename(os.path.join(dirpath, filename), os.path.join(dirpath, base + ext))
 
-            if new_name != name:
-                try:
-                    shutil.move(os.path.join(dirpath, name), os.path.join(dirpath, new_name))
-                except Exception as e:
-                    print(f"Unable to process file: {os.path.join(dirpath, name)}")
-                    print(f"Error: {e}")
-        # Process directories
-        for name in dirnames:
-            # Check if a tag exists
-            if pattern.search(name):
-                new_name = pattern.sub(lambda m: replacement + (m.group(2) if m.group(2) else ""), name)
-            else:  # No tag exists, so add one at the end of the name
-                new_name = name + replacement
+        # rename directories
+        for dirname in dirnames:
+            base = os.path.join(dirpath, dirname)
+            parent_dir = os.path.dirname(base)
+            if parent_dir != root_dir:
+                new_dirname = tag_regex.sub(replacement, dirname)
+                os.rename(os.path.join(dirpath, dirname), os.path.join(dirpath, new_dirname))
 
-            if new_name != name:
-                try:
-                    shutil.move(os.path.join(dirpath, name), os.path.join(dirpath, new_name))
-                except Exception as e:
-                    print(f"Unable to process directory: {os.path.join(dirpath, name)}")
-                    print(f"Error: {e}")
+
+def flatten_dirs(root_dir):
+    # Get a list of all first level directories
+    level_1_dirs = [d.path for d in os.scandir(root_dir) if d.is_dir()]
+
+    # Move files from subdirectories to level 1 directories
+    for level_1_dir in level_1_dirs:
+        for dirpath, dirnames, filenames in os.walk(level_1_dir):
+            for filename in filenames:
+                if filename.endswith(('.mkv', '.srt')):
+                    new_path = os.path.join(level_1_dir, filename)
+                    if not os.path.exists(new_path):
+                        shutil.move(os.path.join(dirpath, filename), new_path)
+
+    # Remove subdirectories
+    for level_1_dir in level_1_dirs:
+        for dirpath, dirnames, filenames in os.walk(level_1_dir, topdown=False):
+            for dirname in dirnames:
+                shutil.rmtree(os.path.join(dirpath, dirname))
+
+
+def remove_sample_files_and_dirs(root_dir):
+    for dirpath, dirnames, filenames in os.walk(root_dir, topdown=False):
+        # Exclude directories starting with a dot
+        dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+        for dirname in dirnames:
+            if dirname.lower() == "sample":
+                shutil.rmtree(os.path.join(dirpath, dirname))
+
+        for filename in filenames:
+            if not filename.startswith('.'):
+                if filename.lower().endswith("-sample"):
+                    os.remove(os.path.join(dirpath, filename))

@@ -18,6 +18,8 @@ else:
     variables.read('defaults.ini')
 # General
 file_tag = variables.get('general', 'FILE_TAG')
+flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
+remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
 # Audio
 pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
 remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
@@ -25,7 +27,10 @@ remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lo
 pref_subs_langs = [item.strip() for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
 always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lower() == "true" else False
 always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
-resync_subtitles = True if variables.get('subtitles', 'RESYNC_SUBTITLES').lower() == "true" else False
+resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
+
+if remove_samples:
+    remove_sample_files_and_dirs(input_dir)
 
 total_files = get_total_mkv_files(input_dir)
 file_index = 1
@@ -59,7 +64,6 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
     for file_name in filenames:
 
-
         if file_name.startswith('.'):
             continue
 
@@ -83,10 +87,14 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                     if external_subs_print:
                         print("[SRT_EXT] Removing SDH in external subtitles...")
                     remove_sdh(input_files, quiet)
-                if resync_subtitles:
+                if resync_subtitles == 'fast':
                     if external_subs_print:
-                        print("[SRT_EXT] Synchronizing external subtitles to audio track (this may take a while)...")
-                    resync_srt_subs(input_file_mkv, input_files, quiet)
+                        print("[SRT_EXT] Synchronizing external subtitles to audio track (fast)...")
+                    resync_srt_subs_fast(input_file_mkv, input_files, quiet)
+                elif resync_subtitles == 'ai':
+                    if external_subs_print:
+                        print("[SRT_EXT] Synchronizing external subtitles to audio track (AI)...")
+                    resync_srt_subs_ai(input_file_mkv, input_files, quiet)
                 external_subs_print = False
                 move_file(input_file, output_file)
             else:
@@ -119,6 +127,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                 print(f"[MKVMERGE] No track filtering needed.")
 
             if needs_processing_subs:
+                subtitle_files = []
                 # Get updated file info after mkv tracks reduction
                 file_info, pretty_file_info = get_mkv_info(input_file)
                 wanted_subs_tracks, a, b, c, \
@@ -149,21 +158,35 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
                     if always_remove_sdh:
                         remove_sdh(output_subtitles, quiet)
-                        if resync_subtitles:
-                            resync_srt_subs(input_file, output_subtitles, quiet)
                         needs_sdh_removal = False
+
+                    if resync_subtitles == 'fast':
+                        resync_srt_subs_fast(input_file, output_subtitles, quiet)
+                    elif resync_subtitles == 'ai':
+                        resync_srt_subs_ai(input_file, output_subtitles, quiet)
 
                     for file in generated_srt_files:
                         sub_filetypes.insert(0, file)
 
-                # If an SDH track is spotted in the input file, and preference is set to remove
-                if needs_sdh_removal and always_remove_sdh:
-                    subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
-                                                     sub_filetypes, subs_track_languages)
-                    remove_sdh(subtitle_files, quiet)
-                    if resync_subtitles:
-                        resync_srt_subs(input_file, subtitle_files, quiet)
-                repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
+                    repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
+
+                elif not needs_convert:
+                    if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false':
+                        subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
+                                                         sub_filetypes, subs_track_languages)
+
+                    if needs_sdh_removal and always_remove_sdh:
+                        remove_sdh(subtitle_files, quiet)
+
+                    if resync_subtitles != 'false':
+                        if resync_subtitles == 'fast':
+                            resync_srt_subs_fast(input_file, subtitle_files, quiet)
+                        elif resync_subtitles == 'ai':
+                            resync_srt_subs_ai(input_file, subtitle_files, quiet)
+
+                    if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false':
+                        repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
+
             remove_all_mkv_track_tags(input_file)
             move_file(input_file, output_file)
             file_index += 1
@@ -180,5 +203,7 @@ for dirpath in dirpaths:
 
 if file_tag != "default":
     replace_tags(output_dir, file_tag)
+if flatten_directories:
+    flatten_dirs(output_dir)
 
 print("\n[INFO] All files successfully processed.\n")
