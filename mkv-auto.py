@@ -1,4 +1,5 @@
 from configparser import ConfigParser
+from itertools import zip_longest
 
 from scripts.file_operations import *
 from scripts.mkv import *
@@ -69,9 +70,20 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
     external_subs_print = True
     quiet = False
 
-    filenames.sort(key=lambda x: not x.endswith(".srt"))
+    # Separate .srt and .mkv files
+    srt_files = sorted(f for f in filenames if f.lower().endswith('.srt'))
+    mkv_files = sorted(f for f in filenames if f.lower().endswith('.mkv'))
 
-    for file_name in sorted(filenames, key=lambda fn: (not fn.lower().endswith('.srt'), fn.lower())):
+    # Merge .srt and .mkv files
+    sorted_files = []
+    for srt, mkv in zip_longest(srt_files, mkv_files):
+        if srt is not None:
+            sorted_files.append(srt)
+        if mkv is not None:
+            sorted_files.append(mkv)
+    filenames = sorted_files
+
+    for index, file_name in enumerate(filenames):
 
         if file_name.startswith('.'):
             continue
@@ -82,35 +94,28 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
         needs_tag_rename = True
 
         if file_name.endswith('.srt'):
-            for file in filenames:
-                if file.endswith('.mkv'):
-                    input_file_mkv = os.path.join(dirpath, file)
-                    mkv_dirpath = dirpath
-                    if not file_name_printed:
-                        print(f"\n[INFO] Processing file {file_index} of {total_files}:\n")
-                        print(f"[FILE] '{file}'")
-                        file_name_printed = True
-            if input_file_mkv:
+            input_file_mkv = os.path.join(dirpath, filenames[index + 1])
+            if not file_name_printed:
+                print(f"\n[INFO] Processing file {file_index} of {total_files}:\n")
+                print(f"[FILE] '{filenames[index + 1]}'")
+                file_name_printed = True
+            if external_subs_print:
+                quiet = True
+            input_files = [input_file]
+            if always_remove_sdh:
                 if external_subs_print:
-                    quiet = True
-                input_files = [input_file]
-                if always_remove_sdh:
-                    if external_subs_print:
-                        print("[SRT_EXT] Removing SDH in external subtitles...")
-                    remove_sdh(input_files, quiet)
-                if resync_subtitles == 'fast':
-                    if external_subs_print:
-                        print("[SRT_EXT] Synchronizing external subtitles to audio track (fast)...")
-                    resync_srt_subs_fast(input_file_mkv, input_files, quiet)
-                elif resync_subtitles == 'ai':
-                    if external_subs_print:
-                        print("[SRT_EXT] Synchronizing external subtitles to audio track (AI)...")
-                    resync_srt_subs_ai(input_file_mkv, input_files, quiet)
-                external_subs_print = False
-                move_file(input_file, output_file)
-            else:
-                move_file(input_file, output_file)
-                continue
+                    print("[SRT_EXT] Removing SDH in external subtitles...")
+                remove_sdh(input_files, quiet)
+            if resync_subtitles == 'fast':
+                if external_subs_print:
+                    print("[SRT_EXT] Synchronizing external subtitles to audio track (fast)...")
+                resync_srt_subs_fast(input_file_mkv, input_files, quiet)
+            elif resync_subtitles == 'ai':
+                if external_subs_print:
+                    print("[SRT_EXT] Synchronizing external subtitles to audio track (ai)...")
+                resync_srt_subs_ai(input_file_mkv, input_files, quiet)
+            external_subs_print = False
+            move_file(input_file, output_file)
 
         elif file_name.endswith('.mkv'):
             if not file_name_printed:
