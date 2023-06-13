@@ -6,7 +6,7 @@ A utility made in Python that aims to automatically remove any unwanted audio or
 - Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using Tesseract OCR
 - Converts Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT for maximizing compatibility
 - Removes SDH (such as `[GUNSHOTS]` or `[LAUGHING]`) from SRT subtitles
-- Resyncs subtitles to properly match the speech in audio using language-agnostic automatic synchronization (fast) or AI & machine learning (AI)
+- Resyncs subtitles to properly match the speech in audio using language-agnostic automatic synchronization (fast) or AI & machine learning (ai)
 
 ## Prerequisites
 Most of the utility's functionality can be performed cross-platform as long as Python and the other packages is installed and available in PATH, however some features (such as DVD VobSub conversion) are only available when using Linux/WSL. Therefore, this utility mainly focuses its support on Linux-based operating systems.
@@ -50,5 +50,5 @@ https://github.com/sorz/asstosrt/
 smacke for ffsubsync (Resyncing subtitles to audio) [fast]  
 https://github.com/smacke/ffsubsync  
 
-oseiskar for autosubsync (Resyncing subtitles to audio) [AI]  
+oseiskar for autosubsync (Resyncing subtitles to audio) [ai]  
 https://github.com/oseiskar/autosubsync
