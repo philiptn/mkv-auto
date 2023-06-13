@@ -137,3 +137,6 @@ output/
 
 # User-specific preferences
 user.ini
+
+# Mac specific files
+.DS_Store

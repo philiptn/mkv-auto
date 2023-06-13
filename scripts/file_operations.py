@@ -116,3 +116,13 @@ def fix_episodes_naming(directory):
                     new_name += extension
 
                     os.rename(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
+
+
+def remove_ds_store(root_dir):
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        if ".DS_Store" in filenames:
+            try:
+                os.remove(os.path.join(dirpath, ".DS_Store"))
+            except OSError as e:
+                print(f"Error: {e.strerror}")
+

@@ -36,6 +36,7 @@ if flatten_directories:
     flatten_dirs(input_dir)
 
 fix_episodes_naming(input_dir)
+remove_ds_store(input_dir)
 
 total_files = get_total_mkv_files(input_dir)
 file_index = 1
