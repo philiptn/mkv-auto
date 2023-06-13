@@ -33,28 +33,23 @@ def get_total_mkv_files(path):
     return total
 
 
-def replace_tags(root_dir, replacement):
+def replace_tags_in_file(file_path, replacement):
     tag_regex = re.compile(r"-\w*(-sample)?(\.\w{2,3})?$", re.IGNORECASE)
 
-    for dirpath, dirnames, filenames in os.walk(root_dir, topdown=False):
-        # rename files
-        for filename in filenames:
-            base, ext = os.path.splitext(filename)
-            if ext in {".mkv", ".srt"}:
-                match = tag_regex.search(base)
-                if match:
-                    base = tag_regex.sub(replacement + (match.group(2) or ""), base)
-                elif ext == ".mkv":
-                    base += replacement
-                os.rename(os.path.join(dirpath, filename), os.path.join(dirpath, base + ext))
+    # Convert the relative path to an absolute path
+    abs_file_path = os.path.abspath(file_path)
 
-        # rename directories
-        for dirname in dirnames:
-            base = os.path.join(dirpath, dirname)
-            parent_dir = os.path.dirname(base)
-            if parent_dir != root_dir:
-                new_dirname = tag_regex.sub(replacement, dirname)
-                os.rename(os.path.join(dirpath, dirname), os.path.join(dirpath, new_dirname))
+    dirpath, filename = os.path.split(abs_file_path)
+    base, ext = os.path.splitext(filename)
+    if ext in {".mkv", ".srt"}:
+        match = tag_regex.search(base)
+        if match:
+            base = tag_regex.sub(replacement + (match.group(2) or ""), base)
+        elif ext == ".mkv":
+            base += replacement
+        os.rename(os.path.join(dirpath, filename), os.path.join(dirpath, base + ext))
+
+    return base + ext
 
 
 def flatten_dirs(root_dir):
