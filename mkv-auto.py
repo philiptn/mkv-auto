@@ -32,10 +32,9 @@ resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
 if remove_samples:
     remove_sample_files_and_dirs(input_dir)
 
-if file_tag != "default":
-    replace_tags(input_dir, file_tag)
 if flatten_directories:
     flatten_dirs(input_dir)
+
 fix_episodes_naming(input_dir)
 
 total_files = get_total_mkv_files(input_dir)
@@ -78,6 +77,8 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
 
         input_file = os.path.join(dirpath, file_name)
         output_file = os.path.join(structure, file_name)
+
+        needs_tag_rename = True
 
         if file_name.endswith('.srt'):
             for file in filenames:
@@ -134,6 +135,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                                     wanted_subs_tracks, default_subs_track, always_enable_subs)
             else:
                 print(f"[MKVMERGE] No track filtering needed.")
+                needs_tag_rename = False
 
             if needs_processing_subs:
                 subtitle_files = []
@@ -197,7 +199,16 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                         repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
 
             remove_all_mkv_track_tags(input_file)
+
+            if needs_tag_rename:
+                if file_tag != "default":
+                    updated_filename = replace_tags_in_file(input_file, file_tag)
+                    file_name = updated_filename
+                    input_file = os.path.join(dirpath, file_name)
+                    output_file = os.path.join(structure, file_name)
+
             move_file(input_file, output_file)
+
             file_index += 1
             file_name_printed = False
         else:
