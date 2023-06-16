@@ -5,6 +5,7 @@ import asstosrt
 import autosubsync
 import os
 import subprocess
+import pysrt
 
 
 # In development, not currently used
@@ -33,6 +34,21 @@ def remove_sdh(input_files, quiet):
         subs = Subtitles(input_file)
         subs.filter()
         subs.save()
+
+        # Removing any all-uppercase letters from
+        # improperly formatted SDH subtitles
+        subs = pysrt.open(input_file)
+        # Loop through the subtitles
+        for sub in subs:
+            # Check if the subtitle text is all in uppercase
+            if sub.text.isupper():
+                # If it's all uppercase, replace the text with an empty line
+                sub.text = ''
+        # Save the modified subtitles back to an SRT file
+        subs.save('.tmp.srt', encoding='utf-8')
+
+        os.remove(input_file)
+        os.rename('.tmp.srt', input_file)
 
 
 def convert_ass_to_srt(subtitle_files, languages):
