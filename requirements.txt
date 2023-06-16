@@ -25,3 +25,7 @@ autosubsync==1.0.1
 # For automatically resyncing SRT subtitles to audio stream (fast)
 # https://pypi.org/project/ffsubsync/
 ffsubsync==0.4.25
+
+# For removing all-uppercase letters in inproperly formatted SDH subtitles
+# https://pypi.org/project/pysrt/
+pysrt==1.1.2

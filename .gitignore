@@ -140,3 +140,6 @@ user.ini
 
 # Mac specific files
 .DS_Store
+
+# Testing python file
+testing.py
