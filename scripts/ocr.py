@@ -1,6 +1,27 @@
+import csv
+import re
 import os
 import subprocess
 import xml.etree.ElementTree as ET
+
+
+# In development, not currently used
+def find_and_replace(input_files):
+    for index, input_file in enumerate(input_files):
+        # Open SRT and replacement files
+        with open(input_file, 'r') as file:
+            data = file.read()
+        with open('replacements.csv', 'r') as file:
+            reader = csv.reader(file)
+            replacements = list(reader)
+
+        # Perform the find and replace operations
+        for find, replace in replacements:
+            data = re.sub(find, replace, data)
+
+        # Write the modified content back to the file
+        with open(input_file, 'w') as file:
+            file.write(data)
 
 
 def ocr_pgs_subtitles(subtitle_files, languages):
@@ -25,6 +46,9 @@ def ocr_pgs_subtitles(subtitle_files, languages):
         generated_srt_files.append('srt')
         updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
         replaced_index += 1
+
+    # Fix common OCR errors
+    find_and_replace(output_subtitles)
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files
 
@@ -56,6 +80,9 @@ def ocr_vobsub_subtitles(subtitle_files, languages):
         generated_srt_files.append('srt')
         updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
         replaced_index += 1
+
+    # Fix common OCR errors
+    find_and_replace(output_subtitles)
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files
 
