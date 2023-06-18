@@ -5,8 +5,10 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 
-# In development, not currently used
 def find_and_replace(input_files):
+    # For quick reference:
+    # Special Regex Characters: These characters have special
+    # meaning in regex: ., +, *, ?, ^, $, (, ), [, ], {, }, |, \.
     for index, input_file in enumerate(input_files):
         # Open SRT and replacement files
         with open(input_file, 'r') as file:
