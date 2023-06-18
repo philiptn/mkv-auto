@@ -11,7 +11,7 @@ def find_and_replace(input_files):
         # Open SRT and replacement files
         with open(input_file, 'r') as file:
             data = file.read()
-        with open('replacements.csv', 'r') as file:
+        with open('scripts/replacements.csv', 'r') as file:
             reader = csv.reader(file)
             replacements = list(reader)
 
