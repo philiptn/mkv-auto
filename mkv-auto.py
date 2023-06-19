@@ -28,6 +28,7 @@ remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lo
 pref_subs_langs = [item.strip() for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
 always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lower() == "true" else False
 always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
+remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "true" else False
 resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
 
 if remove_samples:
@@ -102,10 +103,10 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
             if external_subs_print:
                 quiet = True
             input_files = [input_file]
-            if always_remove_sdh:
+            if always_remove_sdh or remove_music:
                 if external_subs_print:
                     print("[SRT_EXT] Removing SDH in external subtitles...")
-                remove_sdh(input_files, quiet)
+                remove_sdh(input_files, quiet, remove_music)
             if resync_subtitles == 'fast':
                 if external_subs_print:
                     print("[SRT_EXT] Synchronizing external subtitles to audio track (fast)...")
@@ -192,8 +193,8 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                         subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
                                                          sub_filetypes, subs_track_languages)
 
-                    if needs_sdh_removal and always_remove_sdh:
-                        remove_sdh(subtitle_files, quiet)
+                    if needs_sdh_removal and (always_remove_sdh or remove_music):
+                        remove_sdh(subtitle_files, quiet, remove_music)
 
                     if resync_subtitles != 'false':
                         if resync_subtitles == 'fast':

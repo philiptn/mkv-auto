@@ -6,26 +6,32 @@ import subprocess
 import pysrt
 
 
-def remove_sdh(input_files, quiet):
+def remove_sdh(input_files, quiet, remove_music):
     if not quiet:
         print(f"[SRT] Removing SDH in subtitles...")
     for index, input_file in enumerate(input_files):
+
+        if remove_music:
+            # Remove all music lines completely
+            subs = pysrt.open(input_file)
+            for sub in subs:
+                if '♪' in sub.text:
+                    sub.text = ''
+            subs.save('.tmp.srt', encoding='utf-8')
+            os.remove(input_file)
+            os.rename('.tmp.srt', input_file)
+
         subs = Subtitles(input_file)
-        subs.filter()
+        subs.filter(rm_music=remove_music)
         subs.save()
 
         # Removing any all-uppercase letters from
         # improperly formatted SDH subtitles
         subs = pysrt.open(input_file)
-        # Loop through the subtitles
         for sub in subs:
-            # Check if the subtitle text is all in uppercase
             if sub.text.isupper():
-                # If it's all uppercase, replace the text with an empty line
                 sub.text = ''
-        # Save the modified subtitles back to an SRT file
         subs.save('.tmp.srt', encoding='utf-8')
-
         os.remove(input_file)
         os.rename('.tmp.srt', input_file)
 
