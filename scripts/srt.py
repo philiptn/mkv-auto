@@ -13,7 +13,7 @@ def remove_sdh(input_files, quiet, remove_music):
 
         if remove_music:
             # Remove all music lines completely
-            subs = pysrt.open(input_file, encoding='unicode_escape')
+            subs = pysrt.open(input_file)
             for sub in subs:
                 if '♪' in sub.text:
                     sub.text = ''
@@ -27,7 +27,7 @@ def remove_sdh(input_files, quiet, remove_music):
 
         # Removing any all-uppercase letters from
         # improperly formatted SDH subtitles
-        subs = pysrt.open(input_file, encoding='unicode_escape')
+        subs = pysrt.open(input_file)
         for sub in subs:
             if sub.text.isupper():
                 sub.text = ''
