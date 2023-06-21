@@ -175,7 +175,7 @@ for dirpath, dirnames, filenames in os.walk(input_dir):
                         output_subtitles, updated_subtitle_languages, generated_srt_files = convert_ass_to_srt(subtitle_files, subs_track_languages)
 
                     if always_remove_sdh:
-                        remove_sdh(output_subtitles, quiet)
+                        remove_sdh(output_subtitles, quiet, remove_music)
                         needs_sdh_removal = False
 
                     if resync_subtitles == 'fast':
