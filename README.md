@@ -1,5 +1,5 @@
 # mkv-auto
-A utility made in Python that aims to automatically remove any unwanted audio or subtitle tracks from Matroska (mkv) files, as well as converting/cleaning/resyncing any subtitles from the source video.
+A utility made in Python that aims to automatically remove any unwanted audio or subtitle tracks from Matroska (.mkv) files, as well as converting/cleaning/resyncing any subtitles from the source video.
 
 ### Features
 - Removes any audio or subtitle tracks in video file that does not match user preferences
