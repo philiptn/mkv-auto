@@ -1,6 +1,7 @@
 import os
 import shutil
 import re
+from tqdm import tqdm
 
 
 def copy_file(src, dst):
@@ -11,12 +12,61 @@ def move_file(src, dst):
     shutil.move(src, dst)
 
 
+def count_files(directory):
+    total_files = 0
+    for dirpath, dirnames, filenames in os.walk(directory):
+        dirnames[:] = [d for d in dirnames if not d[0] == '.']  # remove directories starting with '.' from the list
+        for filename in filenames:
+            if not filename.startswith('.'):
+                total_files += 1
+    return total_files
+
+
+def count_bytes(directory):
+    total_bytes = 0
+    for dirpath, dirnames, filenames in os.walk(directory):
+        dirnames[:] = [d for d in dirnames if not d[0] == '.']  # remove directories starting with '.' from the list
+        for filename in filenames:
+            if not filename.startswith('.'):
+                total_bytes += os.path.getsize(os.path.join(dirpath, filename))
+    return total_bytes
+
+
+def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files):
+    chunk_size = 1024 * 1024  # e.g., copy in 1 MB chunks
+    with open(src_file, 'rb') as fsrc, open(dst_file, 'wb') as fdst:
+        while True:
+            chunk = fsrc.read(chunk_size)
+            if not chunk:
+                break
+            fdst.write(chunk)
+            pbar.update(len(chunk))
+        pbar.set_description(f"[INFO] Copying file {file_counter[0]} of {total_files} to TEMP")
+
+
+def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
+    if not os.path.exists(destination_directory):
+        os.makedirs(destination_directory)
+    for item in os.listdir(source_directory):
+        if item.startswith('.'):  # Skip files or folders starting with a dot
+            continue
+        s = os.path.join(source_directory, item)
+        d = os.path.join(destination_directory, item)
+        if os.path.isdir(s):
+            copy_directory_contents(s, d, pbar, file_counter, total_files)
+        else:
+            file_counter[0] += 1
+            pbar.set_postfix_str(f"Copying file {file_counter[0]} of {total_files}...")
+            copy_file_with_progress(s, d, pbar, file_counter, total_files)
+
+
 def safe_delete_dir(directory_path):
     """Safely delete a directory, only if it is empty."""
     try:
         os.rmdir(directory_path)
     except OSError as e:
-        print(f"Failed to remove directory {directory_path}. Error: {str(e)}")
+        # print(f"Failed to remove directory {directory_path}. Error: {str(e)}")
+        pass
 
 
 def get_total_mkv_files(path):

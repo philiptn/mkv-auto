@@ -8,9 +8,6 @@ from scripts.mkv import *
 from scripts.ocr import *
 from scripts.srt import *
 
-input_dir = "input/"
-output_dir = "output/"
-
 # Get user preferences
 variables = ConfigParser()
 # If user-specific config file has been created, load it
@@ -23,6 +20,9 @@ else:
 file_tag = variables.get('general', 'FILE_TAG')
 flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
 remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
+movies_folder = variables.get('general', 'MOVIES_FOLDER')
+tv_shows_folder = variables.get('general', 'TV_SHOWS_FOLDER')
+others_folder = variables.get('general', 'OTHERS_FOLDER')
 # Audio
 pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
 remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
@@ -34,7 +34,43 @@ remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "tr
 resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
 
 
-def mkv_auto():
+def mkv_auto(args):
+
+    if args.temp_dir:
+        temp_dir = args.temp_dir
+    else:
+        temp_dir = '.tmp/'
+
+    if args.input_file:
+        needs_copy = True
+
+    elif args.input_dir:
+        input_dir = args.input_dir
+        needs_copy = True
+    else:
+        input_dir = "input/"
+        needs_copy = False
+
+    if args.output_dir:
+        output_dir = args.output_dir
+    else:
+        output_dir = "output/"
+
+    if needs_copy:
+        os.mkdir(temp_dir)
+        if args.input_dir:
+            total_files = count_files(input_dir)
+            total_bytes = count_bytes(input_dir)
+            print('')
+            with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
+                      bar_format='{desc}{bar:10} {percentage:3.0f}%', leave=False) as pbar:
+                pbar.set_description(f"[INFO] Copying file 1 of {total_files} to TEMP:")
+                copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
+        else:
+            print("[INFO] Copying file to TEMP...")
+            copy_file(args.input_file, temp_dir)
+        input_dir = temp_dir
+
     if remove_samples:
         remove_sample_files_and_dirs(input_dir)
 
@@ -47,7 +83,7 @@ def mkv_auto():
     total_files = get_total_mkv_files(input_dir)
     file_index = 1
 
-    if total_files == 0:
+    if total_files == 0 and not args.input_file:
         print(f"[INFO] No files found in input directory.")
         exit(0)
 
@@ -88,20 +124,27 @@ def mkv_auto():
                 sorted_files.append(mkv)
         filenames = sorted_files
 
+        #if args.input_file:
+        #    filenames = [os.path.basename(args.input_file)]
+        #    total_files += 1
+
         for index, file_name in enumerate(filenames):
 
             if file_name.startswith('.'):
                 continue
 
             input_file = os.path.join(dirpath, file_name)
-            output_file = os.path.join(structure, file_name)
+            if args.output_file:
+                output_file = args.output_file
+            else:
+                output_file = os.path.join(structure, file_name)
 
             needs_tag_rename = True
 
             if file_name.endswith('.srt'):
-                input_file_mkv = os.path.join(dirpath, filenames[index + 1])
+                input_file_mkv = os.path.join(dirpath, str(filenames[index + 1]))
                 if not file_name_printed:
-                    print(f"\n[INFO] Processing file {file_index} of {total_files}:\n")
+                    print(f"[INFO] Processing file {file_index} of {total_files}:\n")
                     print(f"[FILE] '{filenames[index + 1]}'")
                     file_name_printed = True
                 if external_subs_print:
@@ -124,7 +167,7 @@ def mkv_auto():
 
             elif file_name.endswith('.mkv'):
                 if not file_name_printed:
-                    print(f"\n[INFO] Processing file {file_index} of {total_files}:\n")
+                    print(f"[INFO] Processing file {file_index} of {total_files}:\n")
                     print(f"[FILE] '{file_name}'")
                     file_name_printed = True
 
@@ -215,6 +258,7 @@ def mkv_auto():
                     if file_tag != "default":
                         updated_filename = replace_tags_in_file(input_file, file_tag)
                         file_name = updated_filename
+
                         input_file = os.path.join(dirpath, file_name)
                         output_file = os.path.join(structure, file_name)
 
@@ -222,8 +266,10 @@ def mkv_auto():
 
                 file_index += 1
                 file_name_printed = False
+                print('')
             else:
                 move_file(input_file, output_file)
+                print('')
                 continue
 
     # Sorting the dirpaths such that entries with
@@ -232,7 +278,10 @@ def mkv_auto():
     for dirpath in dirpaths:
         safe_delete_dir(dirpath)
 
-    print("\n[INFO] All files successfully processed.\n")
+    print("[INFO] All files successfully processed.\n")
+    if needs_copy and args.input_dir:
+        os.rmdir(temp_dir)
+    exit(0)
 
 
 def main():
@@ -240,26 +289,26 @@ def main():
     parser = argparse.ArgumentParser(description="A tool that aims to remove necessary clutter from Matroska (.mkv) "
                                                  "files by removing and/or converting any subtitle tracks in the "
                                                  "source file.")
-    parser.add_argument("--input", "-if", dest="input_file", type=str, required=False,
-                        help="input filename path")
-    parser.add_argument("--input_folder", "-i", dest="input_folder", type=str, required=False,
-                        help="input folder path to search for .mkv files")
-    parser.add_argument("--output", "-of", dest="output_file", type=str, required=False,
-                        help="output filename path")
-    parser.add_argument("--output_folder", "-o", dest="output_folder", type=str, required=False,
-                        help="output folder path to save processed .mkv files")
-    parser.add_argument("--tempdir", "-td", dest="temp_dir", type=str, required=False, default='$(pwd)/.temp/',
-                        help="temp directory for processing files (default: '<current directory>/.tmp/')")
-
-    # Run mkv_auto function if no argument is given
-    if len(sys.argv) < 2:
-        mkv_auto()
+    parser.add_argument("--input", "-i", dest="input_file", type=str, required=False,
+                        help="input filename (absolute path)")
+    parser.add_argument("--output", "-o", dest="output_file", type=str, required=False,
+                        help="output filename (absolute path)")
+    parser.add_argument("--input_folder", "-if", dest="input_dir", type=str, required=False,
+                        help="input folder path (default: 'input/')")
+    parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,
+                        help="output folder path (default: 'output/'")
+    parser.add_argument("--tempdir", "-td", dest="temp_dir", type=str, required=False, default='.tmp/',
+                        help="temp directory (default: '<current directory>/.tmp/')")
 
     parser.set_defaults(func=mkv_auto)
     args = parser.parse_args()
 
     # Call the function associated with the active sub-parser
     args.func(args)
+
+    # Run mkv_auto function if no argument is given
+    if len(sys.argv) < 2:
+        mkv_auto(args)
 
 
 # Call the main() function if this file is directly executed
