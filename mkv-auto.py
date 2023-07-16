@@ -64,10 +64,10 @@ def mkv_auto(args):
             print('')
             with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
                       bar_format='{desc}{bar:10} {percentage:3.0f}%', leave=False) as pbar:
-                pbar.set_description(f"[INFO] Copying file 1 of {total_files} to TEMP:")
+                pbar.set_description(f"[INFO] Copying file 1 of {total_files}:")
                 copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
         else:
-            print("[INFO] Copying file to TEMP...")
+            print("[INFO] Copying file...")
             copy_file(args.input_file, temp_dir)
         input_dir = temp_dir
 
@@ -100,8 +100,8 @@ def mkv_auto(args):
             dirpaths.append(dirpath)
 
         structure = os.path.join(output_dir, os.path.relpath(dirpath, input_dir))
-        if not os.path.isdir(structure):
-            os.mkdir(structure)  # creates the directory structure
+        #if not os.path.isdir(structure):
+        #    os.mkdir(structure)  # creates the directory structure
 
         input_file_mkv = ''
         output_file_mkv = ''
@@ -262,7 +262,11 @@ def mkv_auto(args):
                         input_file = os.path.join(dirpath, file_name)
                         output_file = os.path.join(structure, file_name)
 
-                move_file(input_file, output_file)
+                #move_file(input_file, output_file)
+                if not args.output_file:
+                    move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, others_folder)
+                else:
+                    move_file(input_file, output_file)
 
                 file_index += 1
                 file_name_printed = False

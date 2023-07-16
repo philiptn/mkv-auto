@@ -9,6 +9,10 @@ def copy_file(src, dst):
 
 
 def move_file(src, dst):
+    # Create any necessary subdirectories
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+
+    # Move the file
     shutil.move(src, dst)
 
 
@@ -41,7 +45,7 @@ def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files)
                 break
             fdst.write(chunk)
             pbar.update(len(chunk))
-        pbar.set_description(f"[INFO] Copying file {file_counter[0]} of {total_files} to TEMP")
+        pbar.set_description(f"[INFO] Copying file {file_counter[0]} of {total_files}")
 
 
 def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
@@ -58,6 +62,50 @@ def copy_directory_contents(source_directory, destination_directory, pbar, file_
             file_counter[0] += 1
             pbar.set_postfix_str(f"Copying file {file_counter[0]} of {total_files}...")
             copy_file_with_progress(s, d, pbar, file_counter, total_files)
+
+
+def reformat_filename(filename, movie_folder, tv_folder, others_folder):
+    # Regular expression to match TV shows with season and episode, with or without year
+    tv_show_pattern1 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})e(\d{2})", re.IGNORECASE)
+    # Regular expression to match TV shows with season range, with or without year
+    tv_show_pattern2 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})-s(\d{2})", re.IGNORECASE)
+    # Regular expression to match movies
+    movie_pattern = re.compile(r"^(.*?)[. ]((?:19|20)\d{2})?[. ](.*).mkv$", re.IGNORECASE)
+
+    tv_match1 = tv_show_pattern1.match(filename)
+    tv_match2 = tv_show_pattern2.match(filename)
+    movie_match = movie_pattern.match(filename)
+
+    if tv_match1:
+        # TV show with season and episode
+        showname = tv_match1.group(1).replace('.', ' ')
+        year = tv_match1.group(3)
+        # Format the filename
+        return os.path.join(tv_folder, f"{showname} ({year})", filename) if year else os.path.join(tv_folder, showname, filename)
+    elif tv_match2:
+        # TV show with season range
+        showname = tv_match2.group(1).replace('.', ' ')
+        year = tv_match2.group(3)
+        # Format the filename
+        return os.path.join(tv_folder, f"{showname} ({year})", filename) if year else os.path.join(tv_folder, showname, filename)
+    elif movie_match:
+        # Movie
+        return os.path.join(movie_folder, filename)
+    else:
+        # Unidentified file
+        return os.path.join(others_folder, filename)
+
+
+def move_file_to_output(input_file_path, output_folder, movie_folder, tv_folder, others_folder):
+    filename = os.path.basename(input_file_path)
+    new_filename = reformat_filename(filename, movie_folder, tv_folder, others_folder)
+    output_path = os.path.join(output_folder, new_filename)
+
+    # Create necessary subdirectories
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # Move the file
+    shutil.move(input_file_path, output_path)
 
 
 def safe_delete_dir(directory_path):
