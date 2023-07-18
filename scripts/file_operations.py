@@ -70,7 +70,7 @@ def reformat_filename(filename, movie_folder, tv_folder, others_folder):
     # Regular expression to match TV shows with season range, with or without year
     tv_show_pattern2 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})-s(\d{2})", re.IGNORECASE)
     # Regular expression to match movies
-    movie_pattern = re.compile(r"^(.*?)[. ]((?:19|20)\d{2})?[. ](.*).mkv$", re.IGNORECASE)
+    movie_pattern = re.compile(r"^(.*?)[. ]((?:19|20)\d{2})?[. ](.*).(mkv|srt)$", re.IGNORECASE)
 
     tv_match1 = tv_show_pattern1.match(filename)
     tv_match2 = tv_show_pattern2.match(filename)

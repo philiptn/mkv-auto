@@ -84,7 +84,11 @@ def mkv_auto(args):
 		file_index = 1
 
 		if total_files == 0 and not args.input_file:
-			print(f"[INFO] No files found in input directory.")
+			shutil.rmtree(temp_dir, ignore_errors=True)
+			# Show the cursor
+			sys.stdout.write('\033[?25h')
+			sys.stdout.flush()
+			print(f"[ERROR] No mkv files found in input directory.\n")
 			exit(0)
 
 		dirpaths = []
@@ -171,17 +175,14 @@ def mkv_auto(args):
 							if mkv_files:
 								file_name = mkv_files[0]
 								input_file_mkv = os.path.join(dirpath, str(file_name))
+								input_file_mkv_nopath = str(file_name)
 								with open(".last_processed_mkv.txt", "w") as f:
 									f.write(file_name)
 								mkv_file_found = True
-								print(f"input file mkv is: {input_file_mkv}")
-
-							print("the break should not affect this")
-							print(f"input file mkv is: {input_file_mkv}")
 
 						if not file_name_printed:
 							print(f"[INFO] Processing file {file_index} of {total_files}:\n")
-							print(f"[FILE] '{input_file_mkv}'")
+							print(f"[FILE] '{input_file_mkv_nopath}'")
 							file_name_printed = True
 						if external_subs_print:
 							quiet = True
@@ -199,6 +200,15 @@ def mkv_auto(args):
 								print("[SRT_EXT] Synchronizing external subtitles to audio track (ai)...")
 							resync_srt_subs_ai(input_file_mkv, input_files, quiet)
 						external_subs_print = False
+
+						if needs_tag_rename:
+							if file_tag != "default":
+								updated_filename = replace_tags_in_file(input_file, file_tag)
+								file_name = updated_filename
+
+								input_file = os.path.join(dirpath, file_name)
+								output_file = os.path.join(structure, file_name)
+
 						if not args.output_file:
 							move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, others_folder)
 						else:
@@ -324,16 +334,19 @@ def mkv_auto(args):
 		for dirpath in dirpaths:
 			safe_delete_dir(dirpath)
 
+		try:
+			shutil.rmtree(temp_dir, ignore_errors=True)
+			os.remove('.last_processed_mkv.txt')
+		except:
+			pass
 		print("[INFO] All files successfully processed.\n")
-		if needs_copy and args.input_dir:
-			try:
-				shutil.rmtree(temp_dir, ignore_errors=True)
-				os.remove('.last_processed_mkv.txt')
-			except:
-				pass
+
 	except Exception as e:
-		print(f"[ERROR] An unknown error occured:\n{e}")
 		shutil.rmtree(temp_dir, ignore_errors=True)
+		# Show the cursor
+		sys.stdout.write('\033[?25h')
+		sys.stdout.flush()
+		print(f"[ERROR] An unknown error occured:\n{e}")
 	exit(0)
 
 
