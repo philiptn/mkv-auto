@@ -25,6 +25,27 @@ def remove_all_mkv_track_tags(filename):
         raise Exception("Error executing mkvpropedit command: " + result.stderr)
 
 
+
+def remove_cc_hidden_in_file(filename):
+    base, extension = os.path.splitext(filename)
+    new_base = base + "_tmp"
+    temp_filename = new_base + extension
+
+    command = ['ffmpeg', '-i', filename, '-codec', 'copy',
+                '-bsf:v', 'filter_units=remove_types=6', temp_filename]
+
+    # Remove empty entries
+    command = [arg for arg in command if arg]
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Exception("Error executing ffmpeg command: " + result.stderr)
+
+    os.remove(filename)
+    os.rename(temp_filename, filename)
+
+
+
 def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
                         sub_tracks, default_subs_track, always_enable_subs):
     print(f"[MKVMERGE] Filtering audio and subtitle tracks...")
