@@ -241,7 +241,6 @@ def mkv_auto(args):
 					if needs_processing_audio or needs_processing_subs or needs_sdh_removal or needs_convert:
 						strip_tracks_in_mkv(input_file, wanted_audio_tracks, default_audio_track,
 											wanted_subs_tracks, default_subs_track, always_enable_subs)
-						remove_cc_hidden_in_file(input_file)
 					else:
 						print(f"[MKVMERGE] No track filtering needed.")
 						needs_tag_rename = False
@@ -308,6 +307,7 @@ def mkv_auto(args):
 								repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
 
 					remove_all_mkv_track_tags(input_file)
+					remove_cc_hidden_in_file(input_file)
 
 					if needs_tag_rename:
 						if file_tag != "default":
