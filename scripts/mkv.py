@@ -181,7 +181,6 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary):
     total_audio_tracks = 0
     needs_processing = False
 
-    print(f"[MKVINFO] Analyzing audio tracks...")
     for track in file_info["tracks"]:
         if track["type"] == "audio":
             total_audio_tracks += 1
@@ -220,7 +219,6 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
     needs_processing = False
     default_track_locked = False
 
-    print(f"[MKVINFO] Analyzing subtitle tracks...")
     for track in file_info["tracks"]:
         if track["type"] == "subtitles":
             total_subs_tracks += 1

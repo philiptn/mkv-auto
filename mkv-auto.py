@@ -287,6 +287,7 @@ def mkv_auto(args):
 							for file in generated_srt_files:
 								sub_filetypes.insert(0, file)
 
+							remove_cc_hidden_in_file(input_file)
 							repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
 
 						elif not needs_convert:
@@ -304,10 +305,10 @@ def mkv_auto(args):
 									resync_srt_subs_ai(input_file, subtitle_files, quiet)
 
 							if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false':
+								remove_cc_hidden_in_file(input_file)
 								repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
 
 					remove_all_mkv_track_tags(input_file)
-					remove_cc_hidden_in_file(input_file)
 
 					if needs_tag_rename:
 						if file_tag != "default":
@@ -348,6 +349,7 @@ def mkv_auto(args):
 		sys.stdout.write('\033[?25h')
 		sys.stdout.flush()
 		print(f"[ERROR] An unknown error occured:\n{e}")
+		pass
 	exit(0)
 
 

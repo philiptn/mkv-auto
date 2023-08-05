@@ -27,7 +27,7 @@ def find_and_replace(input_files):
 
 
 def ocr_pgs_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on PGS subtitles (this may take a while)...")
+    print(f"[OCR] Performing OCR on subtitles (this may take a while)...")
     output_subtitles = []
     generated_srt_files = []
     replaced_index = 0
@@ -42,7 +42,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
         result = subprocess.run(command, capture_output=True, text=True, env=env)
         if result.returncode != 0:
-            raise Exception("Error executing pgsrip command: " + result.stdout)
+            print("Error executing pgsrip command: " + result.stdout)
 
         output_subtitles.append(f"{base}.srt")
         generated_srt_files.append('srt')
@@ -56,7 +56,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
 
 def ocr_vobsub_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on VobSub subtitles (this may take a while)...")
+    print(f"[OCR] Performing OCR on subtitles (this may take a while)...")
 
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'

@@ -16,7 +16,7 @@ sudo apt-get install flatpak -y
 flatpak install fr.handbrake.ghb -y
 
 # Installing packages required for SubtitleEdit (in 'utlities/') to work, as well as autosubsync
-sudo apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 libsndfile1 -y
+sudo apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module -y
 
 # Installing tesseract-ocr (for use with SubtitleEdit)
 # Reference: https://pypi.org/project/pgsrip/
