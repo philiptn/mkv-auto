@@ -42,111 +42,111 @@ def mkv_auto(args):
 	output_dir = 'output/'
 	temp_dir = '.tmp/'
 
-	try:
-		if args.temp_dir:
-			temp_dir = args.temp_dir
+	if args.temp_dir:
+		temp_dir = args.temp_dir
 
-		if args.input_dir:
-			input_dir = args.input_dir
+	if args.input_dir:
+		input_dir = args.input_dir
 
-		if args.output_dir:
-			output_dir = args.output_dir
+	if args.output_dir:
+		output_dir = args.output_dir
 
-		os.mkdir(temp_dir)
-		total_files = count_files(input_dir)
-		total_bytes = count_bytes(input_dir)
+	os.mkdir(temp_dir)
+	total_files = count_files(input_dir)
+	total_bytes = count_bytes(input_dir)
 
-		# Hide the cursor
-		sys.stdout.write('\033[?25l')
-		sys.stdout.flush()
-		print('')
+	# Hide the cursor
+	sys.stdout.write('\033[?25l')
+	sys.stdout.flush()
+	print('')
 
-		with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
-				  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False) as pbar:
-			pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
-			copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
-		input_dir = temp_dir
+	with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
+			  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False) as pbar:
+		pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
+		copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
+	input_dir = temp_dir
 
+	# Show the cursor
+	sys.stdout.write('\033[?25h')
+	sys.stdout.flush()
+
+	if remove_samples:
+		remove_sample_files_and_dirs(input_dir)
+
+	if flatten_directories:
+		flatten_dirs(input_dir)
+
+	fix_episodes_naming(input_dir)
+	remove_ds_store(input_dir)
+
+	total_files = get_total_mkv_files(input_dir)
+	file_index = 1
+
+	if total_files == 0 and not args.input_file:
+		shutil.rmtree(temp_dir, ignore_errors=True)
 		# Show the cursor
 		sys.stdout.write('\033[?25h')
 		sys.stdout.flush()
+		print(f"[ERROR] No mkv files found in input directory.\n")
+		exit(0)
 
-		if remove_samples:
-			remove_sample_files_and_dirs(input_dir)
+	errored_file_names = []
+	dirpaths = []
 
-		if flatten_directories:
-			flatten_dirs(input_dir)
+	for dirpath, dirnames, filenames in os.walk(input_dir):
+		dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
 
-		fix_episodes_naming(input_dir)
-		remove_ds_store(input_dir)
+		# Skip directories or files starting with '.'
+		if '/.' in dirpath or dirpath.startswith('./.'):
+			continue
 
-		total_files = get_total_mkv_files(input_dir)
-		file_index = 1
+		if not dirpath == 'input/':
+			dirpaths.append(dirpath)
 
-		if total_files == 0 and not args.input_file:
-			shutil.rmtree(temp_dir, ignore_errors=True)
-			# Show the cursor
-			sys.stdout.write('\033[?25h')
-			sys.stdout.flush()
-			print(f"[ERROR] No mkv files found in input directory.\n")
-			exit(0)
+		structure = os.path.join(output_dir, os.path.relpath(dirpath, input_dir))
+		#if not os.path.isdir(structure):
+		#    os.mkdir(structure)  # creates the directory structure
 
-		dirpaths = []
-		for dirpath, dirnames, filenames in os.walk(input_dir):
+		input_file_mkv = ''
+		output_file_mkv = ''
+		mkv_dirpath = ''
+		file_names = []
+		file_name_printed = False
+		external_subs_print = True
+		quiet = False
 
-			dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
+		def split_filename(filename):
+			match = re.match(r'^(.*?\d+)\.(.*)(\.\w{2,3})$', filename)
+			if match:
+				base_name, rest, extension = match.groups()
+				lang_code = rest.split('.')[-1] if extension == '.srt' else ''
+				return (base_name, extension_priority(extension), lang_code, rest)
+			else:
+				return (filename, 3, '', '')
 
-			# Skip directories or files starting with '.'
-			if '/.' in dirpath or dirpath.startswith('./.'):
-				continue
+		def extension_priority(extension):
+			if extension == ".srt":
+				return 0
+			elif extension == ".mkv":
+				return 2
+			else:
+				return 1
 
-			if not dirpath == 'input/':
-				dirpaths.append(dirpath)
+		# Ignore files that start with a dot
+		filenames = [f for f in filenames if not f.startswith('.')]
 
-			structure = os.path.join(output_dir, os.path.relpath(dirpath, input_dir))
-			#if not os.path.isdir(structure):
-			#    os.mkdir(structure)  # creates the directory structure
+		# Sort filenames using the custom sort function
+		filenames.sort(key=split_filename)
 
-			input_file_mkv = ''
-			output_file_mkv = ''
-			mkv_dirpath = ''
-			file_names = []
-			file_name_printed = False
-			external_subs_print = True
-			quiet = False
+		# Group the filenames by base_name
+		for base_name, group in groupby(filenames, key=lambda x: split_filename(x)[0]):
+			grouped_files = list(group)
+			# Within each group, sort the files first by extension priority and then by language code
+			grouped_files.sort(key=lambda x: (split_filename(x)[1], split_filename(x)[2]))
 
-			def split_filename(filename):
-				match = re.match(r'^(.*?\d+)\.(.*)(\.\w{2,3})$', filename)
-				if match:
-					base_name, rest, extension = match.groups()
-					lang_code = rest.split('.')[-1] if extension == '.srt' else ''
-					return (base_name, extension_priority(extension), lang_code, rest)
-				else:
-					return (filename, 3, '', '')
-
-			def extension_priority(extension):
-				if extension == ".srt":
-					return 0
-				elif extension == ".mkv":
-					return 2
-				else:
-					return 1
-
-			# Ignore files that start with a dot
-			filenames = [f for f in filenames if not f.startswith('.')]
-
-			# Sort filenames using the custom sort function
-			filenames.sort(key=split_filename)
-
-			# Group the filenames by base_name
-			for base_name, group in groupby(filenames, key=lambda x: split_filename(x)[0]):
-				grouped_files = list(group)
-				# Within each group, sort the files first by extension priority and then by language code
-				grouped_files.sort(key=lambda x: (split_filename(x)[1], split_filename(x)[2]))
-
-			mkv_file_found = False
-			for index, file_name in enumerate(filenames):
-
+		mkv_file_found = False
+		for index, file_name in enumerate(filenames):
+			try:
 				if file_name.startswith('.'):
 					continue
 
@@ -228,6 +228,7 @@ def mkv_auto(args):
 					external_subs_print = True
 					quiet = False
 					output_file_mkv = output_file
+
 					# Get file info using mkvinfo
 					file_info, pretty_file_info = get_mkv_info(input_file)
 
@@ -253,8 +254,8 @@ def mkv_auto(args):
 							sub_filetypes, subs_track_languages, e = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
 
 						updated_subtitle_languages = subs_track_languages
-						# Check if any of the subtitle tracks needs to be converted using OCR
 
+						# Check if any of the subtitle tracks needs to be converted using OCR
 						if needs_convert:
 							print(f"[MKVEXTRACT] Some subtitles need to be converted to SRT, extracting subtitles...")
 							output_subtitles = []
@@ -318,7 +319,6 @@ def mkv_auto(args):
 							input_file = os.path.join(dirpath, file_name)
 							output_file = os.path.join(structure, file_name)
 
-					#move_file(input_file, output_file)
 					if not args.output_file:
 						move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, others_folder)
 					else:
@@ -329,27 +329,45 @@ def mkv_auto(args):
 					print('')
 				else:
 					continue
+			except Exception as e:
+				# Show the cursor
+				sys.stdout.write('\033[?25h')
+				sys.stdout.flush()
+				print(f"[ERROR] An unknown error occured. Skipping processing...\n---\n{e}---\n")
+				errored_file_names.append(file_name)
 
-		# Sorting the dirpaths such that entries with
-		# the longest subdirectories are removed first
-		dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
-		for dirpath in dirpaths:
-			safe_delete_dir(dirpath)
+				# If some of the functions were to fail, move the file unprocessed instead
+				if not args.output_file:
+					move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, others_folder)
+				else:
+					move_file(input_file, output_file)
 
-		try:
-			shutil.rmtree(temp_dir, ignore_errors=True)
-			os.remove('.last_processed_mkv.txt')
-		except:
-			pass
-		print("[INFO] All files successfully processed.\n")
+				file_index += 1
+				file_name_printed = False
+				print('')
 
-	except Exception as e:
+				continue
+
+	# Sorting the dirpaths such that entries with
+	# the longest subdirectories are removed first
+	dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
+	for dirpath in dirpaths:
+		safe_delete_dir(dirpath)
+
+	try:
 		shutil.rmtree(temp_dir, ignore_errors=True)
-		# Show the cursor
-		sys.stdout.write('\033[?25h')
-		sys.stdout.flush()
-		print(f"[ERROR] An unknown error occured:\n{e}")
+		os.remove('.last_processed_mkv.txt')
+	except:
 		pass
+
+	if len(errored_file_names) == 0:
+		print("[INFO] All files successfully processed.\n")
+	else:
+		print(f"[INFO] During processing {len(errored_file_names)} errors occured in files:")
+		for file in errored_file_names:
+			print(f"'{file}'")
+		print('')
+	
 	exit(0)
 
 

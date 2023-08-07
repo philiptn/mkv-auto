@@ -42,7 +42,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
         result = subprocess.run(command, capture_output=True, text=True, env=env)
         if result.returncode != 0:
-            print("Error executing pgsrip command: " + result.stdout)
+            raise Exception("Error executing pgsrip command: " + result.stdout)
 
         output_subtitles.append(f"{base}.srt")
         generated_srt_files.append('srt')
