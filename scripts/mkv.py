@@ -1,6 +1,45 @@
 import subprocess
 import json
 import os
+from tqdm import tqdm
+
+
+def convert_video_to_mkv(video_file, output_file):
+    # FFmpeg command
+    command = [
+        'ffmpeg', '-fflags', '+genpts', '-i', video_file, '-c', 'copy',
+        '-y', output_file
+    ]
+
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    # Verifying completion
+    return_code = process.returncode
+    if return_code != 0:
+        print(f"Failed to convert {video_file}")
+        print("Error from FFmpeg:", stderr.decode())  # Print the exact error
+
+
+def convert_all_videos_to_mkv(input_folder):
+    video_files = []
+    for root, dirs, files in os.walk(input_folder):
+        for file in files:
+            if file.endswith(('.mp4', '.avi')):
+                video_files.append(os.path.join(root, file))
+
+    total_files = len(video_files)
+    if total_files == 0:
+        return
+
+    pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}%', leave=False)
+    for i, video_file in enumerate(video_files, start=1):
+        pbar.set_description(f'[INFO] Converting file {i} of {total_files} to MKV')
+        output_file = os.path.splitext(video_file)[0] + '.mkv'
+        convert_video_to_mkv(video_file, output_file)
+        pbar.update(1)  # Update progress bar by one file
+    pbar.close()
+
 
 
 def get_mkv_info(filename):

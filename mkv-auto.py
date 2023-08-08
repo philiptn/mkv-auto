@@ -21,7 +21,9 @@ file_tag = variables.get('general', 'FILE_TAG')
 flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
 remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
 movies_folder = variables.get('general', 'MOVIES_FOLDER')
+movies_hdr_folder = variables.get('general', 'MOVIES_HDR_FOLDER')
 tv_shows_folder = variables.get('general', 'TV_SHOWS_FOLDER')
+tv_shows_hdr_folder = variables.get('general', 'TV_SHOWS_HDR_FOLDER')
 others_folder = variables.get('general', 'OTHERS_FOLDER')
 # Audio
 pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
@@ -51,7 +53,11 @@ def mkv_auto(args):
 	if args.output_dir:
 		output_dir = args.output_dir
 
+	if os.path.exists(temp_dir):
+		shutil.rmtree(temp_dir)
+	
 	os.mkdir(temp_dir)
+
 	total_files = count_files(input_dir)
 	total_bytes = count_bytes(input_dir)
 
@@ -66,9 +72,14 @@ def mkv_auto(args):
 		copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
 	input_dir = temp_dir
 
+	convert_all_videos_to_mkv(input_dir)
+	rename_others_file_to_folder(input_dir, movies_folder, tv_shows_folder, movies_hdr_folder, tv_shows_hdr_folder, others_folder)
+
 	# Show the cursor
 	sys.stdout.write('\033[?25h')
 	sys.stdout.flush()
+
+	extract_archives(input_dir)
 
 	if remove_samples:
 		remove_sample_files_and_dirs(input_dir)
@@ -210,7 +221,8 @@ def mkv_auto(args):
 								output_file = os.path.join(structure, file_name)
 
 						if not args.output_file:
-							move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, others_folder)
+							move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, 
+								movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 						else:
 							move_file(input_file, output_file)
 						continue
@@ -320,7 +332,8 @@ def mkv_auto(args):
 							output_file = os.path.join(structure, file_name)
 
 					if not args.output_file:
-						move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, others_folder)
+						move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, 
+								movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 					else:
 						move_file(input_file, output_file)
 
@@ -338,7 +351,8 @@ def mkv_auto(args):
 
 				# If some of the functions were to fail, move the file unprocessed instead
 				if not args.output_file:
-					move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, others_folder)
+					move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, 
+								movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 				else:
 					move_file(input_file, output_file)
 

@@ -15,6 +15,9 @@ sudo apt-get install mkvtoolnix -y
 sudo apt-get install flatpak -y
 flatpak install fr.handbrake.ghb -y
 
+# Needed for unpacking archives, is most likely already installed
+sudo apt-get install unrar -y
+
 # Installing packages required for SubtitleEdit (in 'utlities/') to work, as well as autosubsync
 sudo apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module -y
 
