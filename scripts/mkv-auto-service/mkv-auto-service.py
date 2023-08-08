@@ -27,12 +27,24 @@ def convert_path(win_path):
 
 
 def process_file(file_path, command_template, mkv_auto_folder_path, tag_to_check):
+    lock_file_path = file_path + '.lock'
+    
+    # Check for the existence of the lock file
+    if os.path.exists(lock_file_path):
+        print("\n[SERVICE] Another instance is running. Exiting.\n")
+        return
+    
+    # Create the lock file
+    with open(lock_file_path, 'w') as lock_file:
+        lock_file.write('LOCKED')
+
     # Read the file the first time
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
     if not lines:
         print("\n[SERVICE] File is empty. Nothing to process.\n")
+        os.remove(lock_file_path) # Remove the lock file
         return
 
     first_line = lines[0].strip()
@@ -50,9 +62,8 @@ def process_file(file_path, command_template, mkv_auto_folder_path, tag_to_check
             subprocess.run(command, cwd=mkv_auto_folder_path)
         except Exception as e:
             print(f"\n[SERVICE] An error occurred while executing the command: {e}")
+            os.remove(lock_file_path) # Remove the lock file
             return
-    else:
-        print(f"\n[SERVICE] Entry in file does not contain tag '{tag_to_check}'. Skipping...\n")
 
     # Read the file again
     with open(file_path, 'r') as file:
@@ -64,6 +75,8 @@ def process_file(file_path, command_template, mkv_auto_folder_path, tag_to_check
     # Overwrite the file with the updated lines
     with open(file_path, 'w') as file:
         file.writelines(updated_lines)
+
+    os.remove(lock_file_path) # Remove the lock file
 
 
 def main():

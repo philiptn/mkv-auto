@@ -143,3 +143,6 @@ user.ini
 
 # Testing python file
 testing.py
+
+# Temporary files
+.tmp/
