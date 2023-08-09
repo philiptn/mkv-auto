@@ -91,7 +91,7 @@ def main():
     mkv_auto_folder_path = '/media/philip/nvme/mkv-auto-dev/'
 
     # Command template
-    command_template = ["python3", "mkv-auto.py", "--output_folder", 
+    command_template = ["venv/bin/python3", "mkv-auto.py", "--output_folder", 
                         output_folder, "--input_folder"]
 
     if not os.path.exists(args.file_path):
