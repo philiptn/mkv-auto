@@ -31,7 +31,6 @@ def process_file(file_path, command_template, mkv_auto_folder_path, tag_to_check
     
     # Check for the existence of the lock file
     if os.path.exists(lock_file_path):
-        print("\n[SERVICE] Another instance is running. Exiting.\n")
         return
     
     # Create the lock file

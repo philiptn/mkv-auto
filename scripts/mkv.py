@@ -78,10 +78,15 @@ def remove_cc_hidden_in_file(filename):
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        raise Exception("Error executing ffmpeg command: " + result.stderr)
-
-    os.remove(filename)
-    os.rename(temp_filename, filename)
+        print("Error executing ffmpeg command: " + result.stderr)
+        print("[INFO] Skipping ffmpeg process...")
+        try:
+            os.remove(temp_filename)
+        except:
+            pass
+    else:
+        os.remove(filename)
+        os.rename(temp_filename, filename)
 
 
 

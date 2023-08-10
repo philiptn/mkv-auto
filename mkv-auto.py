@@ -17,6 +17,7 @@ if os.path.isfile('user.ini'):
 else:
 	variables.read('defaults.ini')
 # General
+temp_dir = variables.get('general', 'TEMP_DIR')
 file_tag = variables.get('general', 'FILE_TAG')
 flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
 remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
@@ -42,10 +43,6 @@ def mkv_auto(args):
 	# Defaults
 	input_dir = 'input/'
 	output_dir = 'output/'
-	temp_dir = '.tmp/'
-
-	if args.temp_dir:
-		temp_dir = args.temp_dir
 
 	if args.input_dir:
 		input_dir = args.input_dir
@@ -398,8 +395,6 @@ def main():
 						help="input folder path (default: 'input/')")
 	parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,
 						help="output folder path (default: 'output/'")
-	parser.add_argument("--tempdir", "-td", dest="temp_dir", type=str, required=False,
-						help="temp directory (default: '<current directory>/.tmp/')")
 
 	parser.set_defaults(func=mkv_auto)
 	args = parser.parse_args()
