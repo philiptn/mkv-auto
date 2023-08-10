@@ -90,7 +90,7 @@ def main():
 
     # Command template
     command_template = ["venv/bin/python3", "mkv-auto.py", "--output_folder", 
-                        output_folder, "--input_folder"]
+                        output_folder, "--silent", "--input_folder"]
 
     if not os.path.exists(args.file_path):
         print(f"\n[SERVICE] File {args.file_path} not found!")
