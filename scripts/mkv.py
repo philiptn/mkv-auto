@@ -21,7 +21,7 @@ def convert_video_to_mkv(video_file, output_file):
         print("Error from FFmpeg:", stderr.decode())  # Print the exact error
 
 
-def convert_all_videos_to_mkv(input_folder):
+def convert_all_videos_to_mkv(input_folder, silent):
     video_files = []
     for root, dirs, files in os.walk(input_folder):
         for file in files:
@@ -32,7 +32,7 @@ def convert_all_videos_to_mkv(input_folder):
     if total_files == 0:
         return
 
-    pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}%', leave=False)
+    pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}%', leave=False, disable=silent)
     for i, video_file in enumerate(video_files, start=1):
         pbar.set_description(f'[INFO] Converting file {i} of {total_files} to MKV')
         output_file = os.path.splitext(video_file)[0] + '.mkv'

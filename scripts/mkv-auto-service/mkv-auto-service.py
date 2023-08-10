@@ -42,7 +42,6 @@ def process_file(file_path, command_template, mkv_auto_folder_path, tag_to_check
         lines = file.readlines()
 
     if not lines:
-        print("\n[SERVICE] File is empty. Nothing to process.\n")
         os.remove(lock_file_path) # Remove the lock file
         return
 

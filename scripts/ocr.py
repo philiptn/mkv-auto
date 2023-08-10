@@ -27,7 +27,7 @@ def find_and_replace(input_files):
 
 
 def ocr_pgs_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on BluRay subtitles...")
+    print(f"[OCR] Performing OCR on PGS subtitles...")
     output_subtitles = []
     generated_srt_files = []
     replaced_index = 0
@@ -56,7 +56,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
 
 def ocr_vobsub_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on DVD subtitles...")
+    print(f"[OCR] Performing OCR on VobSub subtitles...")
 
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
@@ -68,13 +68,14 @@ def ocr_vobsub_subtitles(subtitle_files, languages):
     for index, file in enumerate(subtitle_files):
         base, _, extension = file.rpartition('.')
         env = os.environ.copy()
-        env['TESSDATA_PREFIX'] = os.path.expanduser(tessdata_location)
+        env['DISPLAY'] = ':0.0'
+        #env['TESSDATA_PREFIX'] = os.path.expanduser(tessdata_location)
 
         update_tesseract_lang_xml(languages[index + replaced_index])
         command = ["mono", subtitleedit, "/convert", file,
                    "srt", "/FixCommonErrors", "/encoding:utf-8"]
 
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, env=env)
         if result.returncode != 0:
             raise Exception("Error executing SubtitleEdit command: " + result.stderr)
 

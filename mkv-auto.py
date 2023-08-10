@@ -64,12 +64,12 @@ def mkv_auto(args):
 	print('')
 
 	with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
-			  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False) as pbar:
+			  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
 		pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
 		copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
 	input_dir = temp_dir
 
-	convert_all_videos_to_mkv(input_dir)
+	convert_all_videos_to_mkv(input_dir, args.silent)
 	rename_others_file_to_folder(input_dir, movies_folder, tv_shows_folder, movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 
 	# Show the cursor
@@ -395,6 +395,8 @@ def main():
 						help="input folder path (default: 'input/')")
 	parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,
 						help="output folder path (default: 'output/'")
+	parser.add_argument("--silent", action="store_true", default=False, required=False,
+					help="supress visual elements like progress bars (default: False)")
 
 	parser.set_defaults(func=mkv_auto)
 	args = parser.parse_args()
