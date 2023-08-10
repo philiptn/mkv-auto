@@ -62,6 +62,7 @@ def mkv_auto(args):
 	total_files = count_files(input_dir)
 	total_bytes = count_bytes(input_dir)
 
+	print('')
 	if not args.silent:
 		# Hide the cursor
 		sys.stdout.write('\033[?25l')
