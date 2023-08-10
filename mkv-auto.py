@@ -10,12 +10,14 @@ from scripts.srt import *
 
 # Get user preferences
 variables = ConfigParser()
+
 # If user-specific config file has been created, load it
 # else, load defaults from preferences.ini
 if os.path.isfile('user.ini'):
 	variables.read('user.ini')
 else:
 	variables.read('defaults.ini')
+
 # General
 temp_dir = variables.get('general', 'TEMP_DIR')
 file_tag = variables.get('general', 'FILE_TAG')
@@ -26,9 +28,11 @@ movies_hdr_folder = variables.get('general', 'MOVIES_HDR_FOLDER')
 tv_shows_folder = variables.get('general', 'TV_SHOWS_FOLDER')
 tv_shows_hdr_folder = variables.get('general', 'TV_SHOWS_HDR_FOLDER')
 others_folder = variables.get('general', 'OTHERS_FOLDER')
+
 # Audio
 pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
 remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
+
 # Subtitles
 pref_subs_langs = [item.strip() for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
 pref_subs_langs_short = [item.strip()[:-1] for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
@@ -58,23 +62,25 @@ def mkv_auto(args):
 	total_files = count_files(input_dir)
 	total_bytes = count_bytes(input_dir)
 
-	# Hide the cursor
-	sys.stdout.write('\033[?25l')
-	sys.stdout.flush()
-	print('')
+	if not args.silent:
+		# Hide the cursor
+		sys.stdout.write('\033[?25l')
+		sys.stdout.flush()
 
 	with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
 			  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
 		pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
 		copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
+
 	input_dir = temp_dir
 
 	convert_all_videos_to_mkv(input_dir, args.silent)
 	rename_others_file_to_folder(input_dir, movies_folder, tv_shows_folder, movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 
-	# Show the cursor
-	sys.stdout.write('\033[?25h')
-	sys.stdout.flush()
+	if not args.silent:
+		# Show the cursor
+		sys.stdout.write('\033[?25h')
+		sys.stdout.flush()
 
 	extract_archives(input_dir)
 
@@ -92,9 +98,11 @@ def mkv_auto(args):
 
 	if total_files == 0 and not args.input_file:
 		shutil.rmtree(temp_dir, ignore_errors=True)
-		# Show the cursor
-		sys.stdout.write('\033[?25h')
-		sys.stdout.flush()
+
+		if not args.silent:
+			# Show the cursor
+			sys.stdout.write('\033[?25h')
+			sys.stdout.flush()
 		print(f"[ERROR] No mkv files found in input directory.\n")
 		exit(0)
 
@@ -112,8 +120,6 @@ def mkv_auto(args):
 			dirpaths.append(dirpath)
 
 		structure = os.path.join(output_dir, os.path.relpath(dirpath, input_dir))
-		#if not os.path.isdir(structure):
-		#    os.mkdir(structure)  # creates the directory structure
 
 		input_file_mkv = ''
 		output_file_mkv = ''
@@ -340,9 +346,10 @@ def mkv_auto(args):
 				else:
 					continue
 			except Exception as e:
-				# Show the cursor
-				sys.stdout.write('\033[?25h')
-				sys.stdout.flush()
+				if not args.silent:
+					# Show the cursor
+					sys.stdout.write('\033[?25h')
+					sys.stdout.flush()
 				print(f"[ERROR] An unknown error occured. Skipping processing...\n---\n{e}---\n")
 				errored_file_names.append(file_name)
 
