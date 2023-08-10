@@ -27,7 +27,7 @@ def find_and_replace(input_files):
 
 
 def ocr_pgs_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on subtitles (this may take a while)...")
+    print(f"[OCR] Performing OCR on BluRay subtitles...")
     output_subtitles = []
     generated_srt_files = []
     replaced_index = 0
@@ -56,7 +56,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
 
 def ocr_vobsub_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on subtitles (this may take a while)...")
+    print(f"[OCR] Performing OCR on DVD subtitles...")
 
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
