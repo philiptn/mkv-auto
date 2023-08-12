@@ -1,0 +1,1 @@
+cmd.exe /c "chcp 65001 && echo '%G','%F'>> Z:\mkv-auto-queue\in_queue.txt"
