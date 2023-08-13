@@ -291,7 +291,6 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                 if key == 'language':
                     track_language = value
             if track_language in pref_subs_langs:
-                print(f'{track_language} is in {pref_subs_langs}')
                 needs_processing = True
                 needs_sdh_removal = True
                 if track_language not in subs_track_languages:
