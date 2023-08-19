@@ -5,9 +5,12 @@ import os
 
 
 def convert_path(win_path):
-
     # Remove any single quotes
     win_path = win_path.replace("'", "")
+    
+    # If the path has a file extension, convert it to its directory path
+    if os.path.splitext(win_path)[1]:
+        win_path = os.path.dirname(win_path)
 
     # Mapping of Windows drive letters to Linux paths
     drive_mapping = {
