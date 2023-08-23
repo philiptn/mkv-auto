@@ -8,9 +8,12 @@ def convert_path(win_path):
     # Remove any single quotes
     win_path = win_path.replace("'", "")
     
-    # If the path has a file extension, convert it to its directory path
-    if os.path.splitext(win_path)[1]:
-        win_path = os.path.dirname(win_path)
+    # List of valid file extensions
+    valid_extensions = ['.mkv', '.avi', '.mp4']
+    
+    # Check if the path ends with a valid file extension
+    if any(win_path.endswith(ext) for ext in valid_extensions):
+        win_path = win_path.rsplit('\\', 1)[0]  # Split at the last backslash and take the directory part
 
     # Mapping of Windows drive letters to Linux paths
     drive_mapping = {
@@ -22,11 +25,12 @@ def convert_path(win_path):
     # Check if the path starts with a mapped drive letter
     for drive_letter, linux_path in drive_mapping.items():
         if win_path.startswith(drive_letter):
-            # Replace drive letter and backslashes with the Linux path and forward slashes
-            return win_path.replace(drive_letter, linux_path).replace('\\', '/')
+            win_path = win_path.replace(drive_letter, linux_path, 1)
 
-    # If no mapped drive letter found, just replace backslashes with forward slashes
-    return win_path.replace('\\', '/')
+    # Replace backslashes with forward slashes
+    win_path = win_path.replace('\\', '/')
+    
+    return win_path
 
 
 def process_file(file_path, command_template, mkv_auto_folder_path, tag_to_check):

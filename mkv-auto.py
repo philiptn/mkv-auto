@@ -280,17 +280,71 @@ def mkv_auto(args):
 							if "sub" in sub_filetypes:
 								subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
 																	  sub_filetypes, subs_track_languages)
+
+								# If there is a mix of srt files alongside (different languages), then
+								# the srt file will be removed after it has been extracted
+								alongside_srt_langs = []
+								alongside_srt_files = []
+								for index, filetype in enumerate(sub_filetypes):
+									if filetype == "srt":
+										alongside_srt_langs.append(subs_track_languages[index])
+										alongside_srt_files.append("srt")
+										sub_filetypes.pop(index)
+										subtitle_files.pop(index)
+										subs_track_languages.pop(index)
+
 								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_vobsub_subtitles(subtitle_files, subs_track_languages)
+
+								for file in alongside_srt_files:
+									sub_filetypes.insert(0, file)
+								for lang in alongside_srt_langs:
+									updated_subtitle_languages.insert(0, lang)
 
 							elif "sup" in sub_filetypes:
 								subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
 																	  sub_filetypes, subs_track_languages)
+
+								# If there is a mix of srt files alongside (different languages), then
+								# the srt file will be removed after it has been extracted
+								alongside_srt_langs = []
+								alongside_srt_files = []
+								for index, filetype in enumerate(sub_filetypes):
+									if filetype == "srt":
+										alongside_srt_langs.append(subs_track_languages[index])
+										alongside_srt_files.append("srt")
+										sub_filetypes.pop(index)
+										subtitle_files.pop(index)
+										subs_track_languages.pop(index)
+
 								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_pgs_subtitles(subtitle_files, subs_track_languages)
+								
+								for file in alongside_srt_files:
+									sub_filetypes.insert(0, file)
+								for lang in alongside_srt_langs:
+									updated_subtitle_languages.insert(0, lang)
 
 							elif "ass" in sub_filetypes:
 								subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
 																	  sub_filetypes, subs_track_languages)
+
+								# If there is a mix of srt files alongside (different languages), then
+								# the srt file will be removed after it has been extracted
+								alongside_srt_langs = []
+								alongside_srt_files = []
+								for index, filetype in enumerate(sub_filetypes):
+									if filetype == "srt":
+										alongside_srt_langs.append(subs_track_languages[index])
+										alongside_srt_files.append("srt")
+										sub_filetypes.pop(index)
+										subtitle_files.pop(index)
+										subs_track_languages.pop(index)
+
 								output_subtitles, updated_subtitle_languages, generated_srt_files = convert_ass_to_srt(subtitle_files, subs_track_languages)
+
+								for file in alongside_srt_files:
+									sub_filetypes.insert(0, file)
+								for lang in alongside_srt_langs:
+									updated_subtitle_languages.insert(0, lang)
 
 							if always_remove_sdh:
 								remove_sdh(output_subtitles, quiet, remove_music)
@@ -351,7 +405,7 @@ def mkv_auto(args):
 					# Show the cursor
 					sys.stdout.write('\033[?25h')
 					sys.stdout.flush()
-				print(f"[ERROR] An unknown error occured. Skipping processing...\n---\n{e}---\n")
+				print(f"[ERROR] An unknown error occured. Skipping processing...\n---\n{e}\n---\n")
 				errored_file_names.append(file_name)
 
 				# If some of the functions were to fail, move the file unprocessed instead
@@ -367,21 +421,22 @@ def mkv_auto(args):
 
 				continue
 
-	# Sorting the dirpaths such that entries with
-	# the longest subdirectories are removed first
-	dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
-	for dirpath in dirpaths:
-		safe_delete_dir(dirpath)
-
-	try:
-		shutil.rmtree(temp_dir, ignore_errors=True)
-		os.remove('.last_processed_mkv.txt')
-	except:
-		pass
-
 	if len(errored_file_names) == 0:
+		# Sorting the dirpaths such that entries with
+		# the longest subdirectories are removed first
+		dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
+		for dirpath in dirpaths:
+			safe_delete_dir(dirpath)
+
+		try:
+			shutil.rmtree(temp_dir, ignore_errors=True)
+			os.remove('.last_processed_mkv.txt')
+		except:
+			pass
+
 		print("[INFO] All files successfully processed.\n")
 	else:
+		os.remove('.last_processed_mkv.txt')
 		print(f"[INFO] During processing {len(errored_file_names)} errors occured in files:")
 		for file in errored_file_names:
 			print(f"'{file}'")

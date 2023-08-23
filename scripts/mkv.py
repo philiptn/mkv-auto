@@ -154,19 +154,23 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     final_sub_languages = sub_languages
 
     # If the first preferred language is found in the sub languages,
-    # reorder the list to place the preferred language first
-    if pref_subs_langs[0] in sub_languages:
-        pattern = []
-        for lang in sub_languages:
-            if lang not in pattern:
-                pattern.append(lang)
-        # Reorder the pattern so the preferred language is first
-        while pattern[0] != pref_subs_langs[0]:
-            pattern.append(pattern.pop(0))
-        # Repeat the pattern for the length of the languages list
-        pattern *= len(sub_languages) // len(pattern)
-        # Truncate to the length of the languages list
-        final_sub_languages = pattern[:len(sub_languages)]
+    # reorder the list to place the preferred language first, as long as
+    # the list is even with different sub file types
+    unique_elements = set(sub_filetypes)
+    even_unique = all(sub_filetypes.count(element) % 2 == 0 for element in unique_elements)
+    if even_unique:
+        if pref_subs_langs[0] in sub_languages:
+            pattern = []
+            for lang in sub_languages:
+                if lang not in pattern:
+                    pattern.append(lang)
+            # Reorder the pattern so the preferred language is first
+            while pattern[0] != pref_subs_langs[0]:
+                pattern.append(pattern.pop(0))
+            # Repeat the pattern for the length of the languages list
+            pattern *= len(sub_languages) // len(pattern)
+            # Truncate to the length of the languages list
+            final_sub_languages = pattern[:len(sub_languages)]
 
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
