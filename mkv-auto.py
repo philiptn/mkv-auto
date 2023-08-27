@@ -379,7 +379,8 @@ def mkv_auto(args):
 								remove_cc_hidden_in_file(input_file)
 								repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
 
-					remove_all_mkv_track_tags(input_file)
+					if needs_processing_subs:
+						remove_all_mkv_track_tags(input_file)
 
 					if needs_tag_rename:
 						if file_tag != "default":
@@ -390,6 +391,7 @@ def mkv_auto(args):
 							output_file = os.path.join(structure, file_name)
 
 					if not args.output_file:
+						print("[INFO] Moving file to destination folder...")
 						move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, 
 								movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 					else:
