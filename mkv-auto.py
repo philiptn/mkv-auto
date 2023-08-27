@@ -457,7 +457,7 @@ def main():
 	parser.add_argument("--input_folder", "-if", dest="input_dir", type=str, required=False,
 						help="input folder path (default: 'input/')")
 	parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,
-						help="output folder path (default: 'output/'")
+						help="output folder path (default: 'output/')")
 	parser.add_argument("--silent", action="store_true", default=False, required=False,
 					help="supress visual elements like progress bars (default: False)")
 
