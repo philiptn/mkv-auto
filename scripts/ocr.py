@@ -38,7 +38,8 @@ def ocr_pgs_subtitles(subtitle_files, languages):
         env = os.environ.copy()
         env['TESSDATA_PREFIX'] = os.path.expanduser('~/.mkv-auto/tessdata')
 
-        command = ["pgsrip", "--language", languages[index + replaced_index], file]
+        command = ["pgsrip", "--debug", "--tag", "ocr", "--language", 
+                    languages[index + replaced_index], file]
 
         result = subprocess.run(command, capture_output=True, text=True, env=env)
         if result.returncode != 0:

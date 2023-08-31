@@ -451,11 +451,12 @@ def main():
 	# Create the main parser
 	parser = argparse.ArgumentParser(description="A tool that aims to remove necessary clutter from Matroska (.mkv) "
 												 "files by removing and/or converting any subtitle tracks in the "
-												 "source file.")
+												 "source file(s).")
+
 	parser.add_argument("--input", "-i", dest="input_file", type=str, required=False,
-						help="input filename (absolute path)")
+						help="[DISABLED] input filename (absolute path)")
 	parser.add_argument("--output", "-o", dest="output_file", type=str, required=False,
-						help="output filename (absolute path)")
+						help="[DISABLED] output filename (absolute path)")
 	parser.add_argument("--input_folder", "-if", dest="input_dir", type=str, required=False,
 						help="input folder path (default: 'input/')")
 	parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,
