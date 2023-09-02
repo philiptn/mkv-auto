@@ -1,6 +1,5 @@
 import argparse
 import subprocess
-from shutil import copyfile
 import os
 
 

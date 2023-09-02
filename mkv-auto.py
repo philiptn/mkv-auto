@@ -169,10 +169,7 @@ def mkv_auto(args):
 					continue
 
 				input_file = os.path.join(dirpath, file_name)
-				if args.output_file:
-					output_file = args.output_file
-				else:
-					output_file = os.path.join(structure, file_name)
+				output_file = os.path.join(structure, file_name)
 
 				needs_tag_rename = True
 
@@ -227,11 +224,8 @@ def mkv_auto(args):
 								input_file = os.path.join(dirpath, file_name)
 								output_file = os.path.join(structure, file_name)
 
-						if not args.output_file:
-							move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, 
-								movies_hdr_folder, tv_shows_hdr_folder, others_folder)
-						else:
-							move_file(input_file, output_file)
+						move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
+							movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 						continue
 					else:
 						os.remove(input_file)
@@ -393,19 +387,16 @@ def mkv_auto(args):
 							input_file = os.path.join(dirpath, file_name)
 							output_file = os.path.join(structure, file_name)
 
-					if not args.output_file:
-						print("[INFO] Moving file to destination folder...")
-						move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, 
-								movies_hdr_folder, tv_shows_hdr_folder, others_folder)
-					else:
-						move_file(input_file, output_file)
-
+					print("[INFO] Moving file to destination folder...")
+					move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
+							movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 					file_index += 1
 					file_name_printed = False
 					print('')
 				else:
 					continue
 			except Exception as e:
+				# If some of the functions were to fail, move the file unprocessed instead
 				if not args.silent:
 					# Show the cursor
 					sys.stdout.write('\033[?25h')
@@ -413,12 +404,8 @@ def mkv_auto(args):
 				print(f"[ERROR] An unknown error occured. Skipping processing...\n---\n{e}\n---\n")
 				errored_file_names.append(file_name)
 
-				# If some of the functions were to fail, move the file unprocessed instead
-				if not args.output_file:
-					move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder, 
-								movies_hdr_folder, tv_shows_hdr_folder, others_folder)
-				else:
-					move_file(input_file, output_file)
+				move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
+							movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 
 				file_index += 1
 				file_name_printed = False
@@ -455,11 +442,6 @@ def main():
 	parser = argparse.ArgumentParser(description="A tool that aims to remove necessary clutter from Matroska (.mkv) "
 												 "files by removing and/or converting any subtitle tracks in the "
 												 "source file(s).")
-
-	parser.add_argument("--input", "-i", dest="input_file", type=str, required=False,
-						help="[DISABLED] input filename (absolute path)")
-	parser.add_argument("--output", "-o", dest="output_file", type=str, required=False,
-						help="[DISABLED] output filename (absolute path)")
 	parser.add_argument("--input_folder", "-if", dest="input_dir", type=str, required=False,
 						help="input folder path (default: 'input/')")
 	parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,
