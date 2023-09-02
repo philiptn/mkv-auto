@@ -70,7 +70,6 @@ def ocr_vobsub_subtitles(subtitle_files, languages):
         base, _, extension = file.rpartition('.')
         env = os.environ.copy()
         env['DISPLAY'] = ':0.0'
-        #env['TESSDATA_PREFIX'] = os.path.expanduser(tessdata_location)
 
         update_tesseract_lang_xml(languages[index + replaced_index])
         command = ["mono", subtitleedit, "/convert", file,
@@ -104,4 +103,3 @@ def update_tesseract_lang_xml(new_language):
 
     # Write back to file
     tree.write(se_settings)
-

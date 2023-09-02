@@ -13,7 +13,7 @@ sudo apt-get install mkvtoolnix -y
 
 # Installing flatpak and HandBrakeCLI (via flatpak)
 sudo apt-get install flatpak -y
-flatpak install fr.handbrake.ghb -y
+sudo flatpak install fr.handbrake.ghb -y
 
 # Needed for unpacking archives, is most likely already installed
 sudo apt-get install unrar -y

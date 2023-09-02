@@ -1,7 +1,7 @@
 import sys
 import argparse
 from configparser import ConfigParser
-from itertools import zip_longest, groupby
+from itertools import groupby
 
 from scripts.file_operations import *
 from scripts.mkv import *
@@ -62,7 +62,7 @@ def mkv_auto(args):
 	total_files = count_files(input_dir)
 	total_bytes = count_bytes(input_dir)
 
-	print('')
+	#print('')
 	if not args.silent:
 		# Hide the cursor
 		sys.stdout.write('\033[?25l')
@@ -123,6 +123,9 @@ def mkv_auto(args):
 		structure = os.path.join(output_dir, os.path.relpath(dirpath, input_dir))
 
 		input_file_mkv = ''
+		input_file_mkv_nopath = ''
+		input_file = ''
+		output_file = ''
 		output_file_mkv = ''
 		mkv_dirpath = ''
 		file_names = []
