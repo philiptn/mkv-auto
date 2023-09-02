@@ -34,7 +34,7 @@ Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the
 ## CLI
 ### mkv-auto
 
-```python
+```
 usage: mkv-auto.py [-h] [--input_folder INPUT_DIR] [--output_folder OUTPUT_DIR] [--silent]
 
 A tool that aims to remove necessary clutter from Matroska (.mkv) files by removing and/or converting any subtitle tracks in the source file(s).
@@ -50,7 +50,7 @@ options:
 
 ### mkv-auto-service
 
-```python
+```
 usage: mkv-auto-service.py [-h] [--file_path FILE_PATH] [--output_folder OUTPUT_FOLDER]
 
 A service for mkv-auto that can parse input folder paths from a text file
