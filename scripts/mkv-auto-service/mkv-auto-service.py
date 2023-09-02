@@ -92,7 +92,7 @@ def main():
     output_folder = args.output_folder
     tag_to_check = 'Plex'
 
-    mkv_auto_folder_path = '/media/philip/nvme/mkv-auto-dev/'
+    mkv_auto_folder_path = '/media/philip/nvme/mkv-auto/'
 
     # Command template
     command_template = ["venv/bin/python3", "mkv-auto.py", "--output_folder", 

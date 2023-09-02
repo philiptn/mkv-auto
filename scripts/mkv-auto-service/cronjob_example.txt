@@ -1,1 +1,1 @@
-* * * * * /media/philip/nvme/mkv-auto-dev/scripts/mkv-auto-service/mkv-auto-service.sh
+* * * * * /media/philip/nvme/mkv-auto/scripts/mkv-auto-service/mkv-auto-service.sh
