@@ -30,10 +30,11 @@ sudo apt-get install tesseract-ocr -y
 # To list the available language packs run `sudo apt install tesseract-ocr-lang`
 sudo apt-get install tesseract-ocr-nor -y
 
+# DEPRECATED due to pgsrip no longer being used
 # Installing training data for tesseract (tessdata) (note: large datasets, may take a while to download)
 # Reference: https://pypi.org/project/pgsrip/
-mkdir -p ~/.mkv-auto
-git clone https://github.com/tesseract-ocr/tessdata_best.git ~/.mkv-auto/tessdata
+#mkdir -p ~/.mkv-auto
+#git clone https://github.com/tesseract-ocr/tessdata_best.git ~/.mkv-auto/tessdata
 
 # Create a Python virtual environment (venv) and activate it
 python3 -m venv venv

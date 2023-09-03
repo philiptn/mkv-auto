@@ -290,7 +290,7 @@ def mkv_auto(args):
 										subtitle_files.pop(index)
 										subs_track_languages.pop(index)
 
-								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_vobsub_subtitles(subtitle_files, subs_track_languages)
+								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_subtitles(subtitle_files, subs_track_languages)
 
 								for file in alongside_srt_files:
 									sub_filetypes.insert(0, file)
@@ -313,7 +313,7 @@ def mkv_auto(args):
 										subtitle_files.pop(index)
 										subs_track_languages.pop(index)
 
-								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_pgs_subtitles(subtitle_files, subs_track_languages)
+								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_subtitles(subtitle_files, subs_track_languages)
 								
 								for file in alongside_srt_files:
 									sub_filetypes.insert(0, file)
