@@ -70,10 +70,7 @@ options:
 Matt Lyon for subtitle-filter (SDH removal)  
 https://github.com/m-lyon/filter-subs
 
-ratoaq2 for PGSRip (OCR of BluRay subtitles)  
-https://github.com/ratoaq2/pgsrip
-
-NikseDK for SubtitleEdit (OCR of DVD subtitles)  
+NikseDK for SubtitleEdit (OCR of BluRay/DVD subtitles)  
 https://github.com/SubtitleEdit/subtitleedit/releases  
 https://www.nikse.dk/subtitleedit/help#linux
 
