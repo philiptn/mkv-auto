@@ -453,7 +453,7 @@ def main():
 	parser.add_argument("--silent", action="store_true", default=False, required=False,
 					help="supress visual elements like progress bars (default: False)")
 	parser.add_argument("--notemp", action="store_true", default=False, required=False,
-				help="process files directly without using temp dir")
+				help="process files directly without using temp dir (default: False)")
 
 	parser.set_defaults(func=mkv_auto)
 	args = parser.parse_args()
