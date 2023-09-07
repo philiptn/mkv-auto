@@ -75,8 +75,6 @@ def mkv_auto(args):
 			pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
 			copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
 		input_dir = temp_dir
-	else:
-		print('')
 
 	convert_all_videos_to_mkv(input_dir, args.silent)
 	rename_others_file_to_folder(input_dir, movies_folder, tv_shows_folder, movies_hdr_folder, tv_shows_hdr_folder, others_folder)
@@ -109,6 +107,8 @@ def mkv_auto(args):
 			sys.stdout.flush()
 		print(f"[ERROR] No mkv files found in input directory.\n")
 		exit(0)
+	else:
+		print('')
 
 	errored_file_names = []
 	dirpaths = []
