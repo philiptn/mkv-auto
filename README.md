@@ -90,8 +90,7 @@ Marko Kreen for rarfile (Unpacking `.rar` and `.zip` archives in Python)
 https://github.com/markokr/rarfile
 
 ## Donations
-While this utility is open-source and completely free to use,  
-you can buy me a coffee if you want using the link below:
+While this utility is open-source and completely free to use, you can buy me a coffee if you want using the link below:
 
 All donations are greatly appreciated! :)
 
