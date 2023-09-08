@@ -25,9 +25,9 @@ Note: `defaults.ini` contains the default options set for this utility. If you w
 
 Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the process of unpacking and repacking mkv files benefits greatly from high read/write performance. Alternatively, point the `TEMP_DIR` variable (from `user.ini`) to a fast storage medium.
 
-1. Place the mkv files inside the `input/` folder (files inside folders are also supported). Alternatively, a custom input folder can be specified using `--input_folder` option. The utility will then copy all the files to `<mkv-auto folder>/.tmp/` unless another `TEMP_DIR` is specified. 
+1. Place the mkv files inside the `input/` folder (files inside folders are also supported). Alternatively, a custom input folder can be specified using `--input_folder` option. Enclosing the directories in double quotes (`--input_folder "folder/input media"`) is recommended to prevent any parsing errors. The utility will then copy all the files to `<mkv-auto folder>/.tmp/` unless a custom `TEMP_DIR` is specified. 
 2. Activate the Python virtual environment using `source venv/bin/activate`
-3. Run the utility using `python3 mkv-auto.py` (this will pull the files from `input/` and place them in `output/`). To use other input and output folders, use the `--input_folder` and `--output_folder` options. Enclosing the directories in double quotes (`--input_folder "folder/input media"`) is recommended to prevent any parsing errors. 
+3. Run the utility using `python3 mkv-auto.py`
 4. Processed files can then be found in the output folder, categorized as either a movie (`output/Movies/movie.mkv`) or TV Show (`output/TV Shows/tv show name/tv.show.name.S01E01.mkv`).
 5. To exit the Python virtual environment, run `deactivate` in the terminal.
 
@@ -88,3 +88,11 @@ https://github.com/byroot/pysrt
 
 Marko Kreen for rarfile (Unpacking `.rar` and `.zip` archives in Python)  
 https://github.com/markokr/rarfile
+
+## Donations
+While this utility is open-source and completely free to use,  
+you can buy me a coffee if you want using the link below:
+
+All donations are greatly appreciated! :)
+
+<a href="https://www.buymeacoffee.com/philiptn" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;width: 207px !important;" ></a>
