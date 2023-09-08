@@ -1,4 +1,5 @@
 import sys
+import traceback
 import argparse
 from configparser import ConfigParser
 from itertools import groupby
@@ -68,12 +69,12 @@ def mkv_auto(args):
 		sys.stdout.write('\033[?25l')
 		sys.stdout.flush()
 
-	with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
-			  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
-		pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
-		copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
-
-	input_dir = temp_dir
+	if not args.notemp:
+		with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
+				  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
+			pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
+			copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
+		input_dir = temp_dir
 
 	convert_all_videos_to_mkv(input_dir, args.silent)
 	rename_others_file_to_folder(input_dir, movies_folder, tv_shows_folder, movies_hdr_folder, tv_shows_hdr_folder, others_folder)
@@ -97,7 +98,7 @@ def mkv_auto(args):
 	total_files = get_total_mkv_files(input_dir)
 	file_index = 1
 
-	if total_files == 0 and not args.input_file:
+	if total_files == 0:
 		shutil.rmtree(temp_dir, ignore_errors=True)
 
 		if not args.silent:
@@ -106,6 +107,8 @@ def mkv_auto(args):
 			sys.stdout.flush()
 		print(f"[ERROR] No mkv files found in input directory.\n")
 		exit(0)
+	else:
+		print('')
 
 	errored_file_names = []
 	dirpaths = []
@@ -396,6 +399,7 @@ def mkv_auto(args):
 				else:
 					continue
 			except Exception as e:
+				traceback.print_tb(e.__traceback__)
 				# If some of the functions were to fail, move the file unprocessed instead
 				if not args.silent:
 					# Show the cursor
@@ -448,6 +452,8 @@ def main():
 						help="output folder path (default: 'output/')")
 	parser.add_argument("--silent", action="store_true", default=False, required=False,
 					help="supress visual elements like progress bars (default: False)")
+	parser.add_argument("--notemp", action="store_true", default=False, required=False,
+				help="process files directly without using temp dir (default: False)")
 
 	parser.set_defaults(func=mkv_auto)
 	args = parser.parse_args()
