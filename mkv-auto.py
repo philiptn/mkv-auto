@@ -3,6 +3,8 @@ import traceback
 import argparse
 from configparser import ConfigParser
 from itertools import groupby
+from datetime import datetime
+import time
 
 from scripts.file_operations import *
 from scripts.mkv import *
@@ -41,6 +43,28 @@ always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lo
 always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
 remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "true" else False
 resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
+
+
+def get_timestamp():
+	"""Return the current UTC timestamp in the desired format."""
+	current_time = datetime.utcnow()
+	return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+
+def format_time(seconds):
+	"""Return a formatted string for the given duration in seconds."""
+	hours, remainder = divmod(seconds, 3600)
+	minutes, seconds = divmod(remainder, 60)
+
+	parts = []
+	if hours:
+		parts.append(f"{hours} hours")
+	if minutes:
+		parts.append(f"{minutes} minutes")
+	if seconds or not parts:  # If it's 0 seconds, we want to include it.
+		parts.append(f"{seconds} seconds")
+
+	return ", ".join(parts)
 
 
 def mkv_auto(args):
@@ -100,18 +124,18 @@ def mkv_auto(args):
 
 	if total_files == 0:
 		shutil.rmtree(temp_dir, ignore_errors=True)
-
 		if not args.silent:
 			# Show the cursor
 			sys.stdout.write('\033[?25h')
 			sys.stdout.flush()
 		print(f"[ERROR] No mkv files found in input directory.\n")
 		exit(0)
-	else:
-		print('')
 
 	errored_file_names = []
 	dirpaths = []
+	total_processing_time = 0
+	filenames = []
+	mkv_files_list = []
 
 	for dirpath, dirnames, filenames in os.walk(input_dir):
 		dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
@@ -128,10 +152,6 @@ def mkv_auto(args):
 		input_file_mkv = ''
 		input_file_mkv_nopath = ''
 		input_file = ''
-		output_file = ''
-		output_file_mkv = ''
-		mkv_dirpath = ''
-		file_names = []
 		file_name_printed = False
 		external_subs_print = True
 		quiet = False
@@ -141,9 +161,9 @@ def mkv_auto(args):
 			if match:
 				base_name, rest, extension = match.groups()
 				lang_code = rest.split('.')[-1] if extension == '.srt' else ''
-				return (base_name, extension_priority(extension), lang_code, rest)
+				return base_name, extension_priority(extension), lang_code, rest
 			else:
-				return (filename, 3, '', '')
+				return filename, 3, '', ''
 
 		def extension_priority(extension):
 			if extension == ".srt":
@@ -166,8 +186,11 @@ def mkv_auto(args):
 			grouped_files.sort(key=lambda x: (split_filename(x)[1], split_filename(x)[2]))
 
 		mkv_file_found = False
+
 		for index, file_name in enumerate(filenames):
 			try:
+				start_time = time.time()
+
 				if file_name.startswith('.'):
 					continue
 
@@ -200,22 +223,22 @@ def mkv_auto(args):
 
 						if not file_name_printed:
 							print(f"[INFO] Processing file {file_index} of {total_files}:\n")
-							print(f"[FILE] '{input_file_mkv_nopath}'")
+							print(f"[UTC {get_timestamp()}] [FILE] '{input_file_mkv_nopath}'")
 							file_name_printed = True
 						if external_subs_print:
 							quiet = True
 						input_files = [input_file]
 						if always_remove_sdh or remove_music:
 							if external_subs_print:
-								print("[SRT_EXT] Removing SDH in external subtitles...")
+								print(f"[UTC {get_timestamp()}] [SRT_EXT] Removing SDH in external subtitles...")
 							remove_sdh(input_files, quiet, remove_music)
 						if resync_subtitles == 'fast':
 							if external_subs_print:
-								print("[SRT_EXT] Synchronizing external subtitles to audio track (fast)...")
+								print(f"[UTC {get_timestamp()}] [SRT_EXT] Synchronizing external subtitles to audio track (fast)...")
 							resync_srt_subs_fast(input_file_mkv, input_files, quiet)
 						elif resync_subtitles == 'ai':
 							if external_subs_print:
-								print("[SRT_EXT] Synchronizing external subtitles to audio track (ai)...")
+								print(f"[UTC {get_timestamp()}] [SRT_EXT] Synchronizing external subtitles to audio track (ai)...")
 							resync_srt_subs_ai(input_file_mkv, input_files, quiet)
 						external_subs_print = False
 
@@ -235,10 +258,12 @@ def mkv_auto(args):
 						continue
 
 				elif file_name.endswith('.mkv'):
+					mkv_files_list.append(file_name)
 					mkv_file_found = False
+
 					if not file_name_printed:
 						print(f"[INFO] Processing file {file_index} of {total_files}:\n")
-						print(f"[FILE] '{file_name}'")
+						print(f"[UTC {get_timestamp()}] [FILE] '{file_name}'")
 						file_name_printed = True
 
 					external_subs_print = True
@@ -252,14 +277,12 @@ def mkv_auto(args):
 						default_audio_track, needs_processing_audio = get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary)
 					wanted_subs_tracks, default_subs_track, \
 						needs_sdh_removal, needs_convert, a, b, needs_processing_subs = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
-					print_track_audio_str = 'tracks' if len(wanted_audio_tracks) != 1 else 'track'
-					print_track_subs_str = 'tracks' if len(wanted_subs_tracks) != 1 else 'track'
 
 					if needs_processing_audio or needs_processing_subs or needs_sdh_removal or needs_convert:
 						strip_tracks_in_mkv(input_file, wanted_audio_tracks, default_audio_track,
 											wanted_subs_tracks, default_subs_track, always_enable_subs)
 					else:
-						print(f"[MKVMERGE] No track filtering needed.")
+						print(f"[UTC {get_timestamp()}] [MKVMERGE] No track filtering needed.")
 						needs_tag_rename = False
 
 					if needs_processing_subs:
@@ -273,7 +296,7 @@ def mkv_auto(args):
 
 						# Check if any of the subtitle tracks needs to be converted using OCR
 						if needs_convert:
-							print(f"[MKVEXTRACT] Some subtitles need to be converted to SRT, extracting subtitles...")
+							print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Some subtitles need to be converted to SRT, extracting subtitles...")
 							output_subtitles = []
 							generated_srt_files = []
 
@@ -390,11 +413,17 @@ def mkv_auto(args):
 							input_file = os.path.join(dirpath, file_name)
 							output_file = os.path.join(structure, file_name)
 
-					print("[INFO] Moving file to destination folder...")
+					end_time = time.time()
+					processing_time = end_time - start_time
+					total_processing_time += processing_time
+					print(f"[UTC {get_timestamp()}] [INFO] Processing time: {format_time(int(processing_time))}")
+
+					print(f"[UTC {get_timestamp()}] [INFO] Moving file to destination folder...")
 					move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
 							movies_hdr_folder, tv_shows_hdr_folder, others_folder)
 					file_index += 1
 					file_name_printed = False
+
 					print('')
 				else:
 					continue
@@ -405,7 +434,7 @@ def mkv_auto(args):
 					# Show the cursor
 					sys.stdout.write('\033[?25h')
 					sys.stdout.flush()
-				print(f"[ERROR] An unknown error occured. Skipping processing...\n---\n{e}\n---\n")
+				print(f"[UTC {get_timestamp()}] [ERROR] An unknown error occured. Skipping processing...\n---\n{e}\n---\n")
 				errored_file_names.append(file_name)
 
 				move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
@@ -430,7 +459,12 @@ def mkv_auto(args):
 		except:
 			pass
 
-		print("[INFO] All files successfully processed.\n")
+		# Calculate average (using float division)
+		average_time = total_processing_time / len(mkv_files_list)
+
+		print(f"[INFO] All files successfully processed.")
+		print(f"[INFO] Processing took {format_time(int(total_processing_time))} to complete.")
+		print(f"[INFO] The average file took {format_time(int(average_time))} to process.\n")
 	else:
 		os.remove('.last_processed_mkv.txt')
 		print(f"[INFO] During processing {len(errored_file_names)} errors occured in files:")

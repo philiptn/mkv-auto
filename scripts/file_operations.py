@@ -4,6 +4,13 @@ import re
 import rarfile
 import zipfile
 from tqdm import tqdm
+from datetime import datetime
+
+
+def get_timestamp():
+    """Return the current UTC timestamp in the desired format."""
+    current_time = datetime.utcnow()
+    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
 def copy_file(src, dst):
@@ -28,17 +35,17 @@ def extract_archives(input_folder):
 
             try:
                 if archive_file.endswith('.rar'):
-                    print(f"[RAR] Extracting '{archive_file}'...")
+                    print(f"[UTC {get_timestamp()}] [RAR] Extracting '{archive_file}'...")
                     # Extract RAR file
                     with rarfile.RarFile(archive_path) as rf:
                         rf.extractall(root)
                 elif archive_file.endswith('.zip'):
-                    print(f"[ZIP] Extracting '{archive_file}'...")
+                    print(f"[UTC {get_timestamp()}] [ZIP] Extracting '{archive_file}'...")
                     # Extract ZIP file
                     with zipfile.ZipFile(archive_path, 'r') as zf:
                         zf.extractall(root)
             except Exception as e:
-                print(f"[ERROR] Failed to extract {archive_file}: {e}")
+                print(f"[UTC {get_timestamp()}] [ERROR] Failed to extract {archive_file}: {e}")
     if len(files) != 0:
         print('')
 

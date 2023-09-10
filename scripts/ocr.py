@@ -3,6 +3,13 @@ import re
 import os
 import subprocess
 import xml.etree.ElementTree as ET
+from datetime import datetime
+
+
+def get_timestamp():
+	"""Return the current UTC timestamp in the desired format."""
+	current_time = datetime.utcnow()
+	return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
 def find_and_replace(input_files):
@@ -29,7 +36,7 @@ def find_and_replace(input_files):
 # Deprecated due to OCR problems with pgsrip #
 ##############################################
 def ocr_pgs_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on PGS subtitles...")
+    print(f"[UTC {get_timestamp()}] [OCR] Performing OCR on PGS subtitles...")
     output_subtitles = []
     generated_srt_files = []
     replaced_index = 0
@@ -60,7 +67,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
 
 def ocr_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on subtitles...")
+    print(f"[UTC {get_timestamp()}] [OCR] Performing OCR on subtitles...")
 
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
