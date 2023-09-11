@@ -1,34 +1,52 @@
 #!/usr/bin/env bash
 
+# Check if the user is root or not
+if [[ $EUID -ne 0 ]]; then
+    # If not root, prefix commands with sudo
+    SUDO='sudo'
+else
+    SUDO=''
+fi
+
+# Updating apt
+$SUDO apt-get update
+
+# Installing python3.10
+$SUDO apt-get install python3.10 -y
+
 # Installing and updating python3-pip
-sudo apt-get install python3-pip -y
+$SUDO apt-get install python3-pip -y
 python3 -m pip install --user --upgrade pip
 
 # Installing python3 venv
 python3 -m pip install --user virtualenv
-sudo apt install python3.10-venv -y
+$SUDO apt install python3.10-venv -y
 
 # Installing MKVToolNix
-sudo apt-get install mkvtoolnix -y
+$SUDO apt-get install mkvtoolnix -y
 
 # Installing flatpak and HandBrakeCLI (via flatpak)
-sudo apt-get install flatpak -y
-sudo flatpak install fr.handbrake.ghb -y
+$SUDO apt-get install flatpak -y
+$SUDO flatpak install fr.handbrake.ghb -y
 
 # Needed for unpacking archives, is most likely already installed
-sudo apt-get install unrar -y
+$SUDO apt-get install unrar -y
+
+# Install tzdata and set timezone to UTC
+DEBIAN_FRONTEND=noninteractive apt-get install tzdata -y
 
 # Installing packages required for SubtitleEdit (in 'utlities/') to work, as well as autosubsync
-sudo apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module -y
+$SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module -y
 
 # Installing tesseract-ocr (for use with SubtitleEdit)
 # Reference: https://pypi.org/project/pgsrip/
-sudo add-apt-repository ppa:alex-p/tesseract-ocr5 -y
-sudo apt-get update
-sudo apt-get install tesseract-ocr -y
+$SUDO apt-get install software-properties-common -y
+$SUDO add-apt-repository ppa:alex-p/tesseract-ocr5 -y
+$SUDO apt-get update
+$SUDO apt-get install tesseract-ocr -y
 # Additional language packs need to be installed manually!
 # To list the available language packs run `sudo apt install tesseract-ocr-lang`
-sudo apt-get install tesseract-ocr-nor -y
+$SUDO apt-get install tesseract-ocr-nor -y
 
 # DEPRECATED due to pgsrip no longer being used
 # Installing training data for tesseract (tessdata) (note: large datasets, may take a while to download)
