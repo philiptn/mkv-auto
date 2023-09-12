@@ -58,13 +58,16 @@ def format_time(seconds):
 
 	parts = []
 	if hours:
-		parts.append(f"{hours} hours")
+		parts.append(f"{hours} hours,")
 	if minutes:
 		parts.append(f"{minutes} minutes")
 	if seconds or not parts:  # If it's 0 seconds, we want to include it.
-		parts.append(f"{seconds} seconds")
+		parts.append(f"and {seconds} seconds")
 
-	return ", ".join(parts)
+	if seconds and (not hours and not minutes):
+		return f"{seconds} seconds"
+	else:
+		return " ".join(parts)
 
 
 def mkv_auto(args):
@@ -186,6 +189,7 @@ def mkv_auto(args):
 			grouped_files.sort(key=lambda x: (split_filename(x)[1], split_filename(x)[2]))
 
 		mkv_file_found = False
+		needs_tag_rename = False
 
 		for index, file_name in enumerate(filenames):
 			try:
@@ -203,6 +207,9 @@ def mkv_auto(args):
 				language_prefix = parts[-2] # The language prefix is always the second to last part
 
 				if file_name.endswith('.srt'):
+					# If the SRT file does not have any language prefix, assume it is 'eng'
+					if len(language_prefix) > 3:
+						language_prefix = 'eng'
 					if language_prefix in pref_subs_langs_short or language_prefix in pref_subs_langs:
 						if not mkv_file_found:
 							last_processed_mkv = ''
@@ -283,7 +290,6 @@ def mkv_auto(args):
 											wanted_subs_tracks, default_subs_track, always_enable_subs)
 					else:
 						print(f"[UTC {get_timestamp()}] [MKVMERGE] No track filtering needed.")
-						needs_tag_rename = False
 
 					if needs_processing_subs:
 						subtitle_files = []
@@ -453,11 +459,8 @@ def mkv_auto(args):
 		for dirpath in dirpaths:
 			safe_delete_dir(dirpath)
 
-		try:
-			shutil.rmtree(temp_dir, ignore_errors=True)
+		if os.path.exists('.last_processed_mkv.txt'):
 			os.remove('.last_processed_mkv.txt')
-		except:
-			pass
 
 		# Calculate average (using float division)
 		average_time = total_processing_time / len(mkv_files_list)

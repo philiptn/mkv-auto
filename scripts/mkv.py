@@ -150,7 +150,8 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        raise Exception("Error executing mkvmerge command: " + result.stdout)
+        print("Error executing mkvmerge command: " + result.stdout)
+        print("Continuing...")
 
     os.remove(filename)
     os.rename(temp_filename, filename)
@@ -284,11 +285,13 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                     track_name = value
                 if key == 'language':
                     track_language = value
+                if key == 'forced_track':
+                    forced_track = value
             if track_language in pref_subs_langs:
                 needs_processing = True
                 needs_sdh_removal = True
 
-                if subs_track_languages.count(track_language) == 0:
+                if subs_track_languages.count(track_language) == 0 and forced_track != True:
                     selected_sub_filetypes.append(track["codec"])
                     subs_track_ids.append(track["id"])
                     subs_track_languages.append(track_language)
@@ -312,26 +315,27 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                 else:
                     if track["codec"] != "SubRip/SRT" and subs_track_languages.count(track_language) == 1:
 
-                        if track["codec"] == "HDMV PGS":
+                        if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0:
                             sub_filetypes.append('sup')
+                            selected_sub_filetypes.append(track["codec"])
+                            subs_track_ids.append(track["id"])
+                            subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "VobSub":
+                        elif track["codec"] == "VobSub" and sub_filetypes.count("sub") == 0:
                             sub_filetypes.append('sub')
+                            selected_sub_filetypes.append(track["codec"])
+                            subs_track_ids.append(track["id"])
+                            subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "SubRip/SRT":
-                            sub_filetypes.append('srt')
-                            srt_track_ids.append(track["id"])
-                            needs_convert = False
-                        elif track["codec"] == "SubStationAlpha":
+                        elif track["codec"] == "SubStationAlpha" and sub_filetypes.count("ass") == 0:
                             sub_filetypes.append('ass')
+                            selected_sub_filetypes.append(track["codec"])
+                            subs_track_ids.append(track["id"])
+                            subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-
-                        selected_sub_filetypes.append(track["codec"])
-                        subs_track_ids.append(track["id"])
-                        subs_track_languages.append(track_language)
                         
                         if 'srt' in sub_filetypes:
                             sub_filetypes.remove('srt')
