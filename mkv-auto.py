@@ -58,14 +58,26 @@ def format_time(seconds):
 
 	parts = []
 	if hours:
-		parts.append(f"{hours} hours,")
+		if hours == 1:
+			parts.append(f"{hours} hour,")
+		else:
+			parts.append(f"{hours} hours,")
 	if minutes:
-		parts.append(f"{minutes} minutes")
+		if minutes == 1:
+			parts.append(f"{minutes} minute")
+		else:
+			parts.append(f"{minutes} minutes")
 	if seconds or not parts:  # If it's 0 seconds, we want to include it.
-		parts.append(f"and {seconds} seconds")
+		if seconds == 1:
+			parts.append(f"and {seconds} second")
+		else:
+			parts.append(f"and {seconds} seconds")
 
 	if seconds and (not hours and not minutes):
-		return f"{seconds} seconds"
+		if seconds == 1:
+			return f"{seconds} second"
+		else:
+			return f"{seconds} seconds"
 	else:
 		return " ".join(parts)
 
