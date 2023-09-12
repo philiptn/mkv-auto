@@ -18,11 +18,13 @@ variables = ConfigParser()
 # else, load defaults from preferences.ini
 if os.path.isfile('user.ini'):
 	variables.read('user.ini')
+elif os.path.isfile('files/user.ini'):
+	variables.read('files/user.ini')
 else:
 	variables.read('defaults.ini')
 
 # General
-temp_dir = variables.get('general', 'TEMP_DIR')
+ini_temp_dir = variables.get('general', 'TEMP_DIR')
 file_tag = variables.get('general', 'FILE_TAG')
 flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
 remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
@@ -90,9 +92,18 @@ def mkv_auto(args):
 
 	if args.input_dir:
 		input_dir = args.input_dir
-
 	if args.output_dir:
 		output_dir = args.output_dir
+
+	if args.docker:
+		input_dir = 'files/input'
+		output_dir = 'files/output'
+	# If the temp dir location is unchanged from default and
+	# set to run in Docker, set default to inside 'files/' folder
+	if ini_temp_dir == '.tmp/' and args.docker:
+		temp_dir = 'files/tmp/'
+	else:
+		temp_dir = ini_temp_dir
 
 	if os.path.exists(temp_dir):
 		shutil.rmtree(temp_dir)
@@ -503,6 +514,8 @@ def main():
 					help="supress visual elements like progress bars (default: False)")
 	parser.add_argument("--notemp", action="store_true", default=False, required=False,
 				help="process files directly without using temp dir (default: False)")
+	parser.add_argument("--docker", action="store_true", default=False, required=False,
+						help="use docker-specific default directories from 'files/' (default: False)")
 
 	parser.set_defaults(func=mkv_auto)
 	args = parser.parse_args()

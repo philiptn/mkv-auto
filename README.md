@@ -31,6 +31,10 @@ Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the
 4. Processed files can then be found in the output folder, categorized as either a movie (`output/Movies/movie.mkv`) or TV Show (`output/TV Shows/tv show name/tv.show.name.S01E01.mkv`).
 5. To exit the Python virtual environment, run `deactivate` in the terminal.
 
+## Docker
+`docker build -t mkv-auto .`
+`docker run --rm -it -v /mnt/d/mkv-auto-docker:/mkv-auto/files mkv-auto --help`
+
 ## CLI
 ### mkv-auto
 
