@@ -33,7 +33,7 @@ Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the
 
 ## Docker
 `docker build -t mkv-auto .`
-`docker run --rm -it -v /mnt/d/mkv-auto-docker:/mkv-auto/files mkv-auto --help`
+`docker run --rm -it -v /home/philip/mkv-auto-docker:/mkv-auto/files mkv-auto --docker`
 
 ## CLI
 ### mkv-auto

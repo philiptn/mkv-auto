@@ -2,6 +2,7 @@ import csv
 import re
 import os
 import subprocess
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
@@ -17,6 +18,8 @@ def run_with_xvfb(command):
 
     # Start Xvfb in the background
     xvfb_process = subprocess.Popen(xvfb_cmd)
+    # Wait for the Xvfb process to initialize
+    time.sleep(1)
 
     env = os.environ.copy()
     env['DISPLAY'] = ':99'
