@@ -4,13 +4,14 @@ import autosubsync
 import os
 import subprocess
 import pysrt
+import shutil
 from datetime import datetime
 
 
 def get_timestamp():
-	"""Return the current UTC timestamp in the desired format."""
-	current_time = datetime.utcnow()
-	return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    """Return the current UTC timestamp in the desired format."""
+    current_time = datetime.utcnow()
+    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
 def remove_sdh(input_files, quiet, remove_music):
@@ -26,7 +27,7 @@ def remove_sdh(input_files, quiet, remove_music):
                     sub.text = ''
             subs.save('.tmp.srt', encoding='utf-8')
             os.remove(input_file)
-            os.rename('.tmp.srt', input_file)
+            shutil.move('.tmp.srt', input_file)
 
         subs = Subtitles(input_file)
         subs.filter(rm_music=remove_music)
@@ -40,7 +41,7 @@ def remove_sdh(input_files, quiet, remove_music):
                 sub.text = ''
         subs.save('.tmp.srt', encoding='utf-8')
         os.remove(input_file)
-        os.rename('.tmp.srt', input_file)
+        shutil.move('.tmp.srt', input_file)
 
 
 def convert_ass_to_srt(subtitle_files, languages):

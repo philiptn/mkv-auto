@@ -27,7 +27,7 @@ $SUDO apt-get install mkvtoolnix -y
 
 # Installing flatpak and HandBrakeCLI (via flatpak)
 $SUDO apt-get install flatpak -y
-$SUDO flatpak install fr.handbrake.ghb -y
+$SUDO flatpak install app/fr.handbrake.ghb/x86_64/stable -y
 
 # Needed for unpacking archives, is most likely already installed
 $SUDO apt-get install unrar -y
@@ -35,18 +35,21 @@ $SUDO apt-get install unrar -y
 # Install tzdata and set timezone to UTC
 DEBIAN_FRONTEND=noninteractive apt-get install tzdata -y
 
-# Installing packages required for SubtitleEdit (in 'utlities/') to work, as well as autosubsync
-$SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module -y
+# Installing packages required for SubtitleEdit (in 'utlities/') to work,
+# as well as autosubsync and other packages
+$SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr \
+  vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module git xvfb -y
 
 # Installing tesseract-ocr (for use with SubtitleEdit)
 # Reference: https://pypi.org/project/pgsrip/
 $SUDO apt-get install software-properties-common -y
 $SUDO add-apt-repository ppa:alex-p/tesseract-ocr5 -y
 $SUDO apt-get update
-$SUDO apt-get install tesseract-ocr -y
 # Additional language packs need to be installed manually!
 # To list the available language packs run `sudo apt install tesseract-ocr-lang`
-$SUDO apt-get install tesseract-ocr-nor -y
+# or just add the ISO-639-2/B (3-letter) format to the end of "tesseract-ocr-<LANG>"
+$SUDO apt-get install tesseract-ocr \
+  tesseract-ocr-nor -y
 
 # DEPRECATED due to pgsrip no longer being used
 # Installing training data for tesseract (tessdata) (note: large datasets, may take a while to download)

@@ -492,12 +492,15 @@ def mkv_auto(args):
 		print(f"[INFO] Processing took {format_time(int(total_processing_time))} to complete.")
 		print(f"[INFO] The average file took {format_time(int(average_time))} to process.\n")
 	else:
-		os.remove('.last_processed_mkv.txt')
+		if os.path.exists('.last_processed_mkv.txt'):
+			os.remove('.last_processed_mkv.txt')
 		print(f"[INFO] During processing {len(errored_file_names)} errors occured in files:")
 		for file in errored_file_names:
 			print(f"'{file}'")
 		print('')
-	
+
+	if os.path.exists(temp_dir):
+		shutil.rmtree(temp_dir)
 	exit(0)
 
 
