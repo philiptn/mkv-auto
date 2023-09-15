@@ -4,11 +4,19 @@ import autosubsync
 import os
 import subprocess
 import pysrt
+import shutil
+from datetime import datetime
+
+
+def get_timestamp():
+    """Return the current UTC timestamp in the desired format."""
+    current_time = datetime.utcnow()
+    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
 def remove_sdh(input_files, quiet, remove_music):
     if not quiet:
-        print(f"[SRT] Removing SDH in subtitles...")
+        print(f"[UTC {get_timestamp()}] [SRT] Removing SDH in subtitles...")
     for index, input_file in enumerate(input_files):
 
         if remove_music:
@@ -19,7 +27,7 @@ def remove_sdh(input_files, quiet, remove_music):
                     sub.text = ''
             subs.save('.tmp.srt', encoding='utf-8')
             os.remove(input_file)
-            os.rename('.tmp.srt', input_file)
+            shutil.move('.tmp.srt', input_file)
 
         subs = Subtitles(input_file)
         subs.filter(rm_music=remove_music)
@@ -33,11 +41,11 @@ def remove_sdh(input_files, quiet, remove_music):
                 sub.text = ''
         subs.save('.tmp.srt', encoding='utf-8')
         os.remove(input_file)
-        os.rename('.tmp.srt', input_file)
+        shutil.move('.tmp.srt', input_file)
 
 
 def convert_ass_to_srt(subtitle_files, languages):
-    print(f"[ASS] Converting ASS subtitles to SRT...")
+    print(f"[UTC {get_timestamp()}] [ASS] Converting ASS subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = languages
     replaced_index = 0
@@ -61,7 +69,7 @@ def convert_ass_to_srt(subtitle_files, languages):
 
 def resync_srt_subs_ai(input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[SRT] Synchronizing subtitles to audio track (ai)...")
+        print(f"[UTC {get_timestamp()}] [SRT] Synchronizing subtitles to audio track (ai)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')
@@ -77,7 +85,7 @@ def resync_srt_subs_ai(input_file, subtitle_files, quiet):
 
 def resync_srt_subs_fast(input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[SRT] Synchronizing subtitles to audio track (fast)...")
+        print(f"[UTC {get_timestamp()}] [SRT] Synchronizing subtitles to audio track (fast)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')

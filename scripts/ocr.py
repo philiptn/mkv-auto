@@ -2,7 +2,36 @@ import csv
 import re
 import os
 import subprocess
+import time
 import xml.etree.ElementTree as ET
+from datetime import datetime
+
+
+def get_timestamp():
+    """Return the current UTC timestamp in the desired format."""
+    current_time = datetime.utcnow()
+    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+
+def run_with_xvfb(command):
+    xvfb_cmd = ["Xvfb", ":99", "-screen", "0", "1024x768x24"]
+
+    # Start Xvfb in the background
+    xvfb_process = subprocess.Popen(xvfb_cmd)
+    # Wait for the Xvfb process to initialize
+    time.sleep(1)
+
+    env = os.environ.copy()
+    env['DISPLAY'] = ':99'
+
+    result = subprocess.run(command, env=env, capture_output=True, text=True)
+
+    # Kill the Xvfb process after we're done
+    xvfb_process.terminate()
+
+    if result.returncode != 0:
+        raise Exception("Error executing command: " + result.stderr)
+    return result
 
 
 def find_and_replace(input_files):
@@ -25,11 +54,12 @@ def find_and_replace(input_files):
         with open(input_file, 'w') as file:
             file.write(data)
 
+
 ##############################################
 # Deprecated due to OCR problems with pgsrip #
 ##############################################
 def ocr_pgs_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on PGS subtitles...")
+    print(f"[UTC {get_timestamp()}] [OCR] Performing OCR on PGS subtitles...")
     output_subtitles = []
     generated_srt_files = []
     replaced_index = 0
@@ -40,10 +70,10 @@ def ocr_pgs_subtitles(subtitle_files, languages):
         env = os.environ.copy()
         env['TESSDATA_PREFIX'] = os.path.expanduser('~/.mkv-auto/tessdata')
 
-        command = ["pgsrip", "--debug", "--tag", "ocr", "--language", 
-                    languages[index + replaced_index], file]
+        command = ["pgsrip", "--debug", "--tag", "ocr", "--language",
+                   languages[index + replaced_index], file]
 
-        #result = subprocess.run(command, capture_output=True, text=True, env=env)
+        # result = subprocess.run(command, capture_output=True, text=True, env=env)
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception("Error executing pgsrip command: " + result.stdout)
@@ -60,7 +90,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
 
 def ocr_subtitles(subtitle_files, languages):
-    print(f"[OCR] Performing OCR on subtitles...")
+    print(f"[UTC {get_timestamp()}] [OCR] Performing OCR on subtitles...")
 
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
@@ -71,16 +101,11 @@ def ocr_subtitles(subtitle_files, languages):
 
     for index, file in enumerate(subtitle_files):
         base, _, extension = file.rpartition('.')
-        env = os.environ.copy()
-        env['DISPLAY'] = ':0.0'
 
         update_tesseract_lang_xml(languages[index + replaced_index])
         command = ["mono", subtitleedit, "/convert", file,
                    "srt", "/FixCommonErrors", "/encoding:utf-8"]
-
-        result = subprocess.run(command, capture_output=True, text=True, env=env)
-        if result.returncode != 0:
-            raise Exception("Error executing SubtitleEdit command: " + result.stderr)
+        run_with_xvfb(command)
 
         output_subtitles.append(f"{base}.srt")
         generated_srt_files.append('srt')

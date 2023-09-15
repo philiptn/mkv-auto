@@ -1,4 +1,11 @@
 import os
+from datetime import datetime
+
+
+def get_timestamp():
+	"""Return the current UTC timestamp in the desired format."""
+	current_time = datetime.utcnow()
+	return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 #flatpak run --command=HandBrakeCLI fr.handbrake.ghb
 

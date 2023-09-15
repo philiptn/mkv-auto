@@ -2,6 +2,13 @@ import subprocess
 import json
 import os
 from tqdm import tqdm
+from datetime import datetime
+
+
+def get_timestamp():
+	"""Return the current UTC timestamp in the desired format."""
+	current_time = datetime.utcnow()
+	return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
 def convert_video_to_mkv(video_file, output_file):
@@ -34,7 +41,7 @@ def convert_all_videos_to_mkv(input_folder, silent):
 
     pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}%', leave=False, disable=silent)
     for i, video_file in enumerate(video_files, start=1):
-        pbar.set_description(f'[INFO] Converting file {i} of {total_files} to MKV')
+        pbar.set_description(f'[UTC {get_timestamp()}] [INFO] Converting file {i} of {total_files} to MKV')
         output_file = os.path.splitext(video_file)[0] + '.mkv'
         convert_video_to_mkv(video_file, output_file)
         pbar.update(1)  # Update progress bar by one file
@@ -79,7 +86,7 @@ def remove_cc_hidden_in_file(filename):
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         print("Error executing ffmpeg command: " + result.stderr)
-        print("[INFO] Skipping ffmpeg process...")
+        print(f"[UTC {get_timestamp()}] [INFO] Skipping ffmpeg process...")
         try:
             os.remove(temp_filename)
         except:
@@ -92,7 +99,7 @@ def remove_cc_hidden_in_file(filename):
 
 def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
                         sub_tracks, default_subs_track, always_enable_subs):
-    print(f"[MKVMERGE] Filtering audio and subtitle tracks...")
+    print(f"[UTC {get_timestamp()}] [MKVMERGE] Filtering audio and subtitle tracks...")
     audio_track_names_list = []
     subtitle_tracks = ''
     subs_default_track = ''
@@ -143,7 +150,8 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        raise Exception("Error executing mkvmerge command: " + result.stdout)
+        print("Error executing mkvmerge command: " + result.stdout)
+        print("Continuing...")
 
     os.remove(filename)
     os.rename(temp_filename, filename)
@@ -194,7 +202,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         sub_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
     # Remove all subtitle tracks first
-    print(f"[MKVMERGE] Removing existing subtitles in mkv...")
+    print(f"[UTC {get_timestamp()}] [MKVMERGE] Removing existing subtitles in mkv...")
     command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", filename]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -202,7 +210,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     os.remove(filename)
     os.rename(temp_filename, filename)
 
-    print(f"[MKVMERGE] Repacking tracks into mkv...")
+    print(f"[UTC {get_timestamp()}] [MKVMERGE] Repacking tracks into mkv...")
     command = ["mkvmerge",
                "--output", temp_filename, filename] + sub_files_list
 
@@ -277,11 +285,13 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                     track_name = value
                 if key == 'language':
                     track_language = value
+                if key == 'forced_track':
+                    forced_track = value
             if track_language in pref_subs_langs:
                 needs_processing = True
                 needs_sdh_removal = True
 
-                if subs_track_languages.count(track_language) == 0:
+                if subs_track_languages.count(track_language) == 0 and forced_track != True:
                     selected_sub_filetypes.append(track["codec"])
                     subs_track_ids.append(track["id"])
                     subs_track_languages.append(track_language)
@@ -305,26 +315,27 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                 else:
                     if track["codec"] != "SubRip/SRT" and subs_track_languages.count(track_language) == 1:
 
-                        if track["codec"] == "HDMV PGS":
+                        if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0:
                             sub_filetypes.append('sup')
+                            selected_sub_filetypes.append(track["codec"])
+                            subs_track_ids.append(track["id"])
+                            subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "VobSub":
+                        elif track["codec"] == "VobSub" and sub_filetypes.count("sub") == 0:
                             sub_filetypes.append('sub')
+                            selected_sub_filetypes.append(track["codec"])
+                            subs_track_ids.append(track["id"])
+                            subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "SubRip/SRT":
-                            sub_filetypes.append('srt')
-                            srt_track_ids.append(track["id"])
-                            needs_convert = False
-                        elif track["codec"] == "SubStationAlpha":
+                        elif track["codec"] == "SubStationAlpha" and sub_filetypes.count("ass") == 0:
                             sub_filetypes.append('ass')
+                            selected_sub_filetypes.append(track["codec"])
+                            subs_track_ids.append(track["id"])
+                            subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-
-                        selected_sub_filetypes.append(track["codec"])
-                        subs_track_ids.append(track["id"])
-                        subs_track_languages.append(track_language)
                         
                         if 'srt' in sub_filetypes:
                             sub_filetypes.remove('srt')
