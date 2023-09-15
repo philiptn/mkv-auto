@@ -32,14 +32,43 @@ Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the
 5. To exit the Python virtual environment, run `deactivate` in the terminal.
 
 ## Docker
-`docker build -t mkv-auto .`
-`docker run --rm -it -v /home/philip/mkv-auto-docker:/mkv-auto/files mkv-auto --docker`
+To run this utility using Docker, a Docker image first need to be built from the repository root folder (`mkv-auto/`) using:
+
+````commandline
+sudo docker build -t mkv-auto .  
+````
+
+Next, create a separate folder on your host system for where you like the files to be read/processed from, such as "mkv-auto-docker".
+In here you need to make two sub-folders: `input/` and `output/`. Within the `mkv-auto-docker/`folder you can also place the `user.ini` file for easy customization of your preferences.
+Make sure that this location has sufficient storage space for processing both the input, output and TEMP files. If storage space is scarce, consider using the `--notemp` option (files from `input/` will be processed directly and moved to the `output/` folder without keeping the original). 
+
+The folder structure should look something like this:  
+```text
+/mnt/d/mkv-auto-docker/
+├── input
+│   └── input_file.mkv
+├── output
+└── user.ini
+```
+
+Make sure you know the full path of your "mkv-auto-docker" folder (this can be found by navigating to the folder and running `pwd`). 
+This needs to be passed to the Docker Engine for volume mounting the folder inside the Docker container to your host system (`<host system folder>:/mkv-auto/files`).
+To start the utility using a Docker container, run the following command:
+
+````commandline
+sudo docker run --rm -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
+````
+
+Note: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
+If you want to specify a custom output folder, you simply add `--docker --output_folder "/mnt/x/custom_folder"` to the command to pass the arguments properly.
+
+If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `$HOST_FOLDER` variable to the proper location.
 
 ## CLI
 ### mkv-auto
 
 ```
-usage: mkv-auto.py [-h] [--input_folder INPUT_DIR] [--output_folder OUTPUT_DIR] [--silent]
+usage: mkv-auto.py [-h] [--input_folder INPUT_DIR] [--output_folder OUTPUT_DIR] [--silent] [--notemp] [--docker]
 
 A tool that aims to remove necessary clutter from Matroska (.mkv) files by removing and/or converting any subtitle tracks in the source file(s).
 
@@ -50,6 +79,8 @@ options:
   --output_folder OUTPUT_DIR, -of OUTPUT_DIR
                         output folder path (default: 'output/')
   --silent              supress visual elements like progress bars (default: False)
+  --notemp              process files directly without using temp dir (default: False)
+  --docker              use docker-specific default directories from 'files/' (default: False)
 ```
 
 ### mkv-auto-service
@@ -69,7 +100,7 @@ options:
 
 ## PyPI Acknowledgments
 
-#### Thanks to: 
+#### This project would not be possible without the following third-party packages: 
 
 Matt Lyon for subtitle-filter (SDH removal)  
 https://github.com/m-lyon/filter-subs
@@ -92,3 +123,8 @@ https://github.com/byroot/pysrt
 
 Marko Kreen for rarfile (Unpacking `.rar` and `.zip` archives in Python)  
 https://github.com/markokr/rarfile
+
+## Donations
+This utility is completely free to use, but if you want to support me and my work you can buy me a coffee using the link below:  
+
+<a href="https://www.buymeacoffee.com/philiptn"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=philiptn&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>

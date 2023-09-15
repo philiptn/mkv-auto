@@ -1,5 +1,0 @@
-services:
-  mkv-auto:
-    image: 'mkv-auto'
-    build: .
-    container_name: 'mkv-auto'
