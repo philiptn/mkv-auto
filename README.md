@@ -34,7 +34,7 @@ Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the
 ## Docker
 To run this utility using Docker, a Docker image first need to be built from the repository root folder (`mkv-auto/`) using:
 
-````commandline
+````bash
 sudo docker build -t mkv-auto .  
 ````
 
@@ -55,7 +55,7 @@ Make sure you know the full path of your "mkv-auto-docker" folder (this can be f
 This needs to be passed to the Docker Engine for volume mounting the folder inside the Docker container to your host system (`<host system folder>:/mkv-auto/files`).
 To start the utility using a Docker container, run the following command:
 
-````commandline
+````bash
 sudo docker run --rm -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
 ````
 
