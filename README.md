@@ -56,13 +56,18 @@ This needs to be passed to the Docker Engine for volume mounting the folder insi
 To start the utility using a Docker container, run the following command:
 
 ````commandline
-sudo docker run --rm -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
+sudo docker run --rm --name mkv-auto -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
 ````
 
 Note: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
 If you want to specify a custom output folder, you simply add `--docker --output_folder "/mnt/x/custom_folder"` to the command to pass the arguments properly.
 
-If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `$HOST_FOLDER` variable to the proper location.
+If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `HOST_FOLDER` variable in `.env` to the proper location.
+
+### mkv-auto-service (Docker)
+`./prepare_service.sh`  
+`docker build -t mkv-auto-service -f service/Dockerfile .`  
+`docker run -d --rm --name mkv-auto-service -v "/var/run/docker.sock:/var/run/docker.sock" mkv-auto-service`
 
 ## CLI
 ### mkv-auto

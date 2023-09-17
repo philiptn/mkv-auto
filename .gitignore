@@ -102,7 +102,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
@@ -146,3 +145,6 @@ testing.py
 
 # Temporary files
 .tmp/
+
+# Builds
+service/mkv-auto-builds/

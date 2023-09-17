@@ -105,10 +105,10 @@ def mkv_auto(args):
 	else:
 		temp_dir = ini_temp_dir
 
-	if os.path.exists(temp_dir):
-		shutil.rmtree(temp_dir)
-	
-	os.mkdir(temp_dir)
+	if not args.notemp:
+		if os.path.exists(temp_dir):
+			shutil.rmtree(temp_dir)
+		os.mkdir(temp_dir)
 
 	total_files = count_files(input_dir)
 	total_bytes = count_bytes(input_dir)
@@ -478,9 +478,11 @@ def mkv_auto(args):
 	if len(errored_file_names) == 0:
 		# Sorting the dirpaths such that entries with
 		# the longest subdirectories are removed first
+		base_depth = input_dir.count('/')
 		dirpaths.sort(key=lambda path: path.count('/'), reverse=True)
 		for dirpath in dirpaths:
-			safe_delete_dir(dirpath)
+			if dirpath.count('/') > base_depth:  # ensure we're not deleting directories at or above base_depth
+				safe_delete_dir(dirpath)
 
 		if os.path.exists('.last_processed_mkv.txt'):
 			os.remove('.last_processed_mkv.txt')
@@ -499,8 +501,9 @@ def mkv_auto(args):
 			print(f"'{file}'")
 		print('')
 
-	if os.path.exists(temp_dir):
-		shutil.rmtree(temp_dir)
+	if not args.notemp:
+		if os.path.exists(temp_dir):
+			shutil.rmtree(temp_dir)
 	exit(0)
 
 
