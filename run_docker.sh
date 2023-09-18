@@ -5,7 +5,7 @@ IMAGE_NAME="mkv-auto"
 HOST_FOLDER="/home/$USER/mkv-auto-docker"
 # Source .env if it exists and override defaults
 if [[ -f .env ]]; then
-    source .env_example
+    source .env
 fi
 
 # Check if the user is root or not
