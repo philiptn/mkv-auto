@@ -12,6 +12,5 @@ fi
 $SUDO true
 
 printf "[INFO] Starting mkv-auto-service... "
-#$SUDO docker run -d --rm --name mkv-auto-service -v "/var/run/docker.sock:/var/run/docker.sock" mkv-auto-service > /dev/null 2>&1
-$SUDO docker run --rm --name mkv-auto-service -v "/var/run/docker.sock:/var/run/docker.sock" mkv-auto-service
+$SUDO docker run -d --rm --name mkv-auto-service -v "/var/run/docker.sock:/var/run/docker.sock" mkv-auto-service > /dev/null 2>&1
 printf "Done.\n"
