@@ -82,7 +82,7 @@ After all the files have been prepared, the service can be started using the com
 ./start_service.sh
 ````
 
-Or if you prefer to use Docker Compose, a `compose.yaml` file is available and can be started using `docker compose up -d`.
+Or if you prefer to use Docker Compose, a `compose.yaml` file is available and can be started using `docker compose up -d`.  
 *Note: It is still necessary to run the `./prepare_service.sh` script before the docker compose file can be used.* 
 
 ## CLI
