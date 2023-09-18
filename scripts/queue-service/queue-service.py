@@ -84,7 +84,7 @@ def process_file(file_path, command_template, mkv_auto_folder_path, tag_to_check
 
 
 def main():
-    parser = argparse.ArgumentParser(description="A service for mkv-auto that can parse input folder paths from a text file")
+    parser = argparse.ArgumentParser(description="A service for mkv-auto that can parse input folder paths from a queue text file")
     parser.add_argument("--file_path", dest="file_path", type=str, help="The path to the text file containing the input folder paths")
     parser.add_argument("--output_folder", dest="output_folder", type=str, help="The output folder path used by mkv-auto to save its files")
     args = parser.parse_args()

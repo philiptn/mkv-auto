@@ -62,12 +62,28 @@ sudo docker run --rm --name mkv-auto -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/fi
 Note: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
 If you want to specify a custom output folder, you simply add `--docker --output_folder "/mnt/x/custom_folder"` to the command to pass the arguments properly.
 
-If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `HOST_FOLDER` variable in `.env` to the proper location.
+If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `HOST_FOLDER` variable in your `.env` file to the proper location. The `.env` file can be created using the `.env_example` as reference.
 
-### mkv-auto-service (Docker)
-`./prepare_service.sh`  
-`docker build -t mkv-auto-service -f service/Dockerfile .`  
-`docker run -d --rm --name mkv-auto-service -v "/var/run/docker.sock:/var/run/docker.sock" mkv-auto-service`
+## mkv-auto-service (Docker)
+
+If you want the utility to continuously monitor for new files to process, a separate service container can be used. As the main container is designed as a one-shot, executable-like utility, the service requires the Docker socket to be forwarded to run the service (Alpine Linux).  
+
+The service works by monitoring an input folder every minute, starting the mkv-auto utility if any files to be processed. Default paths has been set in the `.env_example` file. Make sure to create your own `.env` file containing the necessary variables.  
+
+To prepare the service the following script can be ran:
+
+````text
+./prepare_service.sh
+````
+
+After all the files have been prepared, the service can be started using the command below:
+
+````text
+./start_service.sh
+````
+
+Or if you prefer to use Docker Compose, a `compose.yaml` file is available and can be started using `docker compose up -d`.
+*Note: It is still necessary to run the `./prepare_service.sh` script before the docker compose file can be used.* 
 
 ## CLI
 ### mkv-auto
@@ -88,12 +104,12 @@ options:
   --docker              use docker-specific default directories from 'files/' (default: False)
 ```
 
-### mkv-auto-service
+### queue-service
 
 ```
-usage: mkv-auto-service.py [-h] [--file_path FILE_PATH] [--output_folder OUTPUT_FOLDER]
+usage: queue-service.py [-h] [--file_path FILE_PATH] [--output_folder OUTPUT_FOLDER]
 
-A service for mkv-auto that can parse input folder paths from a text file
+A service for mkv-auto that can parse input folder paths from a queue text file
 
 options:
   -h, --help            show this help message and exit

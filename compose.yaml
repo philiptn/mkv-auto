@@ -1,0 +1,9 @@
+version: "2.1"
+
+services:
+  mkv-auto-service:
+    image: mkv-auto-service:latest
+    container_name: mkv-auto-service
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped

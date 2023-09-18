@@ -154,7 +154,7 @@ def mkv_auto(args):
 			# Show the cursor
 			sys.stdout.write('\033[?25h')
 			sys.stdout.flush()
-		print(f"[ERROR] No mkv files found in input directory.\n")
+			print(f"[ERROR] No mkv files found in input directory.\n")
 		exit(0)
 
 	errored_file_names = []

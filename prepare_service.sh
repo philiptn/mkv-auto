@@ -4,7 +4,7 @@
 IMAGE_NAME="mkv-auto"
 # Source .env if it exists and override defaults
 if [[ -f .env ]]; then
-    source .env
+    source .env_example
 fi
 
 # Check if the user is root or not
@@ -18,12 +18,17 @@ fi
 # Invoke sudo
 $SUDO true
 
-# Build the Docker image
-printf "[INFO] Building Docker image... "
+# Build the mkv-auto Docker image
+printf "Building Docker image 'mkv-auto'... "
 $SUDO docker build -t $IMAGE_NAME . > /dev/null 2>&1
-printf "Done."
+printf "Done.\n"
 
-# Save the Docker image to tar
-printf "\n[INFO] Saving Docker image... "
+# Save the mkv-auto Docker image to tar
+printf "Saving Docker image 'mkv-auto'... "
 $SUDO docker save -o service/mkv-auto-builds/mkv-auto.tar mkv-auto:latest
+printf "Done.\n"
+
+# Build the mkv-auto Docker image
+printf "Building Docker image 'mkv-auto-service'... "
+$SUDO docker build -t mkv-auto-service -f service/Dockerfile . > /dev/null 2>&1
 printf "Done.\n"
