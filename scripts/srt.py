@@ -80,7 +80,7 @@ def resync_srt_subs_ai(input_file, subtitle_files, quiet):
         autosubsync.synchronize(input_file, subtitle_filename, temp_filename)
 
         os.remove(subtitle_filename)
-        os.rename(temp_filename, subtitle_filename)
+        shutil.move(temp_filename, subtitle_filename)
 
 
 def resync_srt_subs_fast(input_file, subtitle_files, quiet):
@@ -101,4 +101,4 @@ def resync_srt_subs_fast(input_file, subtitle_files, quiet):
             raise Exception("Error executing FFsubsync command: " + result.stderr)
 
         os.remove(subtitle_filename)
-        os.rename(temp_filename, subtitle_filename)
+        shutil.move(temp_filename, subtitle_filename)

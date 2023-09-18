@@ -3,6 +3,7 @@ import json
 import os
 from tqdm import tqdm
 from datetime import datetime
+import shutil
 
 
 def get_timestamp():
@@ -93,7 +94,7 @@ def remove_cc_hidden_in_file(filename):
             pass
     else:
         os.remove(filename)
-        os.rename(temp_filename, filename)
+        shutil.move(temp_filename, filename)
 
 
 
@@ -154,7 +155,7 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
         print("Continuing...")
 
     os.remove(filename)
-    os.rename(temp_filename, filename)
+    shutil.move(temp_filename, filename)
 
 
 def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs):
@@ -208,7 +209,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     if result.returncode != 0:
         raise Exception("Error executing mkvmerge command: " + result.stdout)
     os.remove(filename)
-    os.rename(temp_filename, filename)
+    shutil.move(temp_filename, filename)
 
     print(f"[UTC {get_timestamp()}] [MKVMERGE] Repacking tracks into mkv...")
     command = ["mkvmerge",
@@ -219,7 +220,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         raise Exception("Error executing mkvmerge command: " + result.stdout)
 
     os.remove(filename)
-    os.rename(temp_filename, filename)
+    shutil.move(temp_filename, filename)
 
     # Need to add the .idx file as well to filetypes list for final deletion
     for index, filetype in enumerate(sub_filetypes):

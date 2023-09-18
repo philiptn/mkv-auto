@@ -222,7 +222,7 @@ def replace_tags_in_file(file_path, replacement):
             base = tag_regex.sub(replacement + (match.group(2) or ""), base)
         elif ext == ".mkv":
             base += replacement
-        os.rename(os.path.join(dirpath, filename), os.path.join(dirpath, base + ext))
+        shutil.move(os.path.join(dirpath, filename), os.path.join(dirpath, base + ext))
 
     return base + ext
 
@@ -290,7 +290,7 @@ def fix_episodes_naming(directory):
                     new_name += f".{post_episode}" if post_episode else ""
                     new_name += extension
 
-                    os.rename(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
+                    shutil.move(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
 
 
 def remove_ds_store(root_dir):
