@@ -249,14 +249,15 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary):
                 if key == 'language':
                     track_language = value
             if track_language in pref_audio_langs:
-                audio_track_ids.append(track["id"])
-                audio_track_languages.append(track_language)
-                # Removes commentary track if main track(s) is already added, and if pref is set to true
-                if remove_commentary and "commentary" in track_name.lower() \
-                        and track_language in audio_track_languages:
-                    audio_track_ids.remove(track["id"])
-                else:
-                    default_audio_track = track["id"]
+                if audio_track_languages.count(track_language) == 0:
+                    audio_track_ids.append(track["id"])
+                    audio_track_languages.append(track_language)
+                    # Removes commentary track if main track(s) is already added, and if pref is set to true
+                    if remove_commentary and "commentary" in track_name.lower() \
+                            and track_language in audio_track_languages:
+                        audio_track_ids.remove(track["id"])
+                    else:
+                        default_audio_track = track["id"]
     audio_track_ids.sort()
     if len(audio_track_ids) != 0 and len(audio_track_ids) < total_audio_tracks:
         needs_processing = True
@@ -268,6 +269,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
     subs_track_ids = []
     subs_track_languages = []
     default_subs_track = ''
+    forced_track = ''
     sub_filetypes = []
     selected_sub_filetypes = []
     srt_track_ids = []
@@ -308,7 +310,6 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                     elif track["codec"] == "SubRip/SRT":
                         sub_filetypes.append('srt')
                         srt_track_ids.append(track["id"])
-                        needs_convert = False
                     elif track["codec"] == "SubStationAlpha":
                         sub_filetypes.append('ass')
                         needs_convert = True

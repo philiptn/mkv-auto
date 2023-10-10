@@ -14,12 +14,28 @@ def get_timestamp():
     return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
+def clean_invalid_utf8(input_file, output_file):
+    # Read the file, replacing invalid characters with '�'
+    with open(input_file, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
+
+    # Write the cleaned content back
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
+
 def remove_sdh(input_files, quiet, remove_music):
     if not quiet:
         print(f"[UTC {get_timestamp()}] [SRT] Removing SDH in subtitles...")
     for index, input_file in enumerate(input_files):
 
         if remove_music:
+            # Fix any encoding errors
+            clean_invalid_utf8(input_file, '.tmp.srt')
+            os.remove(input_file)
+            shutil.move('.tmp.srt', input_file)
+
             # Remove all music lines completely
             subs = pysrt.open(input_file)
             for sub in subs:
@@ -35,6 +51,12 @@ def remove_sdh(input_files, quiet, remove_music):
 
         # Removing any all-uppercase letters from
         # improperly formatted SDH subtitles
+
+        # Fix any encoding errors
+        clean_invalid_utf8(input_file, '.tmp.srt')
+        os.remove(input_file)
+        shutil.move('.tmp.srt', input_file)
+
         subs = pysrt.open(input_file)
         for sub in subs:
             if sub.text.isupper():
@@ -93,8 +115,8 @@ def resync_srt_subs_fast(input_file, subtitle_files, quiet):
         subtitle_filename = subfile
         temp_filename = f"{base_nolang}_tmp.srt"
 
-        command = ["ffs", input_file, "-i", subtitle_filename,
-                   "-o", temp_filename]
+        command = ["ffs", input_file, "--gss",
+                   "-i", subtitle_filename, "-o", temp_filename]
 
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:

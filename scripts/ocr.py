@@ -19,7 +19,7 @@ def run_with_xvfb(command):
     # Start Xvfb in the background
     xvfb_process = subprocess.Popen(xvfb_cmd)
     # Wait for the Xvfb process to initialize
-    time.sleep(1)
+    time.sleep(2)
 
     env = os.environ.copy()
     env['DISPLAY'] = ':99'
@@ -28,6 +28,7 @@ def run_with_xvfb(command):
 
     # Kill the Xvfb process after we're done
     xvfb_process.terminate()
+    time.sleep(2)
 
     if result.returncode != 0:
         raise Exception("Error executing command: " + result.stderr)
