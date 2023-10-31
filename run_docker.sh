@@ -3,6 +3,7 @@
 # Defaults
 IMAGE_NAME="mkv-auto"
 HOST_FOLDER="/home/$USER/mkv-auto-docker"
+
 # Source .env if it exists and override defaults
 if [[ -f .env ]]; then
     source .env
@@ -20,7 +21,7 @@ fi
 $SUDO true
 
 # Build the Docker image
-$SUDO docker build -t $IMAGE_NAME . > /dev/null 2>&1
+$SUDO docker build -t $IMAGE_NAME .
 
 # Run the Docker container
-$SUDO docker run --rm --name mkv-auto -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --notemp
+$SUDO docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --notemp

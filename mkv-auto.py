@@ -302,6 +302,8 @@ def mkv_auto(args):
 
 					# Get file info using mkvinfo
 					file_info, pretty_file_info = get_mkv_info(input_file)
+					# Get video codec
+					mkv_video_codec = get_mkv_video_codec(input_file)
 
 					wanted_audio_tracks, \
 						default_audio_track, needs_processing_audio = get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary)
@@ -410,7 +412,10 @@ def mkv_auto(args):
 							for file in generated_srt_files:
 								sub_filetypes.insert(0, file)
 
-							remove_cc_hidden_in_file(input_file)
+							# Will remove hidden CC data as long as
+							# video codec is not MPEG2 (DVD)
+							if mkv_video_codec != 'MPEG-1/2':
+								remove_cc_hidden_in_file(input_file)
 							repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
 
 						elif not needs_convert:
@@ -428,7 +433,8 @@ def mkv_auto(args):
 									resync_srt_subs_ai(input_file, subtitle_files, quiet)
 
 							if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false':
-								remove_cc_hidden_in_file(input_file)
+								if mkv_video_codec != 'MPEG-1/2':
+									remove_cc_hidden_in_file(input_file)
 								repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs)
 
 					if needs_processing_subs:

@@ -62,6 +62,14 @@ def get_mkv_info(filename):
     return parsed_json, pretty_json
 
 
+def get_mkv_video_codec(filename):
+    parsed_json, _ = get_mkv_info(filename)
+    for track in parsed_json['tracks']:
+        if track['type'] == 'video':
+            return track['codec']
+    return None
+
+
 def remove_all_mkv_track_tags(filename):
     command = ['mkvpropedit', filename,
                '--edit', 'track:v1', '--set', 'name=',
@@ -270,9 +278,10 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
     subs_track_languages = []
     default_subs_track = ''
     forced_track = ''
-    sub_filetypes = []
+    all_sub_filetypes = []
     selected_sub_filetypes = []
     srt_track_ids = []
+    ass_track_ids = []
     needs_sdh_removal = False
     needs_convert = False
     needs_processing = False
@@ -293,6 +302,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
             if track_language in pref_subs_langs:
                 needs_processing = True
                 needs_sdh_removal = True
+                sub_filetypes = []
 
                 if subs_track_languages.count(track_language) == 0 and forced_track != True:
                     selected_sub_filetypes.append(track["codec"])
@@ -312,11 +322,11 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                         srt_track_ids.append(track["id"])
                     elif track["codec"] == "SubStationAlpha":
                         sub_filetypes.append('ass')
+                        ass_track_ids.append(track["id"])
                         needs_convert = True
                         needs_processing = True
                 else:
-                    if track["codec"] != "SubRip/SRT" and subs_track_languages.count(track_language) == 1:
-
+                    if (track["codec"] != "SubRip/SRT" or track["codec"] != "SubStationAlpha") and subs_track_languages.count(track_language) == 1:
                         if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0:
                             sub_filetypes.append('sup')
                             selected_sub_filetypes.append(track["codec"])
@@ -331,19 +341,17 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                             subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "SubStationAlpha" and sub_filetypes.count("ass") == 0:
-                            sub_filetypes.append('ass')
-                            selected_sub_filetypes.append(track["codec"])
-                            subs_track_ids.append(track["id"])
-                            subs_track_languages.append(track_language)
-                            needs_convert = True
-                            needs_processing = True
                         
                         if 'srt' in sub_filetypes:
                             sub_filetypes.remove('srt')
 
+                        if 'ass' in sub_filetypes:
+                            sub_filetypes.remove('ass')
+
                         subs_tracks_ids_no_srt = [x for x in subs_track_ids if x not in srt_track_ids]
-                        subs_track_ids = subs_tracks_ids_no_srt
+                        subs_tracks_ids_no_ass = [x for x in subs_tracks_ids_no_srt if x not in ass_track_ids]
+                        subs_track_ids = subs_tracks_ids_no_ass
+                all_sub_filetypes += sub_filetypes
 
     # Sets the default subtitle track to first entry in preferences,
     # reverts to any entry if not first
@@ -369,7 +377,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
         needs_processing = True
 
     return subs_track_ids, default_subs_track, needs_sdh_removal, needs_convert, \
-        sub_filetypes, subs_track_languages, needs_processing
+        all_sub_filetypes, subs_track_languages, needs_processing
 
 
 def extract_subs_in_mkv(filename, track_numbers, output_filetypes, subs_languages):

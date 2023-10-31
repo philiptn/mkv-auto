@@ -38,7 +38,8 @@ To run this utility using Docker, a Docker image first need to be built from the
 sudo docker build -t mkv-auto .  
 ````
 
-Next, create a separate folder on your host system for where you like the files to be read/processed from, such as "mkv-auto-docker".
+Next, create a separate folder on your host system for where you like the files to be read/processed from, such as "mkv-auto-docker"
+**(NOTE: This folder cannot be a subdirectory of the main repository folder)**.  
 In here you need to make two sub-folders: `input/` and `output/`. Within the `mkv-auto-docker/`folder you can also place the `user.ini` file for easy customization of your preferences.
 Make sure that this location has sufficient storage space for processing both the input, output and TEMP files. If storage space is scarce, consider using the `--notemp` option (files from `input/` will be processed directly and moved to the `output/` folder without keeping the original). 
 
@@ -64,27 +65,6 @@ If you want to specify a custom output folder, you simply add `--docker --output
 
 If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `HOST_FOLDER` variable in your `.env` file to the proper location. The `.env` file can be created using the `.env_example` as reference.
 
-## mkv-auto-service (Docker)
-
-If you want the utility to continuously monitor for new files to process, a separate service container can be used. As the main container is designed as a one-shot, executable-like utility, the service requires the Docker socket to be forwarded to run the service (Alpine Linux).  
-
-The service works by monitoring an input folder every minute, starting the mkv-auto utility if any files to be processed. Default paths has been set in the `.env_example` file. Make sure to create your own `.env` file containing the necessary variables.  
-
-To prepare the service the following script can be ran:
-
-````text
-./prepare_service.sh
-````
-
-After all the files have been prepared, the service can be started using the command below:
-
-````text
-./start_service.sh
-````
-
-Or if you prefer to use Docker Compose, a `compose.yaml` file is available and can be started using `docker compose up -d`.
-
-*Note: It is still necessary to run the `./prepare_service.sh` script before the docker compose file can be used.* 
 
 ## CLI
 ### mkv-auto
