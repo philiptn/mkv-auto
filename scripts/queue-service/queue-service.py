@@ -79,8 +79,8 @@ def process_file(file_path, output_folder):
             os.remove(lock_file_path) # Remove the lock file
             return
 
-    # If tag is 'NVenc', copy files to queue path
-    elif tag == 'NVenc':
+    # If tag is 'NVEnc', copy files to queue path
+    elif tag == 'NVEnc':
         command = ["cp", "-r", linux_folder_path,
                             ready_for_nvenc_folder_path]
 
