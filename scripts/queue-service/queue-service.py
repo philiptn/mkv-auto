@@ -35,8 +35,8 @@ def convert_path(win_path):
 def process_file(file_path, output_folder):
 
     mkv_auto_folder_path = '/media/philip/nvme/mkv-auto/'
-    ready_for_nvenc_folder_path = '/media/philip/share/mkv-auto-queue/nvenc_queue/'
-    ready_for_final_processing_path = '/media/philip/share/mkv-auto-queue/files/'
+    ready_for_nvenc_folder_path = '/media/share/mkv-auto-queue/nvenc_queue/'
+    ready_for_final_processing_path = '/media/share/mkv-auto-queue/files/'
 
     lock_file_path = file_path + '.lock'
     
