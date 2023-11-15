@@ -65,7 +65,7 @@ def process_file(file_path, output_folder):
     if tag == 'Plex':
 
         # Command template
-        command_template = ["venv/bin/python3", "mkv-auto.py", "--output_folder",
+        command_template = ["venv/bin/python3", "-u", "mkv-auto.py", "--output_folder",
                             output_folder, "--silent", "--input_folder"]
 
         # Build the command
@@ -95,7 +95,7 @@ def process_file(file_path, output_folder):
     # If tag is 'Ready', process using mkv-auto with no temp-copy
     elif tag == 'Ready':
         # Command template
-        command = ["venv/bin/python3", "mkv-auto.py", "--output_folder",
+        command = ["venv/bin/python3", "-u", "mkv-auto.py", "--output_folder",
                    output_folder, "--silent", "--notemp", "--input_folder",
                    ready_for_final_processing_path]
 
