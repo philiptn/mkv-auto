@@ -35,7 +35,7 @@ def run_with_xvfb(command):
     return result
 
 
-def find_and_replace(input_files):
+def find_and_replace(input_files, replacement_file):
     # For quick reference:
     # Special Regex Characters: These characters have special
     # meaning in regex: ., +, *, ?, ^, $, (, ), [, ], {, }, |, \.
@@ -43,7 +43,7 @@ def find_and_replace(input_files):
         # Open SRT and replacement files
         with open(input_file, 'r') as file:
             data = file.read()
-        with open('scripts/replacements.csv', 'r') as file:
+        with open(replacement_file, 'r') as file:
             reader = csv.reader(file)
             replacements = list(reader)
 
@@ -85,7 +85,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
         replaced_index += 1
 
     # Fix common OCR errors
-    find_and_replace(output_subtitles)
+    find_and_replace(output_subtitles, 'scripts/replacements.csv')
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files
 
@@ -113,8 +113,12 @@ def ocr_subtitles(subtitle_files, languages):
         updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
         replaced_index += 1
 
+        # If the subtitle language is English, fix specific OCR errors
+        if languages[index + replaced_index] == 'eng':
+            find_and_replace(output_subtitles, 'scripts/replacements_eng_only.csv')
+
     # Fix common OCR errors
-    find_and_replace(output_subtitles)
+    find_and_replace(output_subtitles, 'scripts/replacements.csv')
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files
 
