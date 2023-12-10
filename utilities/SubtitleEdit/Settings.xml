@@ -1101,7 +1101,7 @@ $HorzAlign          =   Center
     <LastImageCompareFolder>Latin+Latin</LastImageCompareFolder>
     <LastModiLanguageId>9</LastModiLanguageId>
     <LastOcrMethod>Tesseract4</LastOcrMethod>
-    <TesseractLastLanguage>nor</TesseractLastLanguage>
+    <TesseractLastLanguage>eng</TesseractLastLanguage>
     <UseTesseractFallback>False</UseTesseractFallback>
     <UseItalicsInTesseract>True</UseItalicsInTesseract>
     <TesseractEngineMode>3</TesseractEngineMode>

@@ -35,7 +35,6 @@ def convert_path(win_path):
 def process_file(file_path, output_folder):
 
     mkv_auto_folder_path = '/media/philip/nvme/mkv-auto/'
-    ready_for_nvenc_folder_path = '/media/share/mkv-auto-queue/nvenc_queue/'
     ready_for_final_processing_path = '/media/share/mkv-auto-queue/files/'
 
     lock_file_path = file_path + '.lock'
@@ -79,10 +78,14 @@ def process_file(file_path, output_folder):
             os.remove(lock_file_path) # Remove the lock file
             return
 
-    # If tag is 'NVEnc', copy files to queue path
-    elif tag == 'NVEnc':
-        command = ["cp", "-r", linux_folder_path,
-                            ready_for_nvenc_folder_path]
+    # If tag contains 'NVEnc', copy files to queue path
+    elif "NVEnc" in tag:
+        if tag == 'NVEnc18':
+            ready_for_nvenc_folder_path = '/media/share/mkv-auto-queue/nvenc_queue/quality_18'
+        elif tag == 'NVEnc30':
+            ready_for_nvenc_folder_path = '/media/share/mkv-auto-queue/nvenc_queue/quality_30'
+        
+        command = ["cp", "-r", linux_folder_path, ready_for_nvenc_folder_path]
 
         # Execute the command
         try:
