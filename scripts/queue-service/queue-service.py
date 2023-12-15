@@ -80,9 +80,9 @@ def process_file(file_path, output_folder):
 
     # If tag contains 'NVEnc', copy files to queue path
     elif "NVEnc" in tag:
-        if tag == 'NVEnc18':
+        if 'NVEnc18' in tag:
             ready_for_nvenc_folder_path = '/media/share/mkv-auto-queue/nvenc_queue/quality_18'
-        elif tag == 'NVEnc30':
+        elif 'NVEnc30' in tag:
             ready_for_nvenc_folder_path = '/media/share/mkv-auto-queue/nvenc_queue/quality_30'
         
         command = ["cp", "-r", linux_folder_path, ready_for_nvenc_folder_path]
