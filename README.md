@@ -25,16 +25,16 @@ Note: `defaults.ini` contains the default options set for this utility. If you w
 
 Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the process of unpacking and repacking mkv files benefits greatly from high read/write performance. Alternatively, point the `TEMP_DIR` variable (from `user.ini`) to a fast storage medium.
 
-1. Place the mkv files inside the `input/` folder (files inside folders are also supported). Alternatively, a custom input folder can be specified using `--input_folder` option. The utility will then copy all the files to `<mkv-auto folder>/.tmp/` unless another `TEMP_DIR` is specified. 
+1. Place the mkv files inside the `input/` folder (files inside folders are also supported). Alternatively, a custom input folder can be specified using `--input_folder` option. Enclosing the directories in double quotes (`--input_folder "folder/input media"`) is recommended to prevent any parsing errors. The utility will then copy all the files to `<mkv-auto folder>/.tmp/` unless a custom `TEMP_DIR` is specified. 
 2. Activate the Python virtual environment using `source venv/bin/activate`
-3. Run the utility using `python3 mkv-auto.py` (this will pull the files from `input/` and place them in `output/`). To use other input and output folders, use the `--input_folder` and `--output_folder` options. Enclosing the directories in double quotes (`--input_folder "folder/input media"`) is recommended to prevent any parsing errors. 
+3. Run the utility using `python3 mkv-auto.py`
 4. Processed files can then be found in the output folder, categorized as either a movie (`output/Movies/movie.mkv`) or TV Show (`output/TV Shows/tv show name/tv.show.name.S01E01.mkv`).
 5. To exit the Python virtual environment, run `deactivate` in the terminal.
 
 ## Docker
 To run this utility using Docker, a Docker image first need to be built from the repository root folder (`mkv-auto/`) using:
 
-````commandline
+````bash
 sudo docker build -t mkv-auto .  
 ````
 
@@ -56,9 +56,9 @@ Make sure you know the full path of your "mkv-auto-docker" folder (this can be f
 This needs to be passed to the Docker Engine for volume mounting the folder inside the Docker container to your host system (`<host system folder>:/mkv-auto/files`).
 To start the utility using a Docker container, run the following command:
 
-````commandline
+```bash
 sudo docker run --rm --name mkv-auto -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
-````
+```
 
 Note: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
 If you want to specify a custom output folder, you simply add `--docker --output_folder "/mnt/x/custom_folder"` to the command to pass the arguments properly.
