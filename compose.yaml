@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  mkv-auto:
+    image: ${IMAGE_NAME}
+    container_name: mkv-auto
+    volumes:
+      - "$HOST_FOLDER:/mkv-auto/files"
+    command: ["--service"]

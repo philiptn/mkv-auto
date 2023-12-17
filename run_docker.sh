@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# Defaults
+IMAGE_NAME="mkv-auto"
+HOST_FOLDER="/home/$USER/mkv-auto-docker"
+
+# Source .env if it exists and override defaults
+if [[ -f .env ]]; then
+    source .env
+fi
+
 # Check if the user is root or not
 if [[ $EUID -ne 0 ]]; then
     # If not root, prefix commands with sudo
@@ -8,23 +17,11 @@ else
     SUDO=''
 fi
 
+# Invoke sudo
+$SUDO true
 
-IMAGE_NAME="mkv-auto"
-HOST_FOLDER="/mnt/d/mkv-auto-docker"
-
-
-# Check if the Docker image exists
-if [ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]; then
-    echo "Image not found. Building $IMAGE_NAME..."
-
-    # Build the Docker image
-    $SUDO docker build -t $IMAGE_NAME .
-
-    if [ $? -ne 0 ]; then
-        echo "Failed to build $IMAGE_NAME. Exiting."
-        exit 1
-    fi
-fi
+# Build the Docker image
+$SUDO docker build -t $IMAGE_NAME .
 
 # Run the Docker container
-$SUDO docker run --rm -it -v "$HOST_FOLDER:/mkv-auto/files" mkv-auto --docker
+$SUDO docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --notemp

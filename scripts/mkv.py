@@ -3,6 +3,7 @@ import json
 import os
 from tqdm import tqdm
 from datetime import datetime
+import shutil
 
 
 def get_timestamp():
@@ -61,6 +62,14 @@ def get_mkv_info(filename):
     return parsed_json, pretty_json
 
 
+def get_mkv_video_codec(filename):
+    parsed_json, _ = get_mkv_info(filename)
+    for track in parsed_json['tracks']:
+        if track['type'] == 'video':
+            return track['codec']
+    return None
+
+
 def remove_all_mkv_track_tags(filename):
     command = ['mkvpropedit', filename,
                '--edit', 'track:v1', '--set', 'name=',
@@ -93,7 +102,7 @@ def remove_cc_hidden_in_file(filename):
             pass
     else:
         os.remove(filename)
-        os.rename(temp_filename, filename)
+        shutil.move(temp_filename, filename)
 
 
 
@@ -154,7 +163,7 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
         print("Continuing...")
 
     os.remove(filename)
-    os.rename(temp_filename, filename)
+    shutil.move(temp_filename, filename)
 
 
 def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs):
@@ -208,7 +217,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     if result.returncode != 0:
         raise Exception("Error executing mkvmerge command: " + result.stdout)
     os.remove(filename)
-    os.rename(temp_filename, filename)
+    shutil.move(temp_filename, filename)
 
     print(f"[UTC {get_timestamp()}] [MKVMERGE] Repacking tracks into mkv...")
     command = ["mkvmerge",
@@ -219,7 +228,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         raise Exception("Error executing mkvmerge command: " + result.stdout)
 
     os.remove(filename)
-    os.rename(temp_filename, filename)
+    shutil.move(temp_filename, filename)
 
     # Need to add the .idx file as well to filetypes list for final deletion
     for index, filetype in enumerate(sub_filetypes):
@@ -248,14 +257,15 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary):
                 if key == 'language':
                     track_language = value
             if track_language in pref_audio_langs:
-                audio_track_ids.append(track["id"])
-                audio_track_languages.append(track_language)
-                # Removes commentary track if main track(s) is already added, and if pref is set to true
-                if remove_commentary and "commentary" in track_name.lower() \
-                        and track_language in audio_track_languages:
-                    audio_track_ids.remove(track["id"])
-                else:
-                    default_audio_track = track["id"]
+                if audio_track_languages.count(track_language) == 0:
+                    audio_track_ids.append(track["id"])
+                    audio_track_languages.append(track_language)
+                    # Removes commentary track if main track(s) is already added, and if pref is set to true
+                    if remove_commentary and "commentary" in track_name.lower() \
+                            and track_language in audio_track_languages:
+                        audio_track_ids.remove(track["id"])
+                    else:
+                        default_audio_track = track["id"]
     audio_track_ids.sort()
     if len(audio_track_ids) != 0 and len(audio_track_ids) < total_audio_tracks:
         needs_processing = True
@@ -267,9 +277,12 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
     subs_track_ids = []
     subs_track_languages = []
     default_subs_track = ''
-    sub_filetypes = []
+    forced_track = ''
+    all_sub_filetypes = []
     selected_sub_filetypes = []
+    sub_filetypes = []
     srt_track_ids = []
+    ass_track_ids = []
     needs_sdh_removal = False
     needs_convert = False
     needs_processing = False
@@ -290,7 +303,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
             if track_language in pref_subs_langs:
                 needs_processing = True
                 needs_sdh_removal = True
-
+                
                 if subs_track_languages.count(track_language) == 0 and forced_track != True:
                     selected_sub_filetypes.append(track["codec"])
                     subs_track_ids.append(track["id"])
@@ -307,14 +320,13 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                     elif track["codec"] == "SubRip/SRT":
                         sub_filetypes.append('srt')
                         srt_track_ids.append(track["id"])
-                        needs_convert = False
                     elif track["codec"] == "SubStationAlpha":
                         sub_filetypes.append('ass')
+                        ass_track_ids.append(track["id"])
                         needs_convert = True
                         needs_processing = True
                 else:
-                    if track["codec"] != "SubRip/SRT" and subs_track_languages.count(track_language) == 1:
-
+                    if (track["codec"] != "SubRip/SRT" or track["codec"] != "SubStationAlpha") and subs_track_languages.count(track_language) == 1:
                         if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0:
                             sub_filetypes.append('sup')
                             selected_sub_filetypes.append(track["codec"])
@@ -329,19 +341,16 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                             subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "SubStationAlpha" and sub_filetypes.count("ass") == 0:
-                            sub_filetypes.append('ass')
-                            selected_sub_filetypes.append(track["codec"])
-                            subs_track_ids.append(track["id"])
-                            subs_track_languages.append(track_language)
-                            needs_convert = True
-                            needs_processing = True
                         
                         if 'srt' in sub_filetypes:
                             sub_filetypes.remove('srt')
 
+                        if 'ass' in sub_filetypes:
+                            sub_filetypes.remove('ass')
+
                         subs_tracks_ids_no_srt = [x for x in subs_track_ids if x not in srt_track_ids]
-                        subs_track_ids = subs_tracks_ids_no_srt
+                        subs_tracks_ids_no_ass = [x for x in subs_tracks_ids_no_srt if x not in ass_track_ids]
+                        subs_track_ids = subs_tracks_ids_no_ass
 
     # Sets the default subtitle track to first entry in preferences,
     # reverts to any entry if not first

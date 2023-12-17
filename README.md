@@ -38,7 +38,8 @@ To run this utility using Docker, a Docker image first need to be built from the
 sudo docker build -t mkv-auto .  
 ````
 
-Next, create a separate folder on your host system for where you like the files to be read/processed from, such as "mkv-auto-docker".
+Next, create a separate folder on your host system for where you like the files to be read/processed from, such as "mkv-auto-docker"
+**(NOTE: This folder cannot be a subdirectory of the main repository folder)**.  
 In here you need to make two sub-folders: `input/` and `output/`. Within the `mkv-auto-docker/`folder you can also place the `user.ini` file for easy customization of your preferences.
 Make sure that this location has sufficient storage space for processing both the input, output and TEMP files. If storage space is scarce, consider using the `--notemp` option (files from `input/` will be processed directly and moved to the `output/` folder without keeping the original). 
 
@@ -55,14 +56,15 @@ Make sure you know the full path of your "mkv-auto-docker" folder (this can be f
 This needs to be passed to the Docker Engine for volume mounting the folder inside the Docker container to your host system (`<host system folder>:/mkv-auto/files`).
 To start the utility using a Docker container, run the following command:
 
-````bash
-sudo docker run --rm -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
-````
+```bash
+sudo docker run --rm --name mkv-auto -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
+```
 
 Note: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
 If you want to specify a custom output folder, you simply add `--docker --output_folder "/mnt/x/custom_folder"` to the command to pass the arguments properly.
 
-If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `$HOST_FOLDER` variable to the proper location.
+If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `HOST_FOLDER` variable in your `.env` file to the proper location. The `.env` file can be created using the `.env_example` as reference.
+
 
 ## CLI
 ### mkv-auto
@@ -83,12 +85,12 @@ options:
   --docker              use docker-specific default directories from 'files/' (default: False)
 ```
 
-### mkv-auto-service
+### queue-service
 
 ```
-usage: mkv-auto-service.py [-h] [--file_path FILE_PATH] [--output_folder OUTPUT_FOLDER]
+usage: queue-service.py [-h] [--file_path FILE_PATH] [--output_folder OUTPUT_FOLDER]
 
-A service for mkv-auto that can parse input folder paths from a text file
+A service for mkv-auto that can parse input folder paths from a queue text file
 
 options:
   -h, --help            show this help message and exit
