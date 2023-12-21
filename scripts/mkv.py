@@ -326,7 +326,7 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
                         needs_convert = True
                         needs_processing = True
                 else:
-                    if (track["codec"] != "SubRip/SRT" or track["codec"] != "SubStationAlpha") and subs_track_languages.count(track_language) == 1:
+                    if (track["codec"] != "SubRip/SRT" and track["codec"] != "SubStationAlpha") and subs_track_languages.count(track_language) == 1:
                         if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0:
                             sub_filetypes.append('sup')
                             selected_sub_filetypes.append(track["codec"])
