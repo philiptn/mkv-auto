@@ -74,8 +74,8 @@ def ocr_pgs_subtitles(subtitle_files, languages):
         command = ["pgsrip", "--debug", "--tag", "ocr", "--language",
                    languages[index + replaced_index], file]
 
-        # result = subprocess.run(command, capture_output=True, text=True, env=env)
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True, env=env)
+        #result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception("Error executing pgsrip command: " + result.stdout)
 

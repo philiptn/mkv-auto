@@ -87,7 +87,7 @@ def remove_cc_hidden_in_file(filename):
     temp_filename = new_base + extension
 
     command = ['ffmpeg', '-i', filename, '-codec', 'copy', '-map', '0',
-                '-bsf:v', 'filter_units=remove_types=6', temp_filename]
+                '-map', '-v', '-map', 'V', '-bsf:v', 'filter_units=remove_types=6', temp_filename]
 
     # Remove empty entries
     command = [arg for arg in command if arg]
