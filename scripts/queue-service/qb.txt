@@ -1,1 +1,1 @@
-cmd.exe /c "chcp 65001 && echo '%G','%F'>> Z:\mkv-auto-queue\in_queue.txt"
+PowerShell -Command "$content = '''%G'',''%F'''; $path = 'Z:\mkv-auto-queue\in_queue.txt'; $utf8NoBom = New-Object System.Text.UTF8Encoding $false; $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Append); $writer = New-Object System.IO.StreamWriter $stream, $utf8NoBom; $writer.WriteLine($content); $writer.Close(); $stream.Close()"
