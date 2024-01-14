@@ -36,6 +36,7 @@ others_folder = variables.get('general', 'OTHERS_FOLDER')
 
 # Audio
 pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
+pref_audio_codec = variables.get('audio', 'PREFERRED_AUDIO_CODEC')
 remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
 
 # Subtitles
@@ -290,6 +291,9 @@ def mkv_auto(args):
 				elif file_name.endswith('.mkv'):
 					mkv_files_list.append(file_name)
 					mkv_file_found = False
+					pref_audio_codec_found = False
+					track_ids_to_be_converted = []
+					track_langs_to_be_converted = []
 
 					if not file_name_printed:
 						print(f"[INFO] Processing file {file_index} of {total_files}:\n")
@@ -306,7 +310,7 @@ def mkv_auto(args):
 					mkv_video_codec = get_mkv_video_codec(input_file)
 
 					wanted_audio_tracks, \
-						default_audio_track, needs_processing_audio = get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary)
+						default_audio_track, needs_processing_audio, pref_audio_codec_found, track_ids_to_be_converted, track_langs_to_be_converted = get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
 					wanted_subs_tracks, default_subs_track, \
 						needs_sdh_removal, needs_convert, a, b, needs_processing_subs = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
 
@@ -315,6 +319,12 @@ def mkv_auto(args):
 											wanted_subs_tracks, default_subs_track, always_enable_subs)
 					else:
 						print(f"[UTC {get_timestamp()}] [MKVMERGE] No track filtering needed.")
+
+					if not pref_audio_codec_found and pref_audio_codec.lower() != "false":
+						extracted_audio_files, extracted_audio_langs = extract_audio_tracks_in_mkv(input_file, track_ids_to_be_converted, track_langs_to_be_converted)
+						encode_audio_tracks(extracted_audio_files, extracted_audio_langs, pref_audio_codec)
+						exit(0)
+					exit(0)
 
 					if needs_processing_subs:
 						subtitle_files = []

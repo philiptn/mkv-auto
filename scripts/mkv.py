@@ -239,25 +239,45 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         os.remove(f"{base}.{final_sub_languages[index][:-1]}.{filetype}")
 
 
-def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary):
+def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
     audio_track_ids = []
     audio_track_languages = []
+
+    pref_audio_track_ids = []
+    pref_audio_track_languages = []
+
+    tracks_ids_to_be_converted = []
+    tracks_langs_to_be_converted = []
+
     default_audio_track = ''
     total_audio_tracks = 0
     needs_processing = False
+    pref_audio_codec_found = False
 
     for track in file_info["tracks"]:
         if track["type"] == "audio":
             total_audio_tracks += 1
             track_name = ''
             track_language = ''
+            audio_codec = ''
             for key, value in track["properties"].items():
                 if key == 'track_name':
                     track_name = value
                 if key == 'language':
                     track_language = value
+                if key == 'codec_id':
+                    audio_codec = value
             if track_language in pref_audio_langs:
-                if audio_track_languages.count(track_language) == 0:
+                if pref_audio_track_languages.count(track_language) == 0 and pref_audio_codec in audio_codec.upper():
+                    pref_audio_track_ids.append(track["id"])
+                    pref_audio_track_languages.append(track_language)
+                    # Removes commentary track if main track(s) is already added, and if pref is set to true
+                    if remove_commentary and "commentary" in track_name.lower() \
+                            and track_language in audio_track_languages:
+                        audio_track_ids.remove(track["id"])
+                    else:
+                        default_audio_track = track["id"]
+                elif audio_track_languages.count(track_language) == 0 and pref_audio_codec not in audio_codec.upper():
                     audio_track_ids.append(track["id"])
                     audio_track_languages.append(track_language)
                     # Removes commentary track if main track(s) is already added, and if pref is set to true
@@ -266,10 +286,24 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary):
                         audio_track_ids.remove(track["id"])
                     else:
                         default_audio_track = track["id"]
+                # If there exists the preferred audio codec, use that list.
+                # If the preferred audio codec is not present, use general list instead
+                if len(pref_audio_track_ids) != 0:
+                    audio_track_ids = pref_audio_track_ids
+                    audio_track_languages = pref_audio_track_languages
+
     audio_track_ids.sort()
+    pref_audio_track_ids.sort()
+
     if len(audio_track_ids) != 0 and len(audio_track_ids) < total_audio_tracks:
         needs_processing = True
-    return audio_track_ids, default_audio_track, needs_processing
+
+    if len(pref_audio_track_ids) != 0:
+        pref_audio_codec_found = True
+    else:
+        tracks_ids_to_be_converted = audio_track_ids
+        tracks_langs_to_be_converted = audio_track_languages
+    return audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found, tracks_ids_to_be_converted, tracks_langs_to_be_converted
 
 
 def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
@@ -394,3 +428,54 @@ def extract_subs_in_mkv(filename, track_numbers, output_filetypes, subs_language
         subtitle_files.append(subtitle_filename)
 
     return subtitle_files
+
+
+def extract_audio_tracks_in_mkv(filename, track_numbers, audio_languages):
+    if not track_numbers:
+        print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Error: No track numbers passed.")
+        return
+    print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Preferred audio codec not found. Extracting audio...")
+    audio_files = []
+    base, _, _ = filename.rpartition('.')
+
+    for index, track in enumerate(track_numbers):
+        audio_filename = f"{base}.{audio_languages[index]}.mkv"
+        command = ["mkvextract", filename, "tracks", f"{track}:{audio_filename}"]
+
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception("Error executing mkvextract command: " + result.stdout)
+        audio_files.append(audio_filename)
+
+    return audio_files, audio_languages
+
+def encode_audio_tracks(audio_files, languages, output_codec):
+    if not audio_files:
+        return
+    if len(audio_files) > 1:
+        track_str = "tracks"
+    else:
+        track_str = "track"
+    print(f"[UTC {get_timestamp()}] [FFMPEG] Generating {output_codec.upper()} audio {track_str}...")
+
+    custom_ffmpeg = '/.mkv-auto/ffmpeg-3.1.11/ffmpeg-3.1.11/ffmpeg'
+    output_audio_files = []
+    ffmpeg_audio_codec = ''
+
+    if output_codec.upper() == "DTS":
+        ffmpeg_audio_codec = "dca"
+    else:
+        ffmpeg_audio_codec = output_codec.lower()
+
+    for index, file in enumerate(audio_files):
+        base, _, extension = file.rpartition('.')
+
+        command = [custom_ffmpeg, "-i", file, "-strict", "-2", f"{base}.{output_codec.lower()}"]
+        #command = ["ls", "-la", "~/"]
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception("Error executing ffmpeg command: " + result.stderr)
+
+        output_audio_files.append(f"{base}.{output_codec.lower()}")
+
+    return output_audio_files

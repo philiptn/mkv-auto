@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+START_DIR=$(pwd)
+
 # Check if the user is root or not
 if [[ $EUID -ne 0 ]]; then
     # If not root, prefix commands with sudo
@@ -10,6 +12,19 @@ fi
 
 # Updating apt
 $SUDO apt-get update
+
+# Download old ffmpeg version containing DTS encoder (dca) and compile it
+$SUDO apt-get install wget build-essential yasm -y
+$SUDO mkdir -p /.mkv-auto/ffmpeg-3.1.11
+cd /.mkv-auto/ffmpeg-3.1.11
+$SUDO wget https://ffmpeg.org/releases/ffmpeg-3.1.11.tar.gz
+$SUDO tar -xzf ffmpeg-3.1.11.tar.gz
+cd ffmpeg-3.1.11
+$SUDO ./configure
+# Compile ffmpeg (this may take a while)
+$SUDO make 2>/dev/null
+# Return to the starting directory
+cd "$START_DIR"
 
 # Installing python3.10
 $SUDO apt-get install python3.10 -y
