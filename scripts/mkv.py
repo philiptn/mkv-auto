@@ -276,7 +276,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     print(f"[UTC {get_timestamp()}] [MKVMERGE] Repacking tracks into mkv...")
     if audio_filetypes:
         command = ["mkvmerge",
-                   "--output", temp_filename, filename] + sub_files_list + audio_files_list
+                   "--output", temp_filename, filename] + audio_files_list + sub_files_list
     else:
         command = ["mkvmerge",
                    "--output", temp_filename, filename] + sub_files_list
