@@ -91,7 +91,7 @@ def convert_ass_to_srt(subtitle_files, languages):
 
 def resync_srt_subs_ai(input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[UTC {get_timestamp()}] [SRT] Synchronizing subtitles to audio track (ai)...")
+        print(f"[UTC {get_timestamp()}] [AUTOSUBSYNC] Synchronizing subtitles to audio track (ai)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')
@@ -107,7 +107,7 @@ def resync_srt_subs_ai(input_file, subtitle_files, quiet):
 
 def resync_srt_subs_fast(input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[UTC {get_timestamp()}] [SRT] Synchronizing subtitles to audio track (fast)...")
+        print(f"[UTC {get_timestamp()}] [FFSUBSYNC] Synchronizing subtitles to audio track (fast)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')

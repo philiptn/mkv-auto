@@ -3,12 +3,12 @@ A utility made in Python that aims to automatically remove any unwanted audio or
 
 ### Features
 - Removes any audio or subtitle tracks in video file that does not match user preferences
-- Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using Tesseract OCR
-- Converts Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT for maximizing compatibility
-- Removes SDH (such as `[GUNSHOTS]` or `[LAUGHING]`) from SRT subtitles
+- Generates audio tracks in preferred codec (DTS, AC3 etc.) if not already present in the media using ffmpeg
+- Converts any picture-based subtitles (BluRay/DVD) or Advanced SubStation Alpha (ASS/SSA) subtitles to SupRip (SRT) using Tesseract OCR or other Python libraries
+- Removes SDH (such as `[GUNSHOTS]` or `[DOG BARKING]`) from SRT subtitles
 - Resyncs subtitles to properly match the speech in audio using language-agnostic automatic synchronization (fast) or AI & machine learning (ai)
 - Unpacks any `.rar` or `.zip` archives and converts `.mp4` or `.avi` files to MKV before processing the media
-- Remove hidden CC (Closed Captions) from the video stream portion of the MKV container using ffmpeg 
+- Remove any hidden Closed Captions (CC) from the video stream using ffmpeg 
 - Automatically categorize the media content type (TV Show/Movie) based on info in filename
 
 ## Prerequisites

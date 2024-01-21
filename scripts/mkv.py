@@ -82,6 +82,7 @@ def remove_all_mkv_track_tags(filename):
 
 
 def remove_cc_hidden_in_file(filename):
+    print(f"[UTC {get_timestamp()}] [FFMPEG] Removing any hidden Closed Captions (CC) in the video stream...")
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
     temp_filename = new_base + extension
@@ -166,35 +167,81 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
     shutil.move(temp_filename, filename)
 
 
-def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs):
+def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs, audio_filetypes, audio_languages, pref_audio_langs):
     sub_files_list = []
     final_sub_languages = sub_languages
+    audio_files_list = []
+    final_audio_languages = audio_languages
+
+    # If the first preferred language is found in the audio languages,
+    # reorder the list to place the preferred language first
+    if audio_languages:
+        # Function to get the priority of each language
+        def get_priority(lang):
+            try:
+                return pref_audio_langs.index(lang)
+            except ValueError:
+                return len(pref_audio_langs)
+
+        # Zip the audio_languages and audio_filetypes together, sort them, and unzip them
+        paired = zip(audio_languages, audio_filetypes)
+        sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
+        sorted_audio_languages, sorted_audio_filetypes = zip(*sorted_paired)
+
+        # Convert tuples back to lists if necessary
+        final_audio_languages = list(sorted_audio_languages)
+        audio_filetypes = list(sorted_audio_filetypes)
+
+    # Initialize first_pref_audio_index to -1 (indicating no match found yet)
+    first_pref_audio_index = -1
+    # Iterate through pref_audio_langs to find the first matching language in audio_languages
+    for i, lang in enumerate(pref_audio_langs):
+        if lang in final_audio_languages:
+            first_pref_audio_index = i
+            break
 
     # If the first preferred language is found in the sub languages,
-    # reorder the list to place the preferred language first, as long as
-    # the list is even with different sub file types
-    unique_elements = set(sub_filetypes)
-    even_unique = all(sub_filetypes.count(element) % 2 == 0 for element in unique_elements)
-    if even_unique:
-        if pref_subs_langs[0] in sub_languages:
-            pattern = []
-            for lang in sub_languages:
-                if lang not in pattern:
-                    pattern.append(lang)
-            # Reorder the pattern so the preferred language is first
-            while pattern[0] != pref_subs_langs[0]:
-                pattern.append(pattern.pop(0))
-            # Repeat the pattern for the length of the languages list
-            pattern *= len(sub_languages) // len(pattern)
-            # Truncate to the length of the languages list
-            final_sub_languages = pattern[:len(sub_languages)]
+    # reorder the list to place the preferred language first
+    if sub_languages:
+        # Function to get the priority of each language
+        def get_priority(lang):
+            try:
+                return pref_subs_langs.index(lang)
+            except ValueError:
+                return len(pref_subs_langs)
+
+        # Zip the subs_languages and subs_filetypes together, sort them, and unzip them
+        paired = zip(sub_languages, sub_filetypes)
+        sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
+        sorted_sub_languages, sorted_sub_filetypes = zip(*sorted_paired)
+
+        # Convert tuples back to lists if necessary
+        final_sub_languages = list(sorted_sub_languages)
+        sub_filetypes = list(sorted_sub_filetypes)
+
 
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
     temp_filename = new_base + extension
+
     default_locked = False
     default_track_str = []
 
+    for index, filetype in enumerate(audio_filetypes):
+        if not default_locked:
+            if final_audio_languages[index] == pref_audio_langs[first_pref_audio_index]:
+                default_track_str = "0:yes"
+                default_locked = True
+            else:
+                default_track_str = "0:no"
+        else:
+            default_track_str = "0:no"
+        langs_str = f"0:{final_audio_languages[index]}"
+        filelist_str = f"{base}.{final_audio_languages[index][:-1]}.{filetype}"
+        audio_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
+
+    default_locked = False
+    default_track_str = []
     for index, filetype in enumerate(sub_filetypes):
         # mkvmerge does not support the .sub file as input,
         # and requires the .idx specified instead
@@ -210,9 +257,15 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         filelist_str = f"{base}.{final_sub_languages[index][:-1]}.{filetype}"
         sub_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
-    # Remove all subtitle tracks first
-    print(f"[UTC {get_timestamp()}] [MKVMERGE] Removing existing subtitles in mkv...")
-    command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", filename]
+    if audio_filetypes:
+        # Remove all subtitle and audio tracks
+        print(f"[UTC {get_timestamp()}] [MKVMERGE] Removing existing subtitles and audio in mkv...")
+        command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", "--no-audio", filename]
+    else:
+        # Remove all subtitle tracks
+        print(f"[UTC {get_timestamp()}] [MKVMERGE] Removing existing subtitles in mkv...")
+        command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", filename]
+
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         raise Exception("Error executing mkvmerge command: " + result.stdout)
@@ -220,8 +273,12 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     shutil.move(temp_filename, filename)
 
     print(f"[UTC {get_timestamp()}] [MKVMERGE] Repacking tracks into mkv...")
-    command = ["mkvmerge",
-               "--output", temp_filename, filename] + sub_files_list
+    if audio_filetypes:
+        command = ["mkvmerge",
+                   "--output", temp_filename, filename] + sub_files_list + audio_files_list
+    else:
+        command = ["mkvmerge",
+                   "--output", temp_filename, filename] + sub_files_list
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -230,13 +287,17 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     os.remove(filename)
     shutil.move(temp_filename, filename)
 
-    # Need to add the .idx file as well to filetypes list for final deletion
-    for index, filetype in enumerate(sub_filetypes):
-        if filetype == "sub":
-            sub_filetypes.append('idx')
-            final_sub_languages.append(final_sub_languages[index])
-    for index, filetype in enumerate(sub_filetypes):
-        os.remove(f"{base}.{final_sub_languages[index][:-1]}.{filetype}")
+    if audio_filetypes:
+        for index, filetype in enumerate(audio_filetypes):
+            os.remove(f"{base}.{final_audio_languages[index][:-1]}.{filetype}")
+    if sub_filetypes:
+        # Need to add the .idx file as well to filetypes list for final deletion
+        for index, filetype in enumerate(sub_filetypes):
+            if filetype == "sub":
+                sub_filetypes.append('idx')
+                final_sub_languages.append(final_sub_languages[index])
+        for index, filetype in enumerate(sub_filetypes):
+            os.remove(f"{base}.{final_sub_languages[index][:-1]}.{filetype}")
 
 
 def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
@@ -245,11 +306,15 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
 
     pref_audio_track_ids = []
     pref_audio_track_languages = []
+    audio_track_codecs = []
 
     tracks_ids_to_be_converted = []
     tracks_langs_to_be_converted = []
+    other_tracks_ids = []
+    other_tracks_langs = []
 
     default_audio_track = ''
+    pref_default_audio_track = ''
     total_audio_tracks = 0
     needs_processing = False
     pref_audio_codec_found = False
@@ -271,39 +336,59 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
                 if pref_audio_track_languages.count(track_language) == 0 and pref_audio_codec in audio_codec.upper():
                     pref_audio_track_ids.append(track["id"])
                     pref_audio_track_languages.append(track_language)
+                    audio_track_codecs.append(audio_codec.upper())
                     # Removes commentary track if main track(s) is already added, and if pref is set to true
                     if remove_commentary and "commentary" in track_name.lower() \
                             and track_language in audio_track_languages:
-                        audio_track_ids.remove(track["id"])
+                        pref_audio_track_ids.remove(track["id"])
+                        pref_audio_track_languages.remove(track_language)
                     else:
-                        default_audio_track = track["id"]
+                        pref_default_audio_track = track["id"]
                 elif audio_track_languages.count(track_language) == 0 and pref_audio_codec not in audio_codec.upper():
                     audio_track_ids.append(track["id"])
                     audio_track_languages.append(track_language)
+                    audio_track_codecs.append(audio_codec.upper())
                     # Removes commentary track if main track(s) is already added, and if pref is set to true
                     if remove_commentary and "commentary" in track_name.lower() \
                             and track_language in audio_track_languages:
                         audio_track_ids.remove(track["id"])
+                        audio_track_languages.remove(track_language)
                     else:
                         default_audio_track = track["id"]
                 # If there exists the preferred audio codec, use that list.
                 # If the preferred audio codec is not present, use general list instead
-                if len(pref_audio_track_ids) != 0:
-                    audio_track_ids = pref_audio_track_ids
-                    audio_track_languages = pref_audio_track_languages
+                #if len(pref_audio_track_ids) != 0:
+                #    audio_track_ids = pref_audio_track_ids
+                #    audio_track_languages = pref_audio_track_languages
 
     audio_track_ids.sort()
     pref_audio_track_ids.sort()
 
+    all_audio_track_ids = audio_track_ids + pref_audio_track_ids
+    all_audio_track_ids.sort()
+    all_audio_track_langs = audio_track_languages + pref_audio_track_languages
+    all_audio_track_langs.sort()
+
     if len(audio_track_ids) != 0 and len(audio_track_ids) < total_audio_tracks:
         needs_processing = True
 
-    if len(pref_audio_track_ids) != 0:
+    # If the preferred audio codec is in all of the matching tracks, or with unique langs, then it is fully found
+    if all(pref_audio_codec in item for item in audio_track_codecs):
         pref_audio_codec_found = True
+        all_audio_track_ids = pref_audio_track_ids
+        default_audio_track = pref_default_audio_track
+    elif any(pref_audio_codec in codec for codec in audio_track_codecs) and all(pref_audio_track_languages[0] in item for item in all_audio_track_langs):
+        pref_audio_codec_found = True
+        all_audio_track_ids = pref_audio_track_ids
+        default_audio_track = pref_default_audio_track
     else:
         tracks_ids_to_be_converted = audio_track_ids
         tracks_langs_to_be_converted = audio_track_languages
-    return audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found, tracks_ids_to_be_converted, tracks_langs_to_be_converted
+        other_tracks_ids = pref_audio_track_ids
+        other_tracks_langs = pref_audio_track_languages
+
+    return all_audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found, \
+        tracks_ids_to_be_converted, tracks_langs_to_be_converted, other_tracks_ids, other_tracks_langs
 
 
 def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
@@ -434,12 +519,11 @@ def extract_audio_tracks_in_mkv(filename, track_numbers, audio_languages):
     if not track_numbers:
         print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Error: No track numbers passed.")
         return
-    print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Preferred audio codec not found. Extracting audio...")
     audio_files = []
     base, _, _ = filename.rpartition('.')
 
     for index, track in enumerate(track_numbers):
-        audio_filename = f"{base}.{audio_languages[index]}.mkv"
+        audio_filename = f"{base}.{audio_languages[index][:-1]}.mkv"
         command = ["mkvextract", filename, "tracks", f"{track}:{audio_filename}"]
 
         result = subprocess.run(command, capture_output=True, text=True)
@@ -449,7 +533,7 @@ def extract_audio_tracks_in_mkv(filename, track_numbers, audio_languages):
 
     return audio_files, audio_languages
 
-def encode_audio_tracks(audio_files, languages, output_codec):
+def encode_audio_tracks(audio_files, languages, output_codec, other_files, other_langs):
     if not audio_files:
         return
     if len(audio_files) > 1:
@@ -459,23 +543,35 @@ def encode_audio_tracks(audio_files, languages, output_codec):
     print(f"[UTC {get_timestamp()}] [FFMPEG] Generating {output_codec.upper()} audio {track_str}...")
 
     custom_ffmpeg = '/.mkv-auto/ffmpeg-3.1.11/ffmpeg-3.1.11/ffmpeg'
-    output_audio_files = []
-    ffmpeg_audio_codec = ''
-
-    if output_codec.upper() == "DTS":
-        ffmpeg_audio_codec = "dca"
-    else:
-        ffmpeg_audio_codec = output_codec.lower()
+    output_audio_files_extensions = []
+    output_audio_langs = []
+    other_output_audio_files_extensions = []
+    other_output_audio_langs = []
 
     for index, file in enumerate(audio_files):
-        base, _, extension = file.rpartition('.')
+        base_and_lang, _, extension = file.rpartition('.')
+        base, _, lang = base_and_lang.rpartition('.')
 
-        command = [custom_ffmpeg, "-i", file, "-strict", "-2", f"{base}.{output_codec.lower()}"]
-        #command = ["ls", "-la", "~/"]
+        output_audio_files_extensions.append(extension)
+        output_audio_langs.append(languages[index])
+
+        command = [custom_ffmpeg, "-i", file, "-strict", "-2", f"{base}.{lang}.{output_codec.lower()}"]
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception("Error executing ffmpeg command: " + result.stderr)
 
-        output_audio_files.append(f"{base}.{output_codec.lower()}")
+        output_audio_files_extensions.append(f"{output_codec.lower()}")
+        output_audio_langs.append(f"{languages[index]}")
 
-    return output_audio_files
+    # Adding the other files to return list
+    for index, file in enumerate(other_files):
+        base_and_lang, _, extension = file.rpartition('.')
+        other_output_audio_files_extensions.append(extension)
+        other_output_audio_langs.append(other_langs[index])
+
+    output_audio_files_extensions = output_audio_files_extensions + other_output_audio_files_extensions
+    output_audio_langs =  output_audio_langs + other_output_audio_langs
+    output_audio_files_extensions.sort()
+    output_audio_langs.sort()
+
+    return output_audio_files_extensions, output_audio_langs
