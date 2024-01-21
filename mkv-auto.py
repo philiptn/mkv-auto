@@ -540,7 +540,13 @@ def mkv_auto(args):
 	else:
 		if os.path.exists('.last_processed_mkv.txt'):
 			os.remove('.last_processed_mkv.txt')
-		print(f"[INFO] During processing {len(errored_file_names)} errors occured in files:")
+		if len(errored_file_names) > 1:
+			error_str = 'errors'
+			files_str = 'files'
+		else:
+			error_str = 'error'
+			files_str = 'file'
+		print(f"[INFO] During processing {len(errored_file_names)} {error_str} occurred in {files_str}:")
 		for file in errored_file_names:
 			print(f"'{file}'")
 		print('')

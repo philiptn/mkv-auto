@@ -82,7 +82,7 @@ def remove_all_mkv_track_tags(filename):
 
 
 def remove_cc_hidden_in_file(filename):
-    print(f"[UTC {get_timestamp()}] [FFMPEG] Removing any hidden Closed Captions (CC) in the video stream...")
+    print(f"[UTC {get_timestamp()}] [FFMPEG] Removing any hidden CC in the video stream...")
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
     temp_filename = new_base + extension
@@ -172,6 +172,8 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     final_sub_languages = sub_languages
     audio_files_list = []
     final_audio_languages = audio_languages
+    final_audio_filetypes = []
+    final_sub_filetypes = []
 
     # If the first preferred language is found in the audio languages,
     # reorder the list to place the preferred language first
@@ -190,7 +192,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 
         # Convert tuples back to lists if necessary
         final_audio_languages = list(sorted_audio_languages)
-        audio_filetypes = list(sorted_audio_filetypes)
+        final_audio_filetypes = list(sorted_audio_filetypes)
 
     # Initialize first_pref_audio_index to -1 (indicating no match found yet)
     first_pref_audio_index = -1
@@ -217,8 +219,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 
         # Convert tuples back to lists if necessary
         final_sub_languages = list(sorted_sub_languages)
-        sub_filetypes = list(sorted_sub_filetypes)
-
+        final_sub_filetypes = list(sorted_sub_filetypes)
 
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
@@ -227,7 +228,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     default_locked = False
     default_track_str = []
 
-    for index, filetype in enumerate(audio_filetypes):
+    for index, filetype in enumerate(final_audio_filetypes):
         if not default_locked:
             if final_audio_languages[index] == pref_audio_langs[first_pref_audio_index]:
                 default_track_str = "0:yes"
@@ -242,7 +243,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 
     default_locked = False
     default_track_str = []
-    for index, filetype in enumerate(sub_filetypes):
+    for index, filetype in enumerate(final_sub_filetypes):
         # mkvmerge does not support the .sub file as input,
         # and requires the .idx specified instead
         if filetype == "sub":
@@ -288,15 +289,15 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
     shutil.move(temp_filename, filename)
 
     if audio_filetypes:
-        for index, filetype in enumerate(audio_filetypes):
+        for index, filetype in enumerate(final_audio_filetypes):
             os.remove(f"{base}.{final_audio_languages[index][:-1]}.{filetype}")
     if sub_filetypes:
         # Need to add the .idx file as well to filetypes list for final deletion
-        for index, filetype in enumerate(sub_filetypes):
+        for index, filetype in enumerate(final_sub_filetypes):
             if filetype == "sub":
-                sub_filetypes.append('idx')
+                final_sub_filetypes.append('idx')
                 final_sub_languages.append(final_sub_languages[index])
-        for index, filetype in enumerate(sub_filetypes):
+        for index, filetype in enumerate(final_sub_filetypes):
             os.remove(f"{base}.{final_sub_languages[index][:-1]}.{filetype}")
 
 
@@ -552,9 +553,6 @@ def encode_audio_tracks(audio_files, languages, output_codec, other_files, other
         base_and_lang, _, extension = file.rpartition('.')
         base, _, lang = base_and_lang.rpartition('.')
 
-        output_audio_files_extensions.append(extension)
-        output_audio_langs.append(languages[index])
-
         command = [custom_ffmpeg, "-i", file, "-strict", "-2", f"{base}.{lang}.{output_codec.lower()}"]
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
@@ -562,6 +560,9 @@ def encode_audio_tracks(audio_files, languages, output_codec, other_files, other
 
         output_audio_files_extensions.append(f"{output_codec.lower()}")
         output_audio_langs.append(f"{languages[index]}")
+        # Adding the original files to the output as well
+        output_audio_files_extensions.append(extension)
+        output_audio_langs.append(languages[index])
 
     # Adding the other files to return list
     for index, file in enumerate(other_files):
@@ -571,7 +572,5 @@ def encode_audio_tracks(audio_files, languages, output_codec, other_files, other
 
     output_audio_files_extensions = output_audio_files_extensions + other_output_audio_files_extensions
     output_audio_langs =  output_audio_langs + other_output_audio_langs
-    output_audio_files_extensions.sort()
-    output_audio_langs.sort()
 
     return output_audio_files_extensions, output_audio_langs
