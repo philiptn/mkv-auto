@@ -365,7 +365,7 @@ def mkv_auto(args):
 
 						# Check if any of the subtitle tracks needs to be converted using OCR
 						if needs_convert:
-							print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Some subtitles need to be converted to SRT, extracting subtitles...")
+							print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Extracting subtitles for OCR...")
 							output_subtitles = []
 							generated_srt_files = []
 

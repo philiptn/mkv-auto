@@ -91,7 +91,7 @@ def ocr_pgs_subtitles(subtitle_files, languages):
 
 
 def ocr_subtitles(subtitle_files, languages):
-    print(f"[UTC {get_timestamp()}] [OCR] Performing OCR on subtitles...")
+    print(f"[UTC {get_timestamp()}] [OCR] Converting picture-based subtitles to SRT...")
 
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'

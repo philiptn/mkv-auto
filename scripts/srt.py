@@ -27,7 +27,7 @@ def clean_invalid_utf8(input_file, output_file):
 
 def remove_sdh(input_files, quiet, remove_music):
     if not quiet:
-        print(f"[UTC {get_timestamp()}] [SRT] Removing SDH in subtitles...")
+        print(f"[UTC {get_timestamp()}] [SUBTITLEFILTER] Removing SDH in SRT subtitles...")
     for index, input_file in enumerate(input_files):
 
         if remove_music:
