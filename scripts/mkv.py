@@ -33,7 +33,7 @@ def convert_all_videos_to_mkv(input_folder, silent):
     video_files = []
     for root, dirs, files in os.walk(input_folder):
         for file in files:
-            if file.endswith(('.mp4', '.avi')):
+            if file.endswith(('.mp4', '.avi', '.m4v', '.webm')):
                 video_files.append(os.path.join(root, file))
 
     total_files = len(video_files)
