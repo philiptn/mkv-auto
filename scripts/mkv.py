@@ -1,6 +1,7 @@
 import subprocess
 import json
 import os
+import re
 from tqdm import tqdm
 from datetime import datetime
 import shutil
@@ -43,8 +44,17 @@ def convert_all_videos_to_mkv(input_folder, silent):
     pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}%', leave=False, disable=silent)
     for i, video_file in enumerate(video_files, start=1):
         pbar.set_description(f'[UTC {get_timestamp()}] [INFO] Converting file {i} of {total_files} to MKV')
-        output_file = os.path.splitext(video_file)[0] + '.mkv'
-        convert_video_to_mkv(video_file, output_file)
+        if video_file.endswith('.mp4'):
+            # If the function returns "True", then there are
+            # tx3g subtitles in the mp4 file that needs to be converted.
+            if convert_mp4_to_mkv_with_subtitles(video_file):
+                output_file = os.path.splitext(video_file)[0] + '.mkv'
+            else:
+                output_file = os.path.splitext(video_file)[0] + '.mkv'
+                convert_video_to_mkv(video_file, output_file)
+        else:
+            output_file = os.path.splitext(video_file)[0] + '.mkv'
+            convert_video_to_mkv(video_file, output_file)
         pbar.update(1)  # Update progress bar by one file
     pbar.close()
 
@@ -79,6 +89,63 @@ def remove_all_mkv_track_tags(filename):
     if result.returncode != 0:
         raise Exception("Error executing mkvpropedit command: " + result.stderr)
 
+
+def convert_mp4_to_mkv_with_subtitles(mp4_file):
+    def clean_srt_file(srt_file):
+        with open(srt_file, 'r', encoding='utf-8') as file:
+            content = file.read()
+
+        cleaned_content = re.sub(r'<[^>]+>', '', content)
+
+        with open(srt_file, 'w', encoding='utf-8') as file:
+            file.write(cleaned_content)
+
+    def get_subtitle_streams(file):
+        cmd = ['ffprobe', '-loglevel', 'error', '-show_streams', file]
+        try:
+            result = subprocess.run(cmd, capture_output=True, check=True)
+            output = result.stdout.decode()
+        except subprocess.CalledProcessError:
+            print(f"Error occurred while running ffprobe on {file}")
+            return None
+
+        pattern = r'\[STREAM\]\nindex=(\d+)\n(?:[^\[]*?)codec_name=mov_text(?:[^\[]*?)\nTAG:language=(\w+)'
+        return re.findall(pattern, output)
+
+    subtitle_streams = get_subtitle_streams(mp4_file)
+    if not subtitle_streams:
+        return False
+
+    srt_files = []
+
+    for index, language in subtitle_streams:
+        srt_file = f"{os.path.splitext(mp4_file)[0]}_{index}.{language}.srt"
+        cmd = ['ffmpeg', '-y', '-i', mp4_file, '-map', f'0:{index}', '-c:s', 'srt', srt_file]
+        try:
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        except subprocess.CalledProcessError:
+            print(f"Error occurred while extracting subtitles from {mp4_file}")
+            return None
+        clean_srt_file(srt_file)
+        srt_files.append((srt_file, language))
+
+    mkv_file = os.path.splitext(mp4_file)[0] + '.mkv'
+
+    mkvmerge_cmd = ['mkvmerge', '-o', mkv_file, mp4_file]
+    for srt_file, language in srt_files:
+        mkvmerge_cmd.extend(['--language', f'0:{language}', srt_file])
+
+    try:
+        subprocess.run(mkvmerge_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    except subprocess.CalledProcessError:
+        print(f"Error occurred while merging files into {mkv_file}")
+        return None
+
+    for srt_file, _ in srt_files:
+        os.remove(srt_file)
+    os.remove(mp4_file)
+
+    return True
 
 
 def remove_cc_hidden_in_file(filename):
