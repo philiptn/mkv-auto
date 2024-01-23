@@ -327,7 +327,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 
     if audio_filetypes:
         # Remove all subtitle and audio tracks
-        print(f"[UTC {get_timestamp()}] [MKVMERGE] Removing existing subtitles and audio in mkv...")
+        print(f"[UTC {get_timestamp()}] [MKVMERGE] Removing existing tracks in mkv...")
         command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", "--no-audio", filename]
     else:
         # Remove all subtitle tracks
@@ -380,16 +380,20 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     tracks_langs_to_be_converted = []
     other_tracks_ids = []
     other_tracks_langs = []
+    first_audio_track = []
 
     default_audio_track = ''
     pref_default_audio_track = ''
     total_audio_tracks = 0
     needs_processing = False
     pref_audio_codec_found = False
+    first_audio_track_found = False
 
     for track in file_info["tracks"]:
         if track["type"] == "audio":
             total_audio_tracks += 1
+            if not first_audio_track_found:
+                first_audio_track.append(track["id"])
             track_name = ''
             track_language = ''
             audio_codec = ''
@@ -454,6 +458,17 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
         tracks_langs_to_be_converted = audio_track_languages
         other_tracks_ids = pref_audio_track_ids
         other_tracks_langs = pref_audio_track_languages
+
+    # If none of the language selections matched, the audio track language in the
+    # video is probably uncategorized. To fix this, assign the first audio track id
+    # as the main track, and set it to "English" as default.
+    if not all_audio_track_langs:
+        all_audio_track_ids = first_audio_track
+        default_audio_track = first_audio_track[0]
+        needs_processing = True
+        pref_audio_codec_found = False
+        tracks_ids_to_be_converted = first_audio_track
+        tracks_langs_to_be_converted = ['eng']
 
     return all_audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found, \
         tracks_ids_to_be_converted, tracks_langs_to_be_converted, other_tracks_ids, other_tracks_langs

@@ -461,19 +461,19 @@ def mkv_auto(args):
 								subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
 																 sub_filetypes, subs_track_languages)
 
-							if needs_sdh_removal and (always_remove_sdh or remove_music):
+							if needs_sdh_removal and (always_remove_sdh or remove_music) and subtitle_files:
 								remove_sdh(subtitle_files, quiet, remove_music)
 
-							if resync_subtitles != 'false':
+							if resync_subtitles != 'false' and subtitle_files:
 								if resync_subtitles == 'fast':
 									resync_srt_subs_fast(input_file, subtitle_files, quiet)
 								elif resync_subtitles == 'ai':
 									resync_srt_subs_ai(input_file, subtitle_files, quiet)
 
-							if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false' or pref_audio_codec_found:
-								if mkv_video_codec != 'MPEG-1/2':
-									remove_cc_hidden_in_file(input_file)
-								repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs, ready_audio_extensions, ready_audio_langs, pref_audio_langs)
+							if mkv_video_codec != 'MPEG-1/2':
+								remove_cc_hidden_in_file(input_file)
+
+							repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs, ready_audio_extensions, ready_audio_langs, pref_audio_langs)
 
 					if needs_processing_subs:
 						remove_all_mkv_track_tags(input_file)
