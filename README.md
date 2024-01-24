@@ -3,7 +3,7 @@ A utility made in Python that aims to automatically remove any unwanted audio or
 
 ### Features
 - Removes any audio or subtitle tracks in video file that does not match user preferences
-- Generates audio tracks in preferred codec (DTS, AC3 etc.) if not already present in the media using ffmpeg
+- Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media using ffmpeg
 - Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using Tesseract OCR
 - Converts Advanced SubStation Alpha (ASS/SSA) and MP4 (tx3g) subtitles to SRT using Python libraries and ffmpeg
 - Removes SDH (such as `[GUNSHOTS]` or `[DOG BARKING]`) from SRT subtitles

@@ -234,13 +234,14 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
     shutil.move(temp_filename, filename)
 
 
-def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs, audio_filetypes, audio_languages, pref_audio_langs):
+def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs, audio_filetypes, audio_languages, pref_audio_langs, track_ids):
     sub_files_list = []
     final_sub_languages = sub_languages
     audio_files_list = []
     final_audio_languages = audio_languages
     final_audio_filetypes = []
     final_sub_filetypes = []
+    final_track_ids = track_ids
 
     # If the first preferred language is found in the audio languages,
     # reorder the list to place the preferred language first
@@ -253,13 +254,14 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
                 return len(pref_audio_langs)
 
         # Zip the audio_languages and audio_filetypes together, sort them, and unzip them
-        paired = zip(audio_languages, audio_filetypes)
+        paired = zip(audio_languages, audio_filetypes, track_ids)
         sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
-        sorted_audio_languages, sorted_audio_filetypes = zip(*sorted_paired)
+        sorted_audio_languages, sorted_audio_filetypes, sorted_track_ids = zip(*sorted_paired)
 
         # Convert tuples back to lists if necessary
         final_audio_languages = list(sorted_audio_languages)
         final_audio_filetypes = list(sorted_audio_filetypes)
+        final_track_ids = list(sorted_track_ids)
 
     # Initialize first_pref_audio_index to -1 (indicating no match found yet)
     first_pref_audio_index = -1
@@ -305,7 +307,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         else:
             default_track_str = "0:no"
         langs_str = f"0:{final_audio_languages[index]}"
-        filelist_str = f"{base}.{final_audio_languages[index][:-1]}.{filetype}"
+        filelist_str = f"{base}.{final_track_ids[index]}.{final_audio_languages[index][:-1]}.{filetype}"
         audio_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
     default_locked = False
@@ -357,7 +359,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 
     if audio_filetypes:
         for index, filetype in enumerate(final_audio_filetypes):
-            os.remove(f"{base}.{final_audio_languages[index][:-1]}.{filetype}")
+            os.remove(f"{base}.{final_track_ids[index]}.{final_audio_languages[index][:-1]}.{filetype}")
     if sub_filetypes:
         # Need to add the .idx file as well to filetypes list for final deletion
         for index, filetype in enumerate(final_sub_filetypes):
@@ -603,10 +605,11 @@ def extract_audio_tracks_in_mkv(filename, track_numbers, audio_languages):
         print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Error: No track numbers passed.")
         return
     audio_files = []
+    track_ids = []
     base, _, _ = filename.rpartition('.')
 
     for index, track in enumerate(track_numbers):
-        audio_filename = f"{base}.{audio_languages[index][:-1]}.mkv"
+        audio_filename = f"{base}.{track}.{audio_languages[index][:-1]}.mkv"
         command = ["mkvextract", filename, "tracks", f"{track}:{audio_filename}"]
 
         result = subprocess.run(command, capture_output=True, text=True)
@@ -616,7 +619,7 @@ def extract_audio_tracks_in_mkv(filename, track_numbers, audio_languages):
 
     return audio_files, audio_languages
 
-def encode_audio_tracks(audio_files, languages, output_codec, other_files, other_langs):
+def encode_audio_tracks(audio_files, languages, output_codec, other_files, other_langs, keep_original_audio):
     if not audio_files:
         return
     if len(audio_files) > 1:
@@ -630,21 +633,35 @@ def encode_audio_tracks(audio_files, languages, output_codec, other_files, other
     output_audio_langs = []
     other_output_audio_files_extensions = []
     other_output_audio_langs = []
+    custom_ffmpeg_options = []
+    all_track_ids = []
+
+    # If the output codec is AAC audio, increase the
+    # bitrate (audio quality 6) and limit audio to stereo (two channels)
+    if output_codec.lower() == 'aac':
+        custom_ffmpeg_options = ['-aq', '6', '-ac', '2']
 
     for index, file in enumerate(audio_files):
-        base_and_lang, _, extension = file.rpartition('.')
-        base, _, lang = base_and_lang.rpartition('.')
+        base_and_lang_with_id, _, extension = file.rpartition('.')
+        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+        base, _, track_id = base_with_id.rpartition('.')
 
-        command = [custom_ffmpeg, "-i", file, "-strict", "-2", f"{base}.{lang}.{output_codec.lower()}"]
+        command = [custom_ffmpeg, "-i", file] + custom_ffmpeg_options + ["-strict", "-2", f"{base}.{track_id}.{lang}.{output_codec.lower()}"]
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception("Error executing ffmpeg command: " + result.stderr)
 
         output_audio_files_extensions.append(f"{output_codec.lower()}")
         output_audio_langs.append(f"{languages[index]}")
-        # Adding the original files to the output as well
-        output_audio_files_extensions.append(extension)
-        output_audio_langs.append(languages[index])
+        all_track_ids.append(track_id)
+
+        if keep_original_audio:
+            # Adding the original files to the output as well
+            output_audio_files_extensions.append(extension)
+            output_audio_langs.append(languages[index])
+            all_track_ids.append(track_id)
+        else:
+            os.remove(file)
 
     # Adding the other files to return list
     for index, file in enumerate(other_files):
@@ -655,4 +672,4 @@ def encode_audio_tracks(audio_files, languages, output_codec, other_files, other
     output_audio_files_extensions = output_audio_files_extensions + other_output_audio_files_extensions
     output_audio_langs =  output_audio_langs + other_output_audio_langs
 
-    return output_audio_files_extensions, output_audio_langs
+    return output_audio_files_extensions, output_audio_langs, all_track_ids
