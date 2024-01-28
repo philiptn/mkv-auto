@@ -3,8 +3,6 @@ import traceback
 import argparse
 from configparser import ConfigParser
 from itertools import groupby
-from datetime import datetime
-import time
 
 from scripts.file_operations import *
 from scripts.mkv import *
@@ -300,6 +298,7 @@ def mkv_auto(args):
 					extracted_other_audio_langs = []
 					ready_audio_extensions = []
 					ready_audio_langs = []
+					ready_track_ids = []
 					keep_original_audio = True
 
 					if not file_name_printed:
