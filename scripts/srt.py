@@ -6,6 +6,9 @@ import subprocess
 import pysrt
 import shutil
 from datetime import datetime
+import time
+import csv
+import re
 
 
 def get_timestamp():
@@ -24,10 +27,53 @@ def clean_invalid_utf8(input_file, output_file):
         f.write(content)
 
 
+def find_and_replace(input_file, replacement_file):
+    # For quick reference:
+    # Special Regex Characters: These characters have special
+    # meaning in regex: ., +, *, ?, ^, $, (, ), [, ], {, }, |, \.
+
+    # Open SRT and replacement files
+    with open(input_file, 'r') as file:
+        data = file.read()
+    with open(replacement_file, 'r') as file:
+        reader = csv.reader(file)
+        replacements = list(reader)
+
+    # Perform the find and replace operations
+    for find, replace in replacements:
+        data = re.sub(find, replace, data)
+
+    # Write the modified content back to the file
+    with open(input_file, 'w') as file:
+        file.write(data)
+
+
+def run_with_xvfb(command):
+    xvfb_cmd = ["Xvfb", ":99", "-screen", "0", "1024x768x24"]
+
+    # Start Xvfb in the background
+    xvfb_process = subprocess.Popen(xvfb_cmd)
+    # Wait for the Xvfb process to initialize
+    time.sleep(2)
+
+    env = os.environ.copy()
+    env['DISPLAY'] = ':99'
+
+    result = subprocess.run(command, env=env, capture_output=True, text=True)
+
+    # Kill the Xvfb process after we're done
+    xvfb_process.terminate()
+    time.sleep(2)
+
+    if result.returncode != 0:
+        raise Exception("Error executing command: " + result.stderr)
+    return result
+
 
 def remove_sdh(input_files, quiet, remove_music):
+    subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
     if not quiet:
-        print(f"[UTC {get_timestamp()}] [SUBTITLEFILTER] Removing SDH in SRT subtitles...")
+        print(f"[UTC {get_timestamp()}] [SUBTITLES] Removing SDH in SRT subtitles...")
     for index, input_file in enumerate(input_files):
 
         if remove_music:
@@ -64,6 +110,16 @@ def remove_sdh(input_files, quiet, remove_music):
         subs.save('.tmp.srt', encoding='utf-8')
         os.remove(input_file)
         shutil.move('.tmp.srt', input_file)
+
+        command = ["mono", subtitleedit, "/convert", input_file,
+                   "srt", "/FixCommonErrors", "/encoding:utf-8", "/BalanceLines",
+                   f"/outputfilename:{input_file}_tmp.srt"]
+        run_with_xvfb(command)
+        os.remove(input_file)
+        shutil.move(f"{input_file}_tmp.srt", input_file)
+
+        # Replace unwanted characters or existing OCR errors
+        find_and_replace(input_file, 'scripts/replacements.csv')
 
 
 def convert_ass_to_srt(subtitle_files, languages):

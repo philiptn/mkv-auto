@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-START_DIR=$(pwd)
-
 # Check if the user is root or not
 if [[ $EUID -ne 0 ]]; then
     # If not root, prefix commands with sudo
@@ -13,18 +11,15 @@ fi
 # Updating apt
 $SUDO apt-get update
 
-# Download old ffmpeg version containing DTS encoder (dca) and compile it
-$SUDO apt-get install wget build-essential yasm -y
-$SUDO mkdir -p /.mkv-auto/ffmpeg-3.1.11
-cd /.mkv-auto/ffmpeg-3.1.11
-$SUDO wget https://ffmpeg.org/releases/ffmpeg-3.1.11.tar.gz
-$SUDO tar -xzf ffmpeg-3.1.11.tar.gz
-cd ffmpeg-3.1.11
-$SUDO ./configure
-# Compile ffmpeg (this may take a while)
-$SUDO make 2>/dev/null
-# Return to the starting directory
-cd "$START_DIR"
+# Installing tesseract-ocr (for use with SubtitleEdit)
+# Reference: https://pypi.org/project/pgsrip/
+$SUDO apt-get install software-properties-common -y
+$SUDO add-apt-repository ppa:alex-p/tesseract-ocr5 -y
+$SUDO apt-get update
+# Installing Tesseract-OCR
+$SUDO apt-get install tesseract-ocr -y
+# Install all OCR language packs excluding 'ocr-script' and 'old' packages
+$SUDO apt-cache search tesseract-ocr | grep -v 'ocr-script' | grep -v 'old' | awk '{print $1}' | xargs $SUDO apt install -y
 
 # Installing python3.10
 $SUDO apt-get install python3.10 -y
@@ -54,17 +49,6 @@ DEBIAN_FRONTEND=noninteractive apt-get install tzdata -y
 # as well as autosubsync and other packages
 $SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr \
   vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module git xvfb -y
-
-# Installing tesseract-ocr (for use with SubtitleEdit)
-# Reference: https://pypi.org/project/pgsrip/
-$SUDO apt-get install software-properties-common -y
-$SUDO add-apt-repository ppa:alex-p/tesseract-ocr5 -y
-$SUDO apt-get update
-# Additional language packs need to be installed manually!
-# To list the available language packs run `sudo apt install tesseract-ocr-lang`
-# or just add the ISO-639-2/B (3-letter) format to the end of "tesseract-ocr-<LANG>"
-$SUDO apt-get install tesseract-ocr \
-  tesseract-ocr-nor -y
 
 # DEPRECATED due to pgsrip no longer being used
 # Installing training data for tesseract (tessdata) (note: large datasets, may take a while to download)

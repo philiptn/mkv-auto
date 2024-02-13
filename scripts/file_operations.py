@@ -109,7 +109,7 @@ def rename_others_file_to_folder(input_dir, movie_folder, tv_folder, movie_hdr_f
     # Iterate through the input directory recursively
     for root, dirs, files in os.walk(input_dir):
         parent_folder_name = os.path.basename(root)
-        parent_folder_reformatted = reformat_filename(
+        a, parent_folder_reformatted = reformat_filename(
             parent_folder_name + '.mkv', movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder)
 
         # If the parent folder does not match any pattern, skip to next
@@ -121,7 +121,7 @@ def rename_others_file_to_folder(input_dir, movie_folder, tv_folder, movie_hdr_f
             if not filename.endswith('.mkv'):
                 continue  # Skip non-mkv files
             
-            new_filename = reformat_filename(
+            a, new_filename = reformat_filename(
                 filename, movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder)
             if new_filename.startswith(others_folder):
                 # Rename the file to match its parent folder
@@ -151,35 +151,45 @@ def reformat_filename(filename, movie_folder, tv_folder, movie_hdr_folder, tv_hd
     if tv_match1:
         # TV show with season and episode
         showname = tv_match1.group(1).replace('.', ' ')
+        showname = showname.replace(' -', '')
         showname = to_sentence_case(showname) # Transform to sentence case
         year = tv_match1.group(3)
         folder = tv_hdr_folder if is_hdr else tv_folder
         # Format the filename
-        return os.path.join(folder, f"{showname} ({year})", filename) if year else os.path.join(folder, showname, filename)
+        return os.path.join(folder, f"{showname} ({year})") if year else os.path.join(folder, showname), filename
     elif tv_match2:
         # TV show with season range
         showname = tv_match2.group(1).replace('.', ' ')
+        showname = showname.replace(' -', '')
         showname = to_sentence_case(showname) # Transform to sentence case
         year = tv_match2.group(3)
         folder = tv_hdr_folder if is_hdr else tv_folder
         # Format the filename
-        return os.path.join(folder, f"{showname} ({year})", filename) if year else os.path.join(folder, showname, filename)
+        return os.path.join(folder, f"{showname} ({year})") if year else os.path.join(folder, showname), filename
     elif movie_match:
         # Movie
         folder = movie_hdr_folder if is_hdr else movie_folder
-        return os.path.join(folder, filename)
+        return os.path.join(folder), filename
     else:
         # Unidentified file
-        return os.path.join(others_folder, filename)
+        return os.path.join(others_folder), filename
 
 
-def move_file_to_output(input_file_path, output_folder, movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder):
+def move_file_to_output(input_file_path, output_folder, movie_folder, tv_folder, movie_hdr_folder,
+                        tv_hdr_folder, others_folder, folder_structure, flatten_directories):
     filename = os.path.basename(input_file_path)
-    new_filename = reformat_filename(filename, movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder)
-    output_path = os.path.join(output_folder, new_filename)
-
+    new_folders, new_filename = reformat_filename(filename, movie_folder, tv_folder,
+                                                  movie_hdr_folder, tv_hdr_folder, others_folder)
+    if flatten_directories:
+        output_path = os.path.join(output_folder, new_folders, new_filename)
+    else:
+        output_path = os.path.join(output_folder, new_folders, *folder_structure, new_filename)
     # Create necessary subdirectories
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    directory_path = os.path.dirname(output_path)
+    # Ensure the path ends with a slash if not already present
+    if not directory_path.endswith('/'):
+        directory_path += '/'
+    os.makedirs(os.path.dirname(directory_path), exist_ok=True)
 
     # Move the file
     shutil.move(input_file_path, output_path)

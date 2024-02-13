@@ -161,6 +161,7 @@ def mkv_auto(args):
 	total_processing_time = 0
 	filenames = []
 	mkv_files_list = []
+	flat_all_dirnames = []
 
 	for dirpath, dirnames, filenames in os.walk(input_dir):
 		dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
@@ -214,6 +215,7 @@ def mkv_auto(args):
 		needs_tag_rename = False
 
 		for index, file_name in enumerate(filenames):
+			all_dirnames = []
 			try:
 				start_time = time.time()
 
@@ -280,7 +282,7 @@ def mkv_auto(args):
 								output_file = os.path.join(structure, file_name)
 
 						move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
-							movies_hdr_folder, tv_shows_hdr_folder, others_folder)
+							movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames, flatten_directories)
 						continue
 					else:
 						os.remove(input_file)
@@ -300,6 +302,15 @@ def mkv_auto(args):
 					ready_audio_langs = []
 					ready_track_ids = []
 					keep_original_audio = True
+
+					# Construct the full path to the .mkv file
+					full_path = os.path.join(dirpath, file_name)
+					# Extract the directory path relative to the input directory
+					relative_dir_path = os.path.relpath(dirpath, input_dir)
+					# Split the relative path into individual directories
+					all_dirnames = relative_dir_path.split(os.sep)
+					# Reset dirnames to avoid traversing further as we already found an .mkv file
+					dirnames[:] = []
 
 					if not file_name_printed:
 						print(f"[INFO] Processing file {file_index} of {total_files}:\n")
@@ -327,10 +338,10 @@ def mkv_auto(args):
 					else:
 						print(f"[UTC {get_timestamp()}] [MKVMERGE] No subtitle track filtering needed.")
 
-					# If the preferred audio codec is set to AAC, the purpose is probably to save on storage space.
+					# If the preferred audio codec is set to AAC or OPUS, the purpose is probably to save on storage space.
 					# Force-enabling the encoding regardless of the audio track already found, as well as removing
 					# the original audio track.
-					if pref_audio_codec.lower() == 'aac':
+					if pref_audio_codec.lower() == 'aac' or pref_audio_codec.lower() == 'opus':
 						pref_audio_codec_found = False
 						keep_original_audio = False
 
@@ -490,7 +501,6 @@ def mkv_auto(args):
 							file_name = updated_filename
 
 							input_file = os.path.join(dirpath, file_name)
-							output_file = os.path.join(structure, file_name)
 
 					end_time = time.time()
 					processing_time = end_time - start_time
@@ -499,7 +509,7 @@ def mkv_auto(args):
 
 					print(f"[UTC {get_timestamp()}] [INFO] Moving file to destination folder...")
 					move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
-							movies_hdr_folder, tv_shows_hdr_folder, others_folder)
+							movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames, flatten_directories)
 					file_index += 1
 					file_name_printed = False
 
@@ -517,7 +527,7 @@ def mkv_auto(args):
 				errored_file_names.append(file_name)
 
 				move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
-							movies_hdr_folder, tv_shows_hdr_folder, others_folder)
+							movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames, flatten_directories)
 
 				file_index += 1
 				file_name_printed = False

@@ -29,6 +29,8 @@ def convert_video_to_mkv(video_file, output_file):
         print(f"Failed to convert {video_file}")
         print("Error from FFmpeg:", stderr.decode())  # Print the exact error
 
+    os.remove(video_file)
+
 
 def convert_all_videos_to_mkv(input_folder, silent):
     video_files = []
@@ -78,6 +80,28 @@ def get_mkv_video_codec(filename):
         if track['type'] == 'video':
             return track['codec']
     return None
+
+
+def get_all_audio_languages(filename):
+    all_langs = []
+    parsed_json, _ = get_mkv_info(filename)
+    for track in parsed_json['tracks']:
+        if track['type'] == 'audio':
+            for key, value in track["properties"].items():
+                if key == 'language':
+                    all_langs.append(value)
+    return all_langs
+
+
+def get_all_subtitle_languages(filename):
+    all_langs = []
+    parsed_json, _ = get_mkv_info(filename)
+    for track in parsed_json['tracks']:
+        if track['type'] == 'subtitles':
+            for key, value in track["properties"].items():
+                if key == 'language':
+                    all_langs.append(value)
+    return all_langs
 
 
 def remove_all_mkv_track_tags(filename):
@@ -373,6 +397,8 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
     audio_track_ids = []
     audio_track_languages = []
+    unmatched_audio_track_ids = []
+    unmatched_audio_track_languages = []
 
     pref_audio_track_ids = []
     pref_audio_track_languages = []
@@ -429,11 +455,10 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
                         audio_track_languages.remove(track_language)
                     else:
                         default_audio_track = track["id"]
-                # If there exists the preferred audio codec, use that list.
-                # If the preferred audio codec is not present, use general list instead
-                #if len(pref_audio_track_ids) != 0:
-                #    audio_track_ids = pref_audio_track_ids
-                #    audio_track_languages = pref_audio_track_languages
+            else:
+                unmatched_audio_track_ids.append(track["id"])
+                unmatched_audio_track_languages.append(track_language)
+                audio_track_codecs.append(audio_codec.upper())
 
     audio_track_ids.sort()
     pref_audio_track_ids.sort()
@@ -461,25 +486,34 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
         other_tracks_ids = pref_audio_track_ids
         other_tracks_langs = pref_audio_track_languages
 
-    # If none of the language selections matched, the audio track language in the
-    # video is probably uncategorized. To fix this, assign the first audio track id
-    # as the main track, and set it to "English" as default.
+    # If none of the language selections matched, assign those that are
+    # unmatched as audio track ids + langs to keep.
     if not all_audio_track_langs:
-        all_audio_track_ids = first_audio_track
-        default_audio_track = first_audio_track[0]
-        needs_processing = True
-        pref_audio_codec_found = False
-        tracks_ids_to_be_converted = first_audio_track
-        tracks_langs_to_be_converted = ['eng']
+        all_audio_track_ids = unmatched_audio_track_ids
+        default_audio_track = unmatched_audio_track_ids[0]
+        tracks_ids_to_be_converted = unmatched_audio_track_ids
+        # If the language "und" (undefined) is in the unmatched languages,
+        # assign it to be an english audio track. Else, keep the originals.
+        if "und" in unmatched_audio_track_languages[0].lower():
+            tracks_langs_to_be_converted = ['eng']
+            needs_processing = True
+        else:
+            tracks_langs_to_be_converted = unmatched_audio_track_languages
 
     return all_audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found, \
         tracks_ids_to_be_converted, tracks_langs_to_be_converted, other_tracks_ids, other_tracks_langs
 
 
-def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
+def get_wanted_subtitle_tracks(file_info, pref_langs):
     total_subs_tracks = 0
+    pref_subs_langs = pref_langs
+
     subs_track_ids = []
     subs_track_languages = []
+
+    unmatched_subs_track_ids = []
+    unmatched_subs_track_languages = []
+
     default_subs_track = ''
     forced_track = ''
     all_sub_filetypes = []
@@ -491,15 +525,30 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
     needs_convert = False
     needs_processing = False
 
+    # Check for matching subs languages
+    for track in file_info["tracks"]:
+        if track["type"] == "subtitles":
+            track_language = ''
+            for key, value in track["properties"].items():
+                if key == 'language':
+                    track_language = value
+            if track_language in pref_subs_langs:
+                subs_track_languages.append(track_language)
+            else:
+                unmatched_subs_track_languages.append(track_language)
+
+    # If none of the subs track matches the language preference,
+    # set the preferred sub languages to the ones found, and run the detection
+    # using that as the reference.
+    if not subs_track_languages:
+        pref_subs_langs = unmatched_subs_track_languages
+
     for track in file_info["tracks"]:
         if track["type"] == "subtitles":
             total_subs_tracks += 1
-            track_name = ''
             track_language = ''
 
             for key, value in track["properties"].items():
-                if key == 'track_name':
-                    track_name = value
                 if key == 'language':
                     track_language = value
                 if key == 'forced_track':
@@ -507,6 +556,11 @@ def get_wanted_subtitle_tracks(file_info, pref_subs_langs):
             if track_language in pref_subs_langs:
                 needs_processing = True
                 needs_sdh_removal = True
+
+                # If the track language is "und" (undefined), assume english subtitles
+                if track_language.lower() == "und":
+                    track_language = 'eng'
+                    pref_subs_langs.append('eng')
                 
                 if subs_track_languages.count(track_language) == 0 and forced_track != True:
                     selected_sub_filetypes.append(track["codec"])
@@ -628,7 +682,6 @@ def encode_audio_tracks(audio_files, languages, output_codec, other_files, other
         track_str = "track"
     print(f"[UTC {get_timestamp()}] [FFMPEG] Generating {output_codec.upper()} audio {track_str}...")
 
-    custom_ffmpeg = '/.mkv-auto/ffmpeg-3.1.11/ffmpeg-3.1.11/ffmpeg'
     output_audio_files_extensions = []
     output_audio_langs = []
     other_output_audio_files_extensions = []
@@ -646,7 +699,7 @@ def encode_audio_tracks(audio_files, languages, output_codec, other_files, other
         base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
         base, _, track_id = base_with_id.rpartition('.')
 
-        command = [custom_ffmpeg, "-i", file] + custom_ffmpeg_options + ["-strict", "-2", f"{base}.{track_id}.{lang}.{output_codec.lower()}"]
+        command = ["ffmpeg", "-i", file] + custom_ffmpeg_options + ["-strict", "-2", f"{base}.{track_id}.{lang}.{output_codec.lower()}"]
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             raise Exception("Error executing ffmpeg command: " + result.stderr)
