@@ -95,9 +95,12 @@ def mkv_auto(args):
 	input_dir = input_folder
 	output_dir = output_folder
 
-	notemp = args.notemp
 	if keep_original:
 		notemp = False
+	else:
+		notemp = True
+	if args.notemp:
+		notemp = True
 
 	if args.docker:
 		if not input_dir:
