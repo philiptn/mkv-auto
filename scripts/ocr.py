@@ -97,19 +97,24 @@ def ocr_subtitles(subtitle_files, languages):
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
     output_subtitles = []
     generated_srt_files = []
+    all_track_ids = []
     replaced_index = 0
     updated_subtitle_languages = languages
 
     for index, file in enumerate(subtitle_files):
-        base, _, extension = file.rpartition('.')
+        base_and_lang_with_id, _, extension = file.rpartition('.')
+        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+        base, _, track_id = base_with_id.rpartition('.')
+        all_track_ids.append(track_id)
 
         update_tesseract_lang_xml(languages[index + replaced_index])
         command = ["mono", subtitleedit, "/convert", file,
                    "srt", "/FixCommonErrors", "/encoding:utf-8"]
         run_with_xvfb(command)
 
-        output_subtitles.append(f"{base}.srt")
+        output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
         generated_srt_files.append('srt')
+        all_track_ids.append(track_id)
         updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
         replaced_index += 1
 
@@ -120,7 +125,7 @@ def ocr_subtitles(subtitle_files, languages):
     # Fix common OCR errors
     find_and_replace(output_subtitles, 'scripts/replacements.csv')
 
-    return output_subtitles, updated_subtitle_languages, generated_srt_files
+    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
 
 
 def update_tesseract_lang_xml(new_language):

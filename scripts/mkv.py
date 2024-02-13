@@ -258,14 +258,16 @@ def strip_tracks_in_mkv(filename, audio_tracks, default_audio_track,
     shutil.move(temp_filename, filename)
 
 
-def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs, audio_filetypes, audio_languages, pref_audio_langs, track_ids):
+def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs,
+                         audio_filetypes, audio_languages, pref_audio_langs, audio_track_ids, sub_track_ids):
     sub_files_list = []
     final_sub_languages = sub_languages
     audio_files_list = []
     final_audio_languages = audio_languages
     final_audio_filetypes = []
     final_sub_filetypes = []
-    final_track_ids = track_ids
+    final_audio_track_ids = audio_track_ids
+    final_sub_track_ids = sub_track_ids
 
     # If the first preferred language is found in the audio languages,
     # reorder the list to place the preferred language first
@@ -278,14 +280,14 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
                 return len(pref_audio_langs)
 
         # Zip the audio_languages and audio_filetypes together, sort them, and unzip them
-        paired = zip(audio_languages, audio_filetypes, track_ids)
+        paired = zip(audio_languages, audio_filetypes, audio_track_ids)
         sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
-        sorted_audio_languages, sorted_audio_filetypes, sorted_track_ids = zip(*sorted_paired)
+        sorted_audio_languages, sorted_audio_filetypes, sorted_audio_track_ids = zip(*sorted_paired)
 
         # Convert tuples back to lists if necessary
         final_audio_languages = list(sorted_audio_languages)
         final_audio_filetypes = list(sorted_audio_filetypes)
-        final_track_ids = list(sorted_track_ids)
+        final_audio_track_ids = list(sorted_audio_track_ids)
 
     # Initialize first_pref_audio_index to -1 (indicating no match found yet)
     first_pref_audio_index = -1
@@ -306,13 +308,14 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
                 return len(pref_subs_langs)
 
         # Zip the subs_languages and subs_filetypes together, sort them, and unzip them
-        paired = zip(sub_languages, sub_filetypes)
+        paired = zip(sub_languages, sub_filetypes, sub_track_ids)
         sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
-        sorted_sub_languages, sorted_sub_filetypes = zip(*sorted_paired)
+        sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids = zip(*sorted_paired)
 
         # Convert tuples back to lists if necessary
         final_sub_languages = list(sorted_sub_languages)
         final_sub_filetypes = list(sorted_sub_filetypes)
+        final_sub_track_ids = list(sorted_sub_track_ids)
 
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
@@ -331,7 +334,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         else:
             default_track_str = "0:no"
         langs_str = f"0:{final_audio_languages[index]}"
-        filelist_str = f"{base}.{final_track_ids[index]}.{final_audio_languages[index][:-1]}.{filetype}"
+        filelist_str = f"{base}.{final_audio_track_ids[index]}.{final_audio_languages[index][:-1]}.{filetype}"
         audio_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
     default_locked = False
@@ -348,7 +351,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
         else:
             default_track_str = "0:no"
         langs_str = f"0:{final_sub_languages[index]}"
-        filelist_str = f"{base}.{final_sub_languages[index][:-1]}.{filetype}"
+        filelist_str = f"{base}.{final_sub_track_ids[index]}.{final_sub_languages[index][:-1]}.{filetype}"
         sub_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
     if audio_filetypes:
@@ -383,15 +386,17 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 
     if audio_filetypes:
         for index, filetype in enumerate(final_audio_filetypes):
-            os.remove(f"{base}.{final_track_ids[index]}.{final_audio_languages[index][:-1]}.{filetype}")
+            os.remove(f"{base}.{final_audio_track_ids[index]}.{final_audio_languages[index][:-1]}.{filetype}")
     if sub_filetypes:
         # Need to add the .idx file as well to filetypes list for final deletion
         for index, filetype in enumerate(final_sub_filetypes):
             if filetype == "sub":
                 final_sub_filetypes.append('idx')
                 final_sub_languages.append(final_sub_languages[index])
+                final_sub_track_ids.append(final_sub_track_ids[index])
+
         for index, filetype in enumerate(final_sub_filetypes):
-            os.remove(f"{base}.{final_sub_languages[index][:-1]}.{filetype}")
+            os.remove(f"{base}.{final_sub_track_ids[index]}.{final_sub_languages[index][:-1]}.{filetype}")
 
 
 def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
@@ -408,7 +413,8 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     tracks_langs_to_be_converted = []
     other_tracks_ids = []
     other_tracks_langs = []
-    first_audio_track = []
+    first_audio_track_id = -1
+    first_audio_track_lang = ''
 
     default_audio_track = ''
     pref_default_audio_track = ''
@@ -420,8 +426,7 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     for track in file_info["tracks"]:
         if track["type"] == "audio":
             total_audio_tracks += 1
-            if not first_audio_track_found:
-                first_audio_track.append(track["id"])
+
             track_name = ''
             track_language = ''
             audio_codec = ''
@@ -432,6 +437,10 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
                     track_language = value
                 if key == 'codec_id':
                     audio_codec = value
+            if not first_audio_track_found:
+                first_audio_track_id = track["id"]
+                first_audio_track_lang = track_language
+                first_audio_track_found = True
             if track_language in pref_audio_langs:
                 if pref_audio_track_languages.count(track_language) == 0 and pref_audio_codec in audio_codec.upper():
                     pref_audio_track_ids.append(track["id"])
@@ -500,6 +509,12 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
         else:
             tracks_langs_to_be_converted = unmatched_audio_track_languages
 
+    # If the first audio track in the media is not matched, add it,
+    # but place it last in the list
+    if first_audio_track_id not in all_audio_track_ids:
+        all_audio_track_ids.append(first_audio_track_id)
+        all_audio_track_langs.append(first_audio_track_lang)
+
     return all_audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found, \
         tracks_ids_to_be_converted, tracks_langs_to_be_converted, other_tracks_ids, other_tracks_langs
 
@@ -536,12 +551,13 @@ def get_wanted_subtitle_tracks(file_info, pref_langs):
                 subs_track_languages.append(track_language)
             else:
                 unmatched_subs_track_languages.append(track_language)
-
     # If none of the subs track matches the language preference,
     # set the preferred sub languages to the ones found, and run the detection
     # using that as the reference.
     if not subs_track_languages:
         pref_subs_langs = unmatched_subs_track_languages
+    # Reset the found subs languages
+    subs_track_languages = []
 
     for track in file_info["tracks"]:
         if track["type"] == "subtitles":
@@ -553,6 +569,7 @@ def get_wanted_subtitle_tracks(file_info, pref_langs):
                     track_language = value
                 if key == 'forced_track':
                     forced_track = value
+
             if track_language in pref_subs_langs:
                 needs_processing = True
                 needs_sdh_removal = True
@@ -642,7 +659,7 @@ def extract_subs_in_mkv(filename, track_numbers, output_filetypes, subs_language
     base, _, extension = filename.rpartition('.')
 
     for index, track in enumerate(track_numbers):
-        subtitle_filename = f"{base}.{subs_languages[index][:-1]}.{output_filetypes[index]}"
+        subtitle_filename = f"{base}.{track}.{subs_languages[index][:-1]}.{output_filetypes[index]}"
         command = ["mkvextract", filename, "tracks",
                    f"{track}:{subtitle_filename}"]
 

@@ -128,21 +128,26 @@ def convert_ass_to_srt(subtitle_files, languages):
     updated_subtitle_languages = languages
     replaced_index = 0
     generated_srt_files = []
+    all_track_ids = []
 
     for index, file in enumerate(subtitle_files):
-        base, _, extension = file.rpartition('.')
+        base_and_lang_with_id, _, extension = file.rpartition('.')
+        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+        base, _, track_id = base_with_id.rpartition('.')
+        all_track_ids.append(track_id)
 
         ass_file = open(file)
         srt_output = asstosrt.convert(ass_file)
-        with open(f"{base}.srt", "w") as srt_file:
+        with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
             srt_file.write(srt_output)
         generated_srt_files.append('srt')
 
-        output_subtitles.append(f"{base}.srt")
+        output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
+        all_track_ids.append(track_id)
         updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
         replaced_index += 1
 
-    return output_subtitles, updated_subtitle_languages, generated_srt_files
+    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
 
 
 def resync_srt_subs_ai(input_file, subtitle_files, quiet):

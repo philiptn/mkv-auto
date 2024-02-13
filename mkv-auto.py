@@ -1,3 +1,4 @@
+import configparser
 import sys
 import traceback
 import argparse
@@ -21,30 +22,36 @@ elif os.path.isfile('files/user.ini'):
 else:
 	variables.read('defaults.ini')
 
-# General
-ini_temp_dir = variables.get('general', 'TEMP_DIR')
-file_tag = variables.get('general', 'FILE_TAG')
-flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
-remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
-movies_folder = variables.get('general', 'MOVIES_FOLDER')
-movies_hdr_folder = variables.get('general', 'MOVIES_HDR_FOLDER')
-tv_shows_folder = variables.get('general', 'TV_SHOWS_FOLDER')
-tv_shows_hdr_folder = variables.get('general', 'TV_SHOWS_HDR_FOLDER')
-others_folder = variables.get('general', 'OTHERS_FOLDER')
+try:
+	# General
+	input_folder = variables.get('general', 'INPUT_FOLDER')
+	output_folder = variables.get('general', 'OUTPUT_FOLDER')
+	keep_original = True if variables.get('general', 'KEEP_ORIGINAL').lower() == "true" else False
+	ini_temp_dir = variables.get('general', 'TEMP_DIR')
+	file_tag = variables.get('general', 'FILE_TAG')
+	flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
+	remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
+	movies_folder = variables.get('general', 'MOVIES_FOLDER')
+	movies_hdr_folder = variables.get('general', 'MOVIES_HDR_FOLDER')
+	tv_shows_folder = variables.get('general', 'TV_SHOWS_FOLDER')
+	tv_shows_hdr_folder = variables.get('general', 'TV_SHOWS_HDR_FOLDER')
+	others_folder = variables.get('general', 'OTHERS_FOLDER')
 
-# Audio
-pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
-pref_audio_codec = variables.get('audio', 'PREFERRED_AUDIO_CODEC')
-remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
+	# Audio
+	pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
+	pref_audio_codec = variables.get('audio', 'PREFERRED_AUDIO_CODEC')
+	remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
 
-# Subtitles
-pref_subs_langs = [item.strip() for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
-pref_subs_langs_short = [item.strip()[:-1] for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
-always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lower() == "true" else False
-always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
-remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "true" else False
-resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
-
+	# Subtitles
+	pref_subs_langs = [item.strip() for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
+	pref_subs_langs_short = [item.strip()[:-1] for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
+	always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lower() == "true" else False
+	always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
+	remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "true" else False
+	resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
+except configparser.NoOptionError:
+	print("\nError: Some fields are missing from 'user.ini'. Check 'defaults.ini' for reference.\n")
+	exit(1)
 
 def get_timestamp():
 	"""Return the current UTC timestamp in the desired format."""
@@ -85,18 +92,23 @@ def format_time(seconds):
 
 def mkv_auto(args):
 
-	# Defaults
-	input_dir = 'input/'
-	output_dir = 'output/'
+	input_dir = input_folder
+	output_dir = output_folder
 
+	notemp = args.notemp
+	if keep_original:
+		notemp = False
+
+	if args.docker:
+		if not input_dir:
+			input_dir = 'files/input'
+		if not output_dir:
+			output_dir = 'files/output'
 	if args.input_dir:
 		input_dir = args.input_dir
 	if args.output_dir:
 		output_dir = args.output_dir
 
-	if args.docker:
-		input_dir = 'files/input'
-		output_dir = 'files/output'
 	# If the temp dir location is unchanged from default and
 	# set to run in Docker, set default to inside 'files/' folder
 	if ini_temp_dir == '.tmp/' and args.docker:
@@ -104,7 +116,7 @@ def mkv_auto(args):
 	else:
 		temp_dir = ini_temp_dir
 
-	if not args.notemp:
+	if not notemp:
 		if os.path.exists(temp_dir):
 			shutil.rmtree(temp_dir)
 		os.mkdir(temp_dir)
@@ -118,7 +130,7 @@ def mkv_auto(args):
 		sys.stdout.write('\033[?25l')
 		sys.stdout.flush()
 
-	if not args.notemp:
+	if not notemp:
 		with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
 				  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
 			pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
@@ -302,6 +314,7 @@ def mkv_auto(args):
 					ready_audio_langs = []
 					ready_track_ids = []
 					keep_original_audio = True
+					all_subs_track_ids = []
 
 					# Construct the full path to the .mkv file
 					full_path = os.path.join(dirpath, file_name)
@@ -377,6 +390,7 @@ def mkv_auto(args):
 							sub_filetypes, subs_track_languages, e = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
 						
 						updated_subtitle_languages = subs_track_languages
+						all_subs_track_ids = wanted_subs_tracks
 
 						# Check if any of the subtitle tracks needs to be converted using OCR
 						if needs_convert:
@@ -400,7 +414,7 @@ def mkv_auto(args):
 										subtitle_files.pop(index)
 										subs_track_languages.pop(index)
 
-								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_subtitles(subtitle_files, subs_track_languages)
+								output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = ocr_subtitles(subtitle_files, subs_track_languages)
 
 								for file in alongside_srt_files:
 									sub_filetypes.insert(0, file)
@@ -423,7 +437,7 @@ def mkv_auto(args):
 										subtitle_files.pop(index)
 										subs_track_languages.pop(index)
 
-								output_subtitles, updated_subtitle_languages, generated_srt_files = ocr_subtitles(subtitle_files, subs_track_languages)
+								output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = ocr_subtitles(subtitle_files, subs_track_languages)
 								
 								for file in alongside_srt_files:
 									sub_filetypes.insert(0, file)
@@ -446,7 +460,7 @@ def mkv_auto(args):
 										subtitle_files.pop(index)
 										subs_track_languages.pop(index)
 
-								output_subtitles, updated_subtitle_languages, generated_srt_files = convert_ass_to_srt(subtitle_files, subs_track_languages)
+								output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = convert_ass_to_srt(subtitle_files, subs_track_languages)
 
 								for file in alongside_srt_files:
 									sub_filetypes.insert(0, file)
@@ -470,7 +484,7 @@ def mkv_auto(args):
 							if mkv_video_codec != 'MPEG-1/2':
 								remove_cc_hidden_in_file(input_file)
 							repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
-												 ready_audio_extensions, ready_audio_langs, pref_audio_langs, ready_track_ids)
+												 ready_audio_extensions, ready_audio_langs, pref_audio_langs, ready_track_ids, all_subs_track_ids)
 
 						elif not needs_convert:
 							if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false':
@@ -490,7 +504,7 @@ def mkv_auto(args):
 								remove_cc_hidden_in_file(input_file)
 
 							repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
-												 ready_audio_extensions, ready_audio_langs, pref_audio_langs, ready_track_ids)
+												 ready_audio_extensions, ready_audio_langs, pref_audio_langs, ready_track_ids, all_subs_track_ids)
 
 					if needs_processing_subs:
 						remove_all_mkv_track_tags(input_file)
@@ -567,7 +581,7 @@ def mkv_auto(args):
 			print(f"'{file}'")
 		print('')
 
-	if not args.notemp:
+	if not notemp:
 		if os.path.exists(temp_dir):
 			shutil.rmtree(temp_dir)
 	exit(0)
