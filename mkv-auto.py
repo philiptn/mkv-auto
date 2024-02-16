@@ -313,6 +313,7 @@ def mkv_auto(args):
 					other_track_langs = []
 					extracted_other_audio_files = []
 					extracted_other_audio_langs = []
+					extracted_audio_extensions = []
 					ready_audio_extensions = []
 					ready_audio_langs = []
 					ready_track_ids = []
@@ -345,10 +346,11 @@ def mkv_auto(args):
 					wanted_audio_tracks, default_audio_track, needs_processing_audio, \
 						pref_audio_codec_found, track_ids_to_be_converted, \
 						track_langs_to_be_converted, other_track_ids, other_track_langs = get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+
 					wanted_subs_tracks, default_subs_track, \
 						needs_sdh_removal, needs_convert, a, b, needs_processing_subs = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
 
-					if needs_processing_audio or needs_processing_subs or needs_sdh_removal or needs_convert or pref_audio_codec_found:
+					if needs_processing_audio or needs_processing_subs or needs_sdh_removal or needs_convert:
 						strip_tracks_in_mkv(input_file, wanted_audio_tracks, default_audio_track,
 											wanted_subs_tracks, default_subs_track, always_enable_subs)
 					else:
@@ -361,26 +363,32 @@ def mkv_auto(args):
 						pref_audio_codec_found = False
 						keep_original_audio = False
 
-					# Generating audio tracks if preferred codec not found in all audio tracks
-					if not pref_audio_codec_found and pref_audio_codec.lower() != "false":
-						print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Extracting audio...")
-						# Get updated file info after mkv tracks reduction
-						file_info, pretty_file_info = get_mkv_info(input_file)
+					# Get updated file info after mkv tracks reduction
+					file_info, pretty_file_info = get_mkv_info(input_file)
 
-						wanted_audio_tracks, default_audio_track, needs_processing_audio, \
-							pref_audio_codec_found, track_ids_to_be_converted, \
-							track_langs_to_be_converted, other_track_ids, other_track_langs = get_wanted_audio_tracks(
-							file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+					wanted_audio_tracks, default_audio_track, needs_processing_audio, \
+						pref_audio_codec_found, track_ids_to_be_converted, \
+						track_langs_to_be_converted, other_track_ids, other_track_langs = get_wanted_audio_tracks(
+						file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+
+					# Generating audio tracks if preferred codec not found in all audio tracks
+					if needs_processing_audio:
+						print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Extracting audio...")
 
 						if other_track_ids:
-							extracted_other_audio_files, extracted_other_audio_langs = extract_audio_tracks_in_mkv(
+							extracted_other_audio_files, extracted_other_audio_langs, extracted_audio_extensions = extract_audio_tracks_in_mkv(
 								input_file, other_track_ids, other_track_langs)
 
-						extracted_for_convert_audio_files, extracted_for_convert_audio_langs = extract_audio_tracks_in_mkv(input_file, track_ids_to_be_converted,
-																														   track_langs_to_be_converted)
+						if track_langs_to_be_converted:
+							extracted_for_convert_audio_files, extracted_for_convert_audio_langs = extract_audio_tracks_in_mkv(input_file, track_ids_to_be_converted,
+																															   track_langs_to_be_converted)
 
-						ready_audio_extensions, ready_audio_langs, ready_track_ids = encode_audio_tracks(extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
-																						pref_audio_codec, extracted_other_audio_files, extracted_other_audio_langs, keep_original_audio)
+							ready_audio_extensions, ready_audio_langs, ready_track_ids = encode_audio_tracks(extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
+																							pref_audio_codec, extracted_other_audio_files, extracted_other_audio_langs, keep_original_audio)
+						else:
+							ready_audio_extensions = extracted_audio_extensions
+							ready_audio_langs = extracted_other_audio_langs
+							ready_track_ids = other_track_ids
 
 						# Set to true regardless, to invoke processing pipeline
 						needs_processing_subs = True
@@ -482,10 +490,11 @@ def mkv_auto(args):
 							for file in generated_srt_files:
 								sub_filetypes.insert(0, file)
 
-							# Will remove hidden CC data as long as
-							# video codec is not MPEG2 (DVD)
-							if mkv_video_codec != 'MPEG-1/2':
-								remove_cc_hidden_in_file(input_file)
+							if has_closed_captions(input_file):
+								# Will remove hidden CC data as long as
+								# video codec is not MPEG2 (DVD)
+								if mkv_video_codec != 'MPEG-1/2':
+									remove_cc_hidden_in_file(input_file)
 							repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
 												 ready_audio_extensions, ready_audio_langs, pref_audio_langs, ready_track_ids, all_subs_track_ids)
 
@@ -503,8 +512,9 @@ def mkv_auto(args):
 								elif resync_subtitles == 'ai':
 									resync_srt_subs_ai(input_file, subtitle_files, quiet)
 
-							if mkv_video_codec != 'MPEG-1/2':
-								remove_cc_hidden_in_file(input_file)
+							if has_closed_captions(input_file):
+								if mkv_video_codec != 'MPEG-1/2':
+									remove_cc_hidden_in_file(input_file)
 
 							repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
 												 ready_audio_extensions, ready_audio_langs, pref_audio_langs, ready_track_ids, all_subs_track_ids)
