@@ -176,7 +176,7 @@ def resync_srt_subs_fast(input_file, subtitle_files, quiet):
         subtitle_filename = subfile
         temp_filename = f"{base_nolang}_tmp.srt"
 
-        command = ["ffs", input_file, "--gss",
+        command = ["ffs", input_file, "--no-fix-framerate",
                    "-i", subtitle_filename, "-o", temp_filename]
 
         result = subprocess.run(command, capture_output=True, text=True)
