@@ -24,4 +24,4 @@ $SUDO true
 $SUDO docker build -t $IMAGE_NAME .
 
 # Run the Docker container
-$SUDO docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker
+$SUDO docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --notemp

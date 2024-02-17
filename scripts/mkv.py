@@ -579,7 +579,6 @@ def get_wanted_subtitle_tracks(file_info, pref_langs):
     unmatched_subs_track_languages = []
 
     default_subs_track = ''
-    forced_track = ''
     all_sub_filetypes = []
     selected_sub_filetypes = []
     sub_filetypes = []
@@ -612,12 +611,21 @@ def get_wanted_subtitle_tracks(file_info, pref_langs):
         if track["type"] == "subtitles":
             total_subs_tracks += 1
             track_language = ''
+            track_name = ''
+            forced_track_val = ''
 
             for key, value in track["properties"].items():
                 if key == 'language':
                     track_language = value
                 if key == 'forced_track':
-                    forced_track = value
+                    forced_track_val = value
+                if key == 'track_name':
+                    track_name = value
+
+            if forced_track_val or "forced" in track_name.lower():
+                forced_track = True
+            else:
+                forced_track = False
 
             if track_language in pref_subs_langs:
                 needs_processing = True
@@ -628,7 +636,7 @@ def get_wanted_subtitle_tracks(file_info, pref_langs):
                     track_language = 'eng'
                     pref_subs_langs.append('eng')
 
-                if subs_track_languages.count(track_language) == 0 and forced_track != True:
+                if subs_track_languages.count(track_language) == 0 and not forced_track:
                     selected_sub_filetypes.append(track["codec"])
                     subs_track_ids.append(track["id"])
                     subs_track_languages.append(track_language)
