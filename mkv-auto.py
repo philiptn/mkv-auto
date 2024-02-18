@@ -243,7 +243,7 @@ def mkv_auto(args):
 				needs_tag_rename = True
 
 				parts = file_name.split('.') 
-				language_prefix = parts[-2] # The language prefix is always the second to last part
+				language_prefix = parts[-2]  # The language prefix is always the second to last part
 
 				if file_name.endswith('.srt'):
 					# If the SRT file does not have any language prefix, assume it is 'eng'
@@ -329,17 +329,18 @@ def mkv_auto(args):
 					# Reset dirnames to avoid traversing further as we already found an .mkv file
 					dirnames[:] = []
 
-					if not file_name_printed:
-						print(f"[INFO] Processing file {file_index} of {total_files}:\n")
-						print(f"[UTC {get_timestamp()}] [FILE] '{file_name}'")
-						file_name_printed = True
-
 					external_subs_print = True
 					quiet = False
 					output_file_mkv = output_file
 
 					# Get file info using mkvinfo
-					file_info, pretty_file_info = get_mkv_info(input_file)
+					file_info, pretty_file_info = get_mkv_info(input_file, args.silent)
+
+					if not file_name_printed:
+						print(f"[INFO] Processing file {file_index} of {total_files}:\n")
+						print(f"[UTC {get_timestamp()}] [FILE] '{file_name}'")
+						file_name_printed = True
+
 					# Get video codec
 					mkv_video_codec = get_mkv_video_codec(input_file)
 
@@ -364,7 +365,7 @@ def mkv_auto(args):
 						keep_original_audio = False
 
 					# Get updated file info after mkv tracks reduction
-					file_info, pretty_file_info = get_mkv_info(input_file)
+					file_info, pretty_file_info = get_mkv_info(input_file, args.silent)
 
 					wanted_audio_tracks, default_audio_track, needs_processing_audio, \
 						pref_audio_codec_found, track_ids_to_be_converted, \
@@ -396,7 +397,7 @@ def mkv_auto(args):
 					if needs_processing_subs:
 						subtitle_files = []
 						# Get updated file info after mkv tracks reduction
-						file_info, pretty_file_info = get_mkv_info(input_file)
+						file_info, pretty_file_info = get_mkv_info(input_file, args.silent)
 						wanted_subs_tracks, a, b, needs_convert, \
 							sub_filetypes, subs_track_languages, e = get_wanted_subtitle_tracks(file_info, pref_subs_langs)
 						

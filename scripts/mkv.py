@@ -5,6 +5,7 @@ import re
 from tqdm import tqdm
 from datetime import datetime
 import shutil
+import time
 
 
 def get_timestamp():
@@ -61,11 +62,20 @@ def convert_all_videos_to_mkv(input_folder, silent):
     pbar.close()
 
 
-def get_mkv_info(filename):
+def get_mkv_info(filename, silent):
     command = ["mkvmerge", "-J", filename]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception("Error executing mkvmerge command: " + result.stderr)
+    done = False
+    result = None
+    printed = False
+    while not done:
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            if not printed and not silent:
+                print(f"[UTC {get_timestamp()}] [INFO] Incoming file(s) detected in input folder. Waiting...")
+                printed = True
+            time.sleep(5)
+        if result.returncode == 0:
+            done = True
 
     # Parse the JSON output and pretty-print it
     parsed_json = json.loads(result.stdout)
@@ -74,7 +84,7 @@ def get_mkv_info(filename):
 
 
 def get_mkv_video_codec(filename):
-    parsed_json, _ = get_mkv_info(filename)
+    parsed_json, _ = get_mkv_info(filename, True)
     for track in parsed_json['tracks']:
         if track['type'] == 'video':
             return track['codec']
@@ -98,7 +108,7 @@ def has_closed_captions(file_path):
 
 def get_all_audio_languages(filename):
     all_langs = []
-    parsed_json, _ = get_mkv_info(filename)
+    parsed_json, _ = get_mkv_info(filename, True)
     for track in parsed_json['tracks']:
         if track['type'] == 'audio':
             for key, value in track["properties"].items():
@@ -109,7 +119,7 @@ def get_all_audio_languages(filename):
 
 def get_all_subtitle_languages(filename):
     all_langs = []
-    parsed_json, _ = get_mkv_info(filename)
+    parsed_json, _ = get_mkv_info(filename, True)
     for track in parsed_json['tracks']:
         if track['type'] == 'subtitles':
             for key, value in track["properties"].items():
@@ -704,7 +714,6 @@ def get_wanted_subtitle_tracks(file_info, pref_langs):
             result.append(item)
     subs_track_languages = result
 
-    subs_track_ids.sort()
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True
 

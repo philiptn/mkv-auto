@@ -92,7 +92,7 @@ def remove_sdh(input_files, quiet, remove_music):
             shutil.move('.tmp.srt', input_file)
 
         subs = Subtitles(input_file)
-        subs.filter(rm_music=remove_music)
+        subs.filter(rm_music=remove_music, rm_names=False)
         subs.save()
 
         # Removing any all-uppercase letters from
@@ -176,7 +176,7 @@ def resync_srt_subs_fast(input_file, subtitle_files, quiet):
         subtitle_filename = subfile
         temp_filename = f"{base_nolang}_tmp.srt"
 
-        command = ["ffs", input_file, "--no-fix-framerate",
+        command = ["ffs", input_file, "--vad", "webrtc",
                    "-i", subtitle_filename, "-o", temp_filename]
 
         result = subprocess.run(command, capture_output=True, text=True)
