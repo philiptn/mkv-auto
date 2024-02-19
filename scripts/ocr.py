@@ -114,7 +114,8 @@ def ocr_subtitles(subtitle_files, languages):
 
         output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
         generated_srt_files.append('srt')
-        all_track_ids.append(track_id)
+        #all_track_ids.append(track_id)
+        all_track_ids.insert(replaced_index, track_id)
         updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
         replaced_index += 1
 
