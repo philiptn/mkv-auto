@@ -1,5 +1,215 @@
 ﻿Subtitle Edit Changelog
 
+
+4.0.3 (23rd December 2023)
+* NEW:
+   * Add ".opus" + ".adts" audio file extensions - thx vivadavid/Lyubomir71
+   * Add two TSV subtitle formats - thx Purfview
+   * Add Arabic translation - thx Yahya
+   * Add new json subtitle format - thx Lucretia
+   * Add auto-translate via Papago
+   * Add new shortcut "Set end and start of next after gap" - thx rRobis
+   * Allow configure of Whisper post-processing - thx raphaelomoreira
+   * Allow create of new "no-break-after-list" from UI - thx lambdacore12
+* IMPROVED:
+   * Update Polish translation - thx admas
+   * Update Finnish translation - thx Teijo S
+   * Update Spanish AR & MX translation - thx jmaraujouy
+   * Update Chinese translation - thx nkh0472
+   * Update German translation - thx Netspark
+   * Update Italian language - thx bovirus
+   * Update Dutch translation - thx Flitskikker
+   * Show file list after Whisper/Vosk batch run - thx Simon
+   * Some improvements for SUP/BDN-XML editor - thx Jack1789
+   * Add Spanish for ChatGPT translate - thx alvarusk
+   * Add some words to SE user dictionary - thx Caleb
+   * Update Whisper CPP to v1.5.2
+   * Update Purfview's Faster Whisper to r167.2
+   * Update libmpv to 2023-11-26
+   * Update yt-dlp to 2023-11-16
+   * Re-add Whisper Const-me large model v2
+   * Audio-to-text: Improve error msg if no write access to video source folder
+   * Add delay in seconds to translate via ChatGPT
+   * Toggle music symbols, now toggles via first text - thx Leon
+   * Use source video folder when saving hard-sub video - thx Leon
+   * Better media info + shows details when click on label - thx Leon
+   * Add "Formality" for DeepL - thx Marco
+* FIXED:
+   * Fix for BDSUP cmd line convert - thx Jack1789
+   * Do not count HTML tags in SCC in save/load - thx cs127
+   * Fix minor space issue with "Fix italic tags" - thx Adam
+   * Focus text box after "Set end, add new and go to new" - thx aoifeaoibhee
+   * Fix for unwanted "<br />" in MS translator - thx Miguel
+   * Only add recent file if saved - thx F5System
+   * Fix for mouse wheel scroll direction in video player - thx Peter
+   * Fix for ASSA border width in export to image based format - thx Christian
+   * Fix crash in generating ASSA borders with odd video resolution - thx Leon
+   * Fix crash in "Beautify time codes" - thx Flitskikker
+   * Fix for "Batch convert" auto-translate - thx Lunchbox209
+
+
+4.0.2 (19th November 2023)
+* NEW:
+   * UI layouts with support for TikTok/YouTube-shorts - thx leon/jmaraujouy/LearningJer 
+   * Language filter (to minimize the long list of languages in combo boxes)
+   * Interjections are now language specific
+   * Translate via Facebook's NLLB (requires local API) - thx sharadagg
+   * Translate via LibreTranslate (requires local API) - thx AnonymousWebHacker
+   * Statistics for selected lines
+   * Shortcut "Set start time and go to next"
+   * Add new json subtitle format - thx Neven
+   * Add new json format - thx Tim
+   * Add Video CD DAT subtitle format - thx Flitskikker
+   * Add Italian SE word dictionary file - thx HG3112
+   * BD SUP edit: Add "Select non-forced lines" - thx manuelrn
+   * Take ASSA style from file in CLI - thx Ninelpienel
+   * Split long lines in CLI - thx BenJamesAndo
+   * Add new "Remove text for HI" option "only music symbols" - thx fraternl
+   * Add format "Cavena 890" to "Batch convert" - thx Steve
+* IMPROVED:
+   * Update Korean translation - thx domddol
+   * Update Italian language - thx bovirus
+   * Update Portuguese translation - thx hugok79
+   * Update Polish translation - thx admas
+   * Update Finnish translation - thx Teijo
+   * Update Chinese translation - thx nkh0472
+   * Update French translation - thx Pierre
+   * Update Bulgarian translation - thx Калин
+   * Update German translation - thx Netspark
+   * Update Russian translation - thx elfriob
+   * Update Spanish translations - thx jmaraujouy
+   * Update Dutch translation - thx Flitskikker
+   * Save settings from selected lines unbreak/break - thx David
+   * Add simple page up/down for combo-boxes
+   * Add access keys for message box buttons - thx Christophe
+   * Use split container in "Break/split long lines" - thx oep42
+   * Change max font size in ASSA style from 200 to 500 - thx Jim
+   * Edit interjection is now a text box - thx Andrebavila
+   * Bookmark list now has context menu with edit/delete - thx Andrebavila
+   * Update Tesseract to 5.3.3 (2023-10-05, 64-bit only)
+   * Auto-translate re-written, so it's easier to add new translators
+   * Close all processes when closing Faster Whisper - thx Purfview
+   * Allow drag-n-drop in "Multiple replace" rules - thx Clarencezzh
+   * ASSA: "Replace style" now works on multi-selection - thx Leon
+   * Add some support for ASSA inline color in bdsup export - thx Adam
+   * Update cuBLAS/cuDNN libs to v2 for Purfview's Faster Whisper - thx Purfview
+   * Update Purfview's Faster Whisper to r160.7 (large v3) - thx Purfview
+   * Update Whisper CPP to v1.5.0
+   * Update OpenAI Whisper to include large v3 model
+   * Update FFmpeg/FFprobe to version 6.1 (from 6.0)
+* FIXED:
+   * Fix for paste in waveform - thx Ruong
+   * Fix remember text box settings (bold/size) - thx Siamak
+   * Fix for two pass encoding in burn-in subs - thx Nounours
+   * Fix crash in CSV reader - thx Waseem
+   * Fix bug in "Remove text for HI" - thx Chamallow
+   * Fix find/replace position - thx Omair
+   * Fix 3-part time code in TTML - thx ms2048
+   * Fix image export simple render center left/right align - thx TheFmC
+   * Fix for "Merge short lines" with dialog - thx taxen 
+   * Fix duration combo-box frames in frame-time-code-mode - thx JDTR75
+   * Fix for BD-SUP edit "toggle forced" - thx manuelrn
+   * Fix Whisper post-processing language using "Translate to English" - thx github-roe
+   * Fix "ASSA Tools - Set position" on Linux - thx PascalsHere
+   * Fix for "Generate video with burned-in subtitle" in SMPTE mode - thx Jim
+   * Fix remove of font name in ASSA/SSA - thx PureOcean
+   * Fix possible freeze when loading XML files - thx Dvid
+   * Fix issues with "Set end, add new, and go to new" - thx Lorqu1n/Flitskikker
+   * Fix some missing Thai characters in format PAC - thx thehulk
+   * Fix crash in spell check - thx Omair
+   * Fix crash minimizing ASSA batch styles - thx Åke
+   * Fix crash in "Replace" window after "File - New" - thx Leon
+
+
+4.0.1 (16th September 2023)
+* NEW:
+   * Support for import of Ooona shot change file - thx Eva
+   * ASSA styles sortable - thx tormento
+* IMPROVED:
+   * Update Polish translation - thx admas
+   * Update Brazilian Portuguese translation - thx igorruckert
+   * Update Bulgarian translation - thx Калин
+   * Improve "Dark theme" a little
+   * Improve mpv download UI a little - thx Mishasama
+   * Use UTF encoding from settings when saving BDN/XML - thx nautilus7
+   * Take progress % from cmd line if available for Faster Whisper
+   * Update Purfview's Faster Whisper to r153
+   * Remember "Merge short lines" "Max chars" in "Batch convert" - thx despairTK
+* FIXED:
+   * Fix video player gfx for installer version - thx David
+   * Fix asking for unneeded Purfview Faster Whisper update - thx abc16361
+   * Fix keeping colors after restart - thx Cyprien-22
+   * Fix error handling for clip board - thx jmaraujouy
+   * Fix for zoom waveform drop down width - thx oep42
+   * Fix PAC on Linux - thx PunchaiW
+   * Fix EBU STL on Linux
+   * Fix for using selected text in Find/Replace - thx Daniel
+   * Fix for live spell check - thx AE-Ismail
+   * Fix non UTF8 encoding in GT - thx Andrebavila/ivandrofly
+   * Fix toggle tag in translation mode - thx Leon
+
+
+4.0.0 (4th September 2023)
+* NEW:
+   * New toolbar/video-player themes - thx jmaraujouy
+   * Beautify time codes (via shot changes) - thx Flitskikker
+   * Add Purfview's Faster-Whisper - thx Purfview
+   * Use native styles for WebVTT
+   * Add video format ProRes for "Generate video with burned-in sub"
+   * Allow setting profile from cmd line - thx emcodem
+   * ASSA set layer - thx JonSchram
+   * Allow OCR of XML/PNG from MXF - thx Rodney
+   * Add more "Remove formatting" options in "Batch convert"
+   * Add new shortcuts (focus text box, set actor/voice)
+* IMPROVED:
+   * Update German translation - thx Netspark
+   * Update Chinese translation - thx nkh0472
+   * Update Bulgarian translation - thx Калин
+   * Update Russian translation - thx elfriob
+   * Update Portuguese translation - thx hugok79
+   * Update Korean translation - thx domddol
+   * Update Argentinian/Mexican translation - thx jmaraujouy
+   * Update Dutch translation
+   * Update Greek translation - thx PMitsakis
+   * Improve "Dark theme" (new controls/message-boxes)
+   * Update Tesseract OCR to 5.3.1 (64-bit only)
+   * Update yt-dlp to 2023.07.06
+   * Update lib mpv to 2023-08-27-git-83c0e98
+   * Improve convert of SSA to ASSA - thx Emiliano
+   * Update burn-in video preview to video - thx Masina86
+   * Improve handling of invalid XML in TTML - thx m0ck69
+   * Update Whisper Const-me to version 1.12
+   * Minor refact/optimize - thx ivandrofly
+   * Restructured Whisper folders
+   * Improved Whisper error messages + log file "whisper_log.txt"
+   * Improve subtitle detection in RTF files - thx Hara
+   * Add words/min and exceedances to File > Statistics
+   * Enable converting colors to dialogs for WebVTT
+   * Add FCE option to unbreak short lines based on pixel width
+   * "Check for updates" now also checks plugins - thx ivandrofly
+* FIXED:
+   * Fix "Find Double Words" - thx uckthis
+   * Fix "double dash" issue in "Fix common errors" - thx Joel
+   * Avoid crash on very large TS files - thx Mariusz
+   * Do not count Unicode control characters in Auto-br - MichaelYochpaz 
+   * Fix to eager file locked check - thx OSokil
+   * Preserve white space in "Multiple replace import" - thx OtaStrom
+   * Fix frozen settings in "Batch convert" - thx OtaStrom
+   * Fix export image alignment when using font tag - thx Matt
+   * Fix crash in OCR Find - thx przemo20
+   * Fix crash generating empty wav for online video - thx Gromko1111 
+   * Fix Spanish "Remove text for HI" issues - thx jmaraujouy
+   * Fix crash in bilingual split - thx Leon
+   * Fix ASSA change resolution for inline margins - thx Nagutos
+   * Ignore ASS tags when converting colors to dialog
+   * Fix a few issue with the "Color chooser" dialog - thx Windrider6
+   * Fix crash in auto-translate - thx fdfg
+   * Fix crash in Google Translate Cloud V2 - thx Rielaph
+   * Fix alpha in hex color codes - thx Paul
+   * BDN XML - DropFrame="False" to DropFrame="false" - thx Alain
+   * Fix EBU STL writing on Linux - thx felagund/PunchaiW
+
+
 3.6.13 (14th May 2023)
 * NEW:
    * Add new subtitle format "nVivo transcript" - thx Ashin

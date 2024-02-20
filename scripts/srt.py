@@ -76,6 +76,14 @@ def remove_sdh(input_files, quiet, remove_music):
         print(f"[UTC {get_timestamp()}] [SUBTITLES] Removing SDH in SRT subtitles...")
     for index, input_file in enumerate(input_files):
 
+        command = ["mono", subtitleedit, "/convert", input_file,
+                   "srt", "/FixCommonErrors", "/encoding:utf-8",
+                   "/BalanceLines", "/RemoveTextForHI",
+                   f"/outputfilename:{input_file}_tmp.srt"]
+        run_with_xvfb(command)
+        os.remove(input_file)
+        shutil.move(f"{input_file}_tmp.srt", input_file)
+
         if remove_music:
             # Fix any encoding errors
             clean_invalid_utf8(input_file, '.tmp.srt')
@@ -92,11 +100,15 @@ def remove_sdh(input_files, quiet, remove_music):
             shutil.move('.tmp.srt', input_file)
 
         subs = Subtitles(input_file)
-        subs.filter(rm_music=remove_music, rm_names=False)
+        subs.filter(
+            rm_fonts=False,
+            rm_ast=False,
+            rm_music=True,
+            rm_effects=False,
+            rm_names=False,
+            rm_author=False,
+        )
         subs.save()
-
-        # Removing any all-uppercase letters from
-        # improperly formatted SDH subtitles
 
         # Fix any encoding errors
         clean_invalid_utf8(input_file, '.tmp.srt')
@@ -110,13 +122,6 @@ def remove_sdh(input_files, quiet, remove_music):
         subs.save('.tmp.srt', encoding='utf-8')
         os.remove(input_file)
         shutil.move('.tmp.srt', input_file)
-
-        command = ["mono", subtitleedit, "/convert", input_file,
-                   "srt", "/FixCommonErrors", "/encoding:utf-8", "/BalanceLines",
-                   f"/outputfilename:{input_file}_tmp.srt"]
-        run_with_xvfb(command)
-        os.remove(input_file)
-        shutil.move(f"{input_file}_tmp.srt", input_file)
 
         # Replace unwanted characters or existing OCR errors
         find_and_replace(input_file, 'scripts/replacements.csv')
