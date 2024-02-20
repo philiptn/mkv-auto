@@ -23,5 +23,8 @@ $SUDO true
 # Build the Docker image
 $SUDO docker build -t $IMAGE_NAME .
 
+# Remove old, dangling images to free up space
+$SUDO docker image prune -f > /dev/null 2>&1
+
 # Run the Docker container
 $SUDO docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --notemp

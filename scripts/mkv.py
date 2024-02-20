@@ -423,6 +423,7 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
 
 
 def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
+
     audio_track_ids = []
     audio_track_languages = []
     unmatched_audio_track_ids = []
@@ -433,7 +434,6 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     pref_audio_track_languages = []
     audio_track_codecs = []
     latest_audio_codec = ''
-    preferred_audio_codec = pref_audio_codec
 
     tracks_ids_to_be_converted = []
     tracks_langs_to_be_converted = []
@@ -446,6 +446,7 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     default_audio_track = ''
     pref_default_audio_track = ''
     total_audio_tracks = 0
+    preferred_audio_codec = pref_audio_codec
     needs_processing = False
     pref_audio_codec_found = False
     first_audio_track_found = False
@@ -470,12 +471,13 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
                 first_audio_track_lang = track_language
                 first_audio_track_codec = audio_codec
                 first_audio_track_found = True
+
+            # If the preferred audio codec is not defined ('false'), set it
+            # to current audio codec for that track
+            if preferred_audio_codec.lower() == 'false':
+                preferred_audio_codec = audio_codec
+
             if track_language in pref_audio_langs:
-                # If the preferred audio codec is not defined ('false'), set it
-                # to current audio codec for that track
-                if preferred_audio_codec.lower() == 'false':
-                    preferred_audio_codec = audio_codec
-                    latest_audio_codec = audio_codec
                 if pref_audio_track_languages.count(
                         track_language) == 0 and preferred_audio_codec in audio_codec.upper():
                     pref_audio_track_ids.append(track["id"])
@@ -511,7 +513,8 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     if len(audio_track_ids) != 0 and len(audio_track_ids) < total_audio_tracks:
         needs_processing = True
 
-    preferred_audio_codec = pref_audio_codec
+    if not audio_track_codecs:
+        audio_track_codecs = unmatched_audio_track_codecs
 
     # If the preferred audio codec is in all of the matching tracks, or with unique langs, then it is fully found
     if all(preferred_audio_codec in item for item in audio_track_codecs):
@@ -525,6 +528,7 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
         default_audio_track = pref_default_audio_track
     else:
         pref_audio_codec_found = False
+        needs_processing = True
         tracks_ids_to_be_converted = audio_track_ids
         tracks_langs_to_be_converted = audio_track_languages
         other_tracks_ids = pref_audio_track_ids
@@ -552,6 +556,7 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
             needs_processing = True
         else:
             tracks_langs_to_be_converted = unmatched_audio_track_languages
+            tracks_ids_to_be_converted = unmatched_audio_track_ids
 
     # If the first audio track in the media is not matched, add it,
     # but place it last in the list

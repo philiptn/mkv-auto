@@ -77,8 +77,7 @@ def remove_sdh(input_files, quiet, remove_music):
     for index, input_file in enumerate(input_files):
 
         command = ["mono", subtitleedit, "/convert", input_file,
-                   "srt", "/FixCommonErrors", "/encoding:utf-8",
-                   "/BalanceLines", "/RemoveTextForHI",
+                   "srt", "/FixCommonErrors", "/encoding:utf-8", "/RemoveTextForHI",
                    f"/outputfilename:{input_file}_tmp.srt"]
         run_with_xvfb(command)
         os.remove(input_file)

@@ -50,7 +50,7 @@ try:
     remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "true" else False
     resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
 except configparser.NoOptionError:
-    print("\nError: Some fields are missing from 'user.ini'. Check 'defaults.ini' for reference.\n")
+    print("Error: Some fields are missing from 'user.ini'. Check 'defaults.ini' for reference.\n")
     exit(1)
 
 
@@ -384,13 +384,16 @@ def mkv_auto(args):
                         print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Extracting audio...")
 
                         if other_track_ids:
-                            extracted_other_audio_files, extracted_other_audio_langs, extracted_audio_extensions = extract_audio_tracks_in_mkv(
-                                input_file, other_track_ids, other_track_langs)
+                            extracted_other_audio_files, extracted_other_audio_langs, \
+                                extracted_audio_extensions = extract_audio_tracks_in_mkv(input_file,
+                                                                                         other_track_ids,
+                                                                                         other_track_langs)
 
                         if track_langs_to_be_converted:
-                            extracted_for_convert_audio_files, extracted_for_convert_audio_langs = extract_audio_tracks_in_mkv(
-                                input_file, track_ids_to_be_converted,
-                                track_langs_to_be_converted)
+                            extracted_for_convert_audio_files, extracted_for_convert_audio_langs, \
+                                extracted_audio_extensions = extract_audio_tracks_in_mkv(input_file,
+                                                                                         track_ids_to_be_converted,
+                                                                                         track_langs_to_be_converted)
 
                             ready_audio_extensions, ready_audio_langs, ready_track_ids = encode_audio_tracks(
                                 extracted_for_convert_audio_files, extracted_for_convert_audio_langs,

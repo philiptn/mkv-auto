@@ -123,9 +123,6 @@ def ocr_subtitles(subtitle_files, languages):
         if languages[index + replaced_index] == 'eng':
             find_and_replace(output_subtitles, 'scripts/replacements_eng_only.csv')
 
-    # Fix common OCR errors
-    find_and_replace(output_subtitles, 'scripts/replacements.csv')
-
     return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
 
 
