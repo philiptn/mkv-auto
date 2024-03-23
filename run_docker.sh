@@ -17,14 +17,35 @@ else
     SUDO=''
 fi
 
-# Invoke sudo
-$SUDO true
+# Default debug mode to off
+debug=0
+
+# Loop through all the arguments
+for arg in "$@"
+do
+    case $arg in
+        --debug)
+            debug=1
+            ;;
+        *)
+            # Handle other arguments if necessary
+            ;;
+    esac
+done
+
+if [[ $debug -eq 1 ]]; then
+  debug="--debug"
+else
+  debug=""
+fi
 
 # Build the Docker image
-$SUDO docker build -t $IMAGE_NAME .
+echo -e "Building Docker image..."
+docker build -t $IMAGE_NAME . > /dev/null 2>&1
+echo -e "\033[K\033[1A\033[K"
 
 # Remove old, dangling images to free up space
-$SUDO docker image prune -f > /dev/null 2>&1
+docker image prune -f > /dev/null 2>&1
 
 # Run the Docker container
-$SUDO docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --notemp
+docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --notemp --docker $debug

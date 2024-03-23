@@ -7,6 +7,9 @@ from datetime import datetime
 import shutil
 import time
 
+# ANSI color codes
+BLUE = '\033[34m'
+RESET = '\033[0m'  # Reset to default terminal color
 
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
@@ -37,7 +40,7 @@ def convert_all_videos_to_mkv(input_folder, silent):
     video_files = []
     for root, dirs, files in os.walk(input_folder):
         for file in files:
-            if file.endswith(('.mp4', '.avi', '.m4v', '.webm')):
+            if file.endswith(('.mp4', '.avi', '.m4v', '.webm', '.ts')):
                 video_files.append(os.path.join(root, file))
 
     total_files = len(video_files)
@@ -62,7 +65,44 @@ def convert_all_videos_to_mkv(input_folder, silent):
     pbar.close()
 
 
-def get_mkv_info(filename, silent):
+def format_tracks_as_blocks(json_data, line_width=80):
+    formatted_blocks = []
+    for track in json_data.get('tracks', []):  # Safely access 'tracks'
+        line = ""
+        block = []
+        for key, value in track.items():
+            # Handling None values to be printed as 'null'
+            value_repr = 'null' if value is None else f"'{value}'" if isinstance(value, str) else str(value)
+            entry = f"{key}: {value_repr}, "
+            if len(line + entry) > line_width:
+                block.append(line.rstrip())
+                line = ""
+            line += entry
+        block.append(line.rstrip())  # Add remaining data to the block
+        formatted_blocks.append('\n'.join(block))
+
+    return '\n\n'.join(formatted_blocks)
+
+
+# Function to simplify the JSON structure
+def simplify_json(data, fields_to_keep):
+    simplified = {key: data[key] for key in fields_to_keep if key in data}
+    simplified['tracks'] = [
+        {
+            'id': track['id'],
+            'type': track['type'],
+            'codec_name': track['codec'],
+            'language': track['properties'].get('language', None),
+            'track_name': track['properties'].get('track_name', None),
+            'default_track': track['properties']['default_track'],
+            'forced_track': track['properties'].get('forced_track', False),
+            'codec_id': track['properties']['codec_id']
+        } for track in data['tracks']
+    ]
+    return simplified
+
+
+def get_mkv_info(debug, filename, silent):
     command = ["mkvmerge", "-J", filename]
     done = False
     result = None
@@ -80,11 +120,33 @@ def get_mkv_info(filename, silent):
     # Parse the JSON output and pretty-print it
     parsed_json = json.loads(result.stdout)
     pretty_json = json.dumps(parsed_json, indent=2)
+
+    # Simplifying the JSON
+    fields_to_keep = ['file_name', 'tracks']
+    simplified_json = simplify_json(parsed_json, fields_to_keep)
+    pretty_simplified_json = json.dumps(simplified_json, indent=2)
+    compact_json = format_tracks_as_blocks(simplified_json, 70)
+
+    # Function to colorize text
+    def colorize(text):
+        colored_text = ""
+        for line in text.split('\n'):
+            for part in line.split(', '):
+                if ':' in part:
+                    key, value = part.split(':', 1)
+                    colored_text += f"{BLUE}{key}{RESET}: {value.strip()}, "
+            colored_text = colored_text.rstrip(', ') + '\n'
+        return colored_text
+    colored_text = colorize(compact_json)
+
+    if debug:
+        print(f"[UTC {get_timestamp()}] [DEBUG] MKV file structure:\n")
+        print(colored_text)
     return parsed_json, pretty_json
 
 
 def get_mkv_video_codec(filename):
-    parsed_json, _ = get_mkv_info(filename, True)
+    parsed_json, _ = get_mkv_info(False, filename, True)
     for track in parsed_json['tracks']:
         if track['type'] == 'video':
             return track['codec']
@@ -422,7 +484,13 @@ def repack_tracks_in_mkv(filename, sub_filetypes, sub_languages, pref_subs_langs
             os.remove(f"{base}.{final_sub_track_ids[index]}.{final_sub_languages[index][:-1]}.{filetype}")
 
 
-def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
+def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
+
+    if debug:
+        print(f"[UTC {get_timestamp()}] [DEBUG] get_wanted_audio_tracks:\n")
+        print(f"{BLUE}preferred audio languages{RESET}: {pref_audio_langs}")
+        print(f"{BLUE}preferred audio codec{RESET}: {pref_audio_codec}")
+        print(f"{BLUE}remove commentary tracks{RESET}: {remove_commentary}")
 
     audio_track_ids = []
     audio_track_languages = []
@@ -444,6 +512,7 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     first_audio_track_codec = ''
 
     default_audio_track = ''
+    default_audio_track_set = False
     pref_default_audio_track = ''
     total_audio_tracks = 0
     preferred_audio_codec = pref_audio_codec
@@ -478,8 +547,7 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
                 preferred_audio_codec = audio_codec
 
             if track_language in pref_audio_langs:
-                if pref_audio_track_languages.count(
-                        track_language) == 0 and preferred_audio_codec in audio_codec.upper():
+                if preferred_audio_codec in audio_codec.upper():
                     pref_audio_track_ids.append(track["id"])
                     pref_audio_track_languages.append(track_language)
                     audio_track_codecs.append(audio_codec.upper())
@@ -488,10 +556,12 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
                             and track_language in audio_track_languages:
                         pref_audio_track_ids.remove(track["id"])
                         pref_audio_track_languages.remove(track_language)
+                        audio_track_codecs.remove(audio_codec.upper())
                     else:
-                        pref_default_audio_track = track["id"]
-                elif audio_track_languages.count(
-                        track_language) == 0 and preferred_audio_codec not in audio_codec.upper():
+                        if not default_audio_track_set:
+                            pref_default_audio_track = track["id"]
+                            default_audio_track_set = True
+                elif preferred_audio_codec not in audio_codec.upper():
                     audio_track_ids.append(track["id"])
                     audio_track_languages.append(track_language)
                     audio_track_codecs.append(audio_codec.upper())
@@ -500,15 +570,18 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
                             and track_language in audio_track_languages:
                         audio_track_ids.remove(track["id"])
                         audio_track_languages.remove(track_language)
+                        audio_track_codecs.remove(audio_codec.upper())
                     else:
-                        default_audio_track = track["id"]
+                        if not default_audio_track_set:
+                            default_audio_track = track["id"]
+                            default_audio_track_set = True
             else:
                 unmatched_audio_track_ids.append(track["id"])
                 unmatched_audio_track_languages.append(track_language)
                 unmatched_audio_track_codecs.append(audio_codec)
 
-    all_audio_track_ids = audio_track_ids + pref_audio_track_ids
-    all_audio_track_langs = audio_track_languages + pref_audio_track_languages
+    all_audio_track_ids = pref_audio_track_ids + audio_track_ids
+    all_audio_track_langs = pref_audio_track_languages + audio_track_languages
 
     if len(audio_track_ids) != 0 and len(audio_track_ids) < total_audio_tracks:
         needs_processing = True
@@ -516,13 +589,8 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     if not audio_track_codecs:
         audio_track_codecs = unmatched_audio_track_codecs
 
-    # If the preferred audio codec is in all of the matching tracks, or with unique langs, then it is fully found
+    # If the preferred audio codec is in all the matching tracks, or with unique langs, then it is fully found
     if all(preferred_audio_codec in item for item in audio_track_codecs):
-        pref_audio_codec_found = True
-        all_audio_track_ids = pref_audio_track_ids
-        default_audio_track = pref_default_audio_track
-    elif any(preferred_audio_codec in codec for codec in audio_track_codecs) and all(
-            pref_audio_track_languages[0] in item for item in all_audio_track_langs):
         pref_audio_codec_found = True
         all_audio_track_ids = pref_audio_track_ids
         default_audio_track = pref_default_audio_track
@@ -534,7 +602,7 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
         other_tracks_ids = pref_audio_track_ids
         other_tracks_langs = pref_audio_track_languages
 
-    if pref_audio_codec.lower() == 'false':
+    if pref_audio_codec.lower() == 'false' or not default_audio_track:
         default_audio_track = pref_default_audio_track
 
     # If none of the language selections matched, assign those that are
@@ -579,11 +647,26 @@ def get_wanted_audio_tracks(file_info, pref_audio_langs, remove_commentary, pref
     if not all(elem in iter_pref_audio_langs for elem in all_audio_track_langs):
         needs_processing = True
 
+    if debug:
+        print(f"{BLUE}preferred audio codec found{RESET}: {pref_audio_codec_found}")
+        print(f"{BLUE}needs processing{RESET}: {needs_processing}")
+        print(f"\n{BLUE}all wanted audio track ids{RESET}: {all_audio_track_ids}")
+        print(f"{BLUE}default audio track id{RESET}: {default_audio_track}")
+        print(f"{BLUE}tracks to be extracted{RESET}:\n  {BLUE}ids{RESET}: {other_tracks_ids}, "
+              f"{BLUE}langs{RESET}: {other_tracks_langs}")
+        print(f"{BLUE}tracks to be converted{RESET}:\n  {BLUE}ids{RESET}: {tracks_ids_to_be_converted}, "
+              f"{BLUE}langs{RESET}: {tracks_langs_to_be_converted}\n")
+
     return all_audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found, \
         tracks_ids_to_be_converted, tracks_langs_to_be_converted, other_tracks_ids, other_tracks_langs
 
 
-def get_wanted_subtitle_tracks(file_info, pref_langs):
+def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
+
+    if debug:
+        print(f"[UTC {get_timestamp()}] [DEBUG] get_wanted_subtitle_tracks:\n")
+        print(f"{BLUE}preferred subtitle languages{RESET}: {pref_langs}")
+
     total_subs_tracks = 0
     pref_subs_langs = pref_langs
 
@@ -721,6 +804,15 @@ def get_wanted_subtitle_tracks(file_info, pref_langs):
 
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True
+
+    if debug:
+        print(f"{BLUE}needs processing{RESET}: {needs_processing}")
+        print(f"{BLUE}needs SDH removal{RESET}: {needs_sdh_removal}")
+        print(f"{BLUE}needs to be converted{RESET}: {needs_convert}")
+        print(f"\n{BLUE}all wanted subtitle track ids{RESET}: {subs_track_ids}")
+        print(f"{BLUE}default subtitle track id{RESET}: {default_subs_track}")
+        print(f"{BLUE}subtitle tracks to be extracted{RESET}:\n  {BLUE}filetypes{RESET}: {sub_filetypes}, "
+              f"{BLUE}langs{RESET}: {subs_track_languages}\n")
 
     return subs_track_ids, default_subs_track, needs_sdh_removal, needs_convert, \
         sub_filetypes, subs_track_languages, needs_processing

@@ -109,7 +109,7 @@ def ocr_subtitles(subtitle_files, languages):
 
         update_tesseract_lang_xml(languages[index + replaced_index])
         command = ["mono", subtitleedit, "/convert", file,
-                   "srt", "/FixCommonErrors", "/encoding:utf-8"]
+                   "srt", "/SplitLongLines", "/encoding:utf-8"]
         run_with_xvfb(command)
 
         output_subtitles.append(f"{base}.{track_id}.{lang}.srt")

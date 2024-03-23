@@ -77,8 +77,9 @@ def remove_sdh(input_files, quiet, remove_music):
     for index, input_file in enumerate(input_files):
 
         command = ["mono", subtitleedit, "/convert", input_file,
-                   "srt", "/FixCommonErrors", "/encoding:utf-8", "/RemoveTextForHI",
+                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                    f"/outputfilename:{input_file}_tmp.srt"]
+
         run_with_xvfb(command)
         os.remove(input_file)
         shutil.move(f"{input_file}_tmp.srt", input_file)
@@ -123,7 +124,7 @@ def remove_sdh(input_files, quiet, remove_music):
         shutil.move('.tmp.srt', input_file)
 
         # Replace unwanted characters or existing OCR errors
-        find_and_replace(input_file, 'scripts/replacements.csv')
+        find_and_replace(input_file, 'scripts/replacements_srt_only.csv')
 
 
 def convert_ass_to_srt(subtitle_files, languages):

@@ -112,6 +112,11 @@ def mkv_auto(args):
     if args.output_dir:
         output_dir = args.output_dir
 
+    if args.debug:
+        debug = True
+    else:
+        debug = False
+
     # If the temp dir location is unchanged from default and
     # set to run in Docker, set default to inside 'files/' folder
     if ini_temp_dir == '.tmp/' and args.docker:
@@ -169,7 +174,7 @@ def mkv_auto(args):
             # Show the cursor
             sys.stdout.write('\033[?25h')
             sys.stdout.flush()
-            print(f"[ERROR] No mkv files found in input directory.\n")
+            print(f"No mkv files found in input directory.\n")
         exit(0)
 
     errored_file_names = []
@@ -338,31 +343,30 @@ def mkv_auto(args):
                     quiet = False
                     output_file_mkv = output_file
 
-                    # Get file info using mkvinfo
-                    file_info, pretty_file_info = get_mkv_info(input_file, args.silent)
-
                     if not file_name_printed:
                         print(f"[INFO] Processing file {file_index} of {total_files}:\n")
                         print(f"[UTC {get_timestamp()}] [FILE] '{file_name}'")
                         file_name_printed = True
 
+                    # Get file info using mkvinfo
+                    file_info, pretty_file_info = get_mkv_info(debug, input_file, args.silent)
                     # Get video codec
                     mkv_video_codec = get_mkv_video_codec(input_file)
 
                     wanted_audio_tracks, default_audio_track, needs_processing_audio, \
                         pref_audio_codec_found, track_ids_to_be_converted, \
                         track_langs_to_be_converted, other_track_ids, other_track_langs = get_wanted_audio_tracks(
-                        file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+                        debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
 
                     wanted_subs_tracks, default_subs_track, \
                         needs_sdh_removal, needs_convert, a, b, needs_processing_subs = get_wanted_subtitle_tracks(
-                        file_info, pref_subs_langs)
+                        debug, file_info, pref_subs_langs)
 
-                    if needs_processing_audio or needs_processing_subs or needs_sdh_removal or needs_convert:
+                    if needs_processing_audio:
                         strip_tracks_in_mkv(input_file, wanted_audio_tracks, default_audio_track,
                                             wanted_subs_tracks, default_subs_track, always_enable_subs)
                     else:
-                        print(f"[UTC {get_timestamp()}] [MKVMERGE] No subtitle track filtering needed.")
+                        print(f"[UTC {get_timestamp()}] [MKVMERGE] No audio track filtering needed.")
 
                     # If the preferred audio codec is set to AAC or OPUS, the purpose is probably to save on storage space.
                     # Force-enabling the encoding regardless of the audio track already found, as well as removing
@@ -372,12 +376,12 @@ def mkv_auto(args):
                         keep_original_audio = False
 
                     # Get updated file info after mkv tracks reduction
-                    file_info, pretty_file_info = get_mkv_info(input_file, args.silent)
+                    file_info, pretty_file_info = get_mkv_info(debug, input_file, args.silent)
 
                     wanted_audio_tracks, default_audio_track, needs_processing_audio, \
                         pref_audio_codec_found, track_ids_to_be_converted, \
                         track_langs_to_be_converted, other_track_ids, other_track_langs = get_wanted_audio_tracks(
-                        file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+                        debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
 
                     # Generating audio tracks if preferred codec not found in all audio tracks
                     if needs_processing_audio:
@@ -410,9 +414,9 @@ def mkv_auto(args):
                     if needs_processing_subs:
                         subtitle_files = []
                         # Get updated file info after mkv tracks reduction
-                        file_info, pretty_file_info = get_mkv_info(input_file, args.silent)
+                        file_info, pretty_file_info = get_mkv_info(False, input_file, args.silent)
                         wanted_subs_tracks, a, b, needs_convert, \
-                            sub_filetypes, subs_track_languages, e = get_wanted_subtitle_tracks(file_info,
+                            sub_filetypes, subs_track_languages, e = get_wanted_subtitle_tracks(debug, file_info,
                                                                                                 pref_subs_langs)
 
                         updated_subtitle_languages = subs_track_languages
@@ -639,6 +643,8 @@ def main():
                         help="process files directly without using temp dir (default: False)")
     parser.add_argument("--docker", action="store_true", default=False, required=False,
                         help="use docker-specific default directories from 'files/' (default: False)")
+    parser.add_argument("--debug", action="store_true", default=False, required=False,
+                        help="print debugging information such as track selection, codecs, prefs etc.")
 
     parser.set_defaults(func=mkv_auto)
     args = parser.parse_args()
