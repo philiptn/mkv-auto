@@ -89,15 +89,15 @@ def simplify_json(data, fields_to_keep):
     simplified = {key: data[key] for key in fields_to_keep if key in data}
     simplified['tracks'] = [
         {
-            'id': track['id'],
-            'type': track['type'],
-            'codec_name': track['codec'],
-            'language': track['properties'].get('language', None),
-            'track_name': track['properties'].get('track_name', None),
-            'default_track': track['properties']['default_track'],
-            'forced_track': track['properties'].get('forced_track', False),
-            'codec_id': track['properties']['codec_id']
-        } for track in data['tracks']
+            'id': track.get('id'),
+            'type': track.get('type'),
+            'codec_name': track.get('codec'),
+            'language': track.get('properties', {}).get('language'),
+            'track_name': track.get('properties', {}).get('track_name'),
+            'default_track': track.get('properties', {}).get('default_track'),
+            'forced_track': track.get('properties', {}).get('forced_track', False),
+            'codec_id': track.get('properties', {}).get('codec_id')
+        } for track in data.get('tracks', [])
     ]
     return simplified
 
