@@ -17,35 +17,26 @@ else
     SUDO=''
 fi
 
-# Default debug mode to off
-debug=0
+# Initialize variables for the options
+extra_args=()
 
 # Loop through all the arguments
-for arg in "$@"
-do
-    case $arg in
-        --debug)
-            debug=1
-            ;;
-        *)
-            # Handle other arguments if necessary
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        *)  # Capture any other arguments
+            extra_args+=("$1")
+            shift # Move to the next argument
             ;;
     esac
 done
 
-if [[ $debug -eq 1 ]]; then
-  debug="--debug"
-else
-  debug=""
-fi
-
 # Build the Docker image
-echo -e "Building Docker image..."
-docker build -t $IMAGE_NAME . > /dev/null 2>&1
+echo "Building Docker image..."
+docker build -t "$IMAGE_NAME" . > /dev/null 2>&1
 echo -e "\033[K\033[1A\033[K"
 
 # Remove old, dangling images to free up space
 docker image prune -f > /dev/null 2>&1
 
-# Run the Docker container
-docker run --rm --name $IMAGE_NAME -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --notemp --docker $debug
+# Run the Docker container with the accumulated options
+docker run --rm --name "$IMAGE_NAME" -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker "${extra_args[@]}"

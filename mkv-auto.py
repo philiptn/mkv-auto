@@ -10,6 +10,14 @@ from scripts.mkv import *
 from scripts.ocr import *
 from scripts.srt import *
 
+# ANSI color codes
+BLUE = '\033[34m'
+RESET = '\033[0m'  # Reset to default terminal color
+GREY = '\033[90m'
+YELLOW = '\033[33m'
+RED = '\033[31m'
+GREEN = '\033[32m'
+
 # Get user preferences
 variables = ConfigParser()
 
@@ -141,11 +149,11 @@ def mkv_auto(args):
     if not notemp:
         with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
                   bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
-            pbar.set_description(f"[INFO] Copying file 1 of {total_files}")
+            pbar.set_description(f"{GREY}[INFO]{RESET} Copying file 1 of {total_files}")
             copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
         input_dir = temp_dir
 
-    convert_all_videos_to_mkv(input_dir, args.silent)
+    convert_all_videos_to_mkv(debug, input_dir, args.silent)
     rename_others_file_to_folder(input_dir, movies_folder, tv_shows_folder, movies_hdr_folder, tv_shows_hdr_folder,
                                  others_folder)
 
@@ -275,25 +283,25 @@ def mkv_auto(args):
                                 mkv_file_found = True
 
                         if not file_name_printed:
-                            print(f"[INFO] Processing file {file_index} of {total_files}:\n")
-                            print(f"[UTC {get_timestamp()}] [FILE] '{input_file_mkv_nopath}'")
+                            print(f"{GREY}[INFO]{RESET} Processing file {file_index} of {total_files}:\n")
+                            print(f"{GREY}[UTC {get_timestamp()}] [FILE]{RESET} '{input_file_mkv_nopath}'")
                             file_name_printed = True
                         if external_subs_print:
                             quiet = True
                         input_files = [input_file]
                         if always_remove_sdh or remove_music:
                             if external_subs_print:
-                                print(f"[UTC {get_timestamp()}] [SRT_EXT] Removing SDH in external subtitles...")
-                            remove_sdh(input_files, quiet, remove_music)
+                                print(f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Removing SDH in external subtitles...")
+                            remove_sdh(debug, input_files, quiet, remove_music)
                         if resync_subtitles == 'fast':
                             if external_subs_print:
                                 print(
-                                    f"[UTC {get_timestamp()}] [SRT_EXT] Synchronizing external subtitles to audio track (fast)...")
-                            resync_srt_subs_fast(input_file_mkv, input_files, quiet)
+                                    f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Synchronizing external subtitles to audio track (fast)...")
+                            resync_srt_subs_fast(debug, input_file_mkv, input_files, quiet)
                         elif resync_subtitles == 'ai':
                             if external_subs_print:
                                 print(
-                                    f"[UTC {get_timestamp()}] [SRT_EXT] Synchronizing external subtitles to audio track (ai)...")
+                                    f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Synchronizing external subtitles to audio track (ai)...")
                             resync_srt_subs_ai(input_file_mkv, input_files, quiet)
                         external_subs_print = False
 
@@ -344,8 +352,8 @@ def mkv_auto(args):
                     output_file_mkv = output_file
 
                     if not file_name_printed:
-                        print(f"[INFO] Processing file {file_index} of {total_files}:\n")
-                        print(f"[UTC {get_timestamp()}] [FILE] '{file_name}'")
+                        print(f"{GREY}[INFO]{RESET} Processing file {file_index} of {total_files}:\n")
+                        print(f"{GREY}[UTC {get_timestamp()}] [FILE]{RESET} '{file_name}'")
                         file_name_printed = True
 
                     # Get file info using mkvinfo
@@ -363,10 +371,10 @@ def mkv_auto(args):
                         debug, file_info, pref_subs_langs)
 
                     if needs_processing_audio:
-                        strip_tracks_in_mkv(input_file, wanted_audio_tracks, default_audio_track,
+                        strip_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track,
                                             wanted_subs_tracks, default_subs_track, always_enable_subs)
                     else:
-                        print(f"[UTC {get_timestamp()}] [MKVMERGE] No audio track filtering needed.")
+                        print(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} No audio track filtering needed.")
 
                     # If the preferred audio codec is set to AAC or OPUS, the purpose is probably to save on storage space.
                     # Force-enabling the encoding regardless of the audio track already found, as well as removing
@@ -385,24 +393,24 @@ def mkv_auto(args):
 
                     # Generating audio tracks if preferred codec not found in all audio tracks
                     if needs_processing_audio:
-                        print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Extracting audio...")
+                        print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Extracting audio...")
 
                         if other_track_ids:
                             extracted_other_audio_files, extracted_other_audio_langs, \
-                                extracted_audio_extensions = extract_audio_tracks_in_mkv(input_file,
+                                extracted_audio_extensions = extract_audio_tracks_in_mkv(debug, input_file,
                                                                                          other_track_ids,
                                                                                          other_track_langs)
 
                         if track_langs_to_be_converted:
                             extracted_for_convert_audio_files, extracted_for_convert_audio_langs, \
-                                extracted_audio_extensions = extract_audio_tracks_in_mkv(input_file,
+                                extracted_audio_extensions = extract_audio_tracks_in_mkv(debug, input_file,
                                                                                          track_ids_to_be_converted,
                                                                                          track_langs_to_be_converted)
 
                             ready_audio_extensions, ready_audio_langs, ready_track_ids = encode_audio_tracks(
-                                extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
+                                debug, extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
                                 pref_audio_codec, extracted_other_audio_files, extracted_other_audio_langs,
-                                keep_original_audio)
+                                keep_original_audio, other_track_ids)
                         else:
                             ready_audio_extensions = extracted_audio_extensions
                             ready_audio_langs = extracted_other_audio_langs
@@ -424,12 +432,12 @@ def mkv_auto(args):
 
                         # Check if any of the subtitle tracks needs to be converted using OCR
                         if needs_convert:
-                            print(f"[UTC {get_timestamp()}] [MKVEXTRACT] Extracting subtitles for OCR...")
+                            print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Extracting subtitles for OCR...")
                             output_subtitles = []
                             generated_srt_files = []
 
                             if "sub" in sub_filetypes:
-                                subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
+                                subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
                                 # If there is a mix of srt files alongside (different languages), then
@@ -445,7 +453,7 @@ def mkv_auto(args):
                                         subs_track_languages.pop(index)
 
                                 output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = ocr_subtitles(
-                                    subtitle_files, subs_track_languages)
+                                    debug, subtitle_files, subs_track_languages)
 
                                 for file in alongside_srt_files:
                                     sub_filetypes.insert(0, file)
@@ -453,7 +461,7 @@ def mkv_auto(args):
                                     updated_subtitle_languages.insert(0, lang)
 
                             elif "sup" in sub_filetypes:
-                                subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
+                                subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
                                 # If there is a mix of srt files alongside (different languages), then
@@ -469,7 +477,7 @@ def mkv_auto(args):
                                         subs_track_languages.pop(index)
 
                                 output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = ocr_subtitles(
-                                    subtitle_files, subs_track_languages)
+                                    debug, subtitle_files, subs_track_languages)
 
                                 for file in alongside_srt_files:
                                     sub_filetypes.insert(0, file)
@@ -477,7 +485,7 @@ def mkv_auto(args):
                                     updated_subtitle_languages.insert(0, lang)
 
                             elif "ass" in sub_filetypes:
-                                subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
+                                subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
                                 # If there is a mix of srt files alongside (different languages), then
@@ -501,11 +509,11 @@ def mkv_auto(args):
                                     updated_subtitle_languages.insert(0, lang)
 
                             if always_remove_sdh:
-                                remove_sdh(output_subtitles, quiet, remove_music)
+                                remove_sdh(debug, output_subtitles, quiet, remove_music)
                                 needs_sdh_removal = False
 
                             if resync_subtitles == 'fast':
-                                resync_srt_subs_fast(input_file, output_subtitles, quiet)
+                                resync_srt_subs_fast(debug, input_file, output_subtitles, quiet)
                             elif resync_subtitles == 'ai':
                                 resync_srt_subs_ai(input_file, output_subtitles, quiet)
 
@@ -516,36 +524,36 @@ def mkv_auto(args):
                                 # Will remove hidden CC data as long as
                                 # video codec is not MPEG2 (DVD)
                                 if mkv_video_codec != 'MPEG-1/2':
-                                    remove_cc_hidden_in_file(input_file)
+                                    remove_cc_hidden_in_file(debug, input_file)
 
-                            repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
+                            repack_tracks_in_mkv(debug, input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
                                                  ready_audio_extensions, ready_audio_langs, pref_audio_langs,
                                                  ready_track_ids, all_subs_track_ids)
 
                         elif not needs_convert:
                             if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false':
-                                subtitle_files = extract_subs_in_mkv(input_file, wanted_subs_tracks,
+                                subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
                             if needs_sdh_removal and (always_remove_sdh or remove_music) and subtitle_files:
-                                remove_sdh(subtitle_files, quiet, remove_music)
+                                remove_sdh(debug, subtitle_files, quiet, remove_music)
 
                             if resync_subtitles != 'false' and subtitle_files:
                                 if resync_subtitles == 'fast':
-                                    resync_srt_subs_fast(input_file, subtitle_files, quiet)
+                                    resync_srt_subs_fast(debug, input_file, subtitle_files, quiet)
                                 elif resync_subtitles == 'ai':
                                     resync_srt_subs_ai(input_file, subtitle_files, quiet)
 
                             if has_closed_captions(input_file):
                                 if mkv_video_codec != 'MPEG-1/2':
-                                    remove_cc_hidden_in_file(input_file)
+                                    remove_cc_hidden_in_file(debug, input_file)
 
-                            repack_tracks_in_mkv(input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
+                            repack_tracks_in_mkv(debug, input_file, sub_filetypes, updated_subtitle_languages, pref_subs_langs,
                                                  ready_audio_extensions, ready_audio_langs, pref_audio_langs,
                                                  ready_track_ids, all_subs_track_ids)
 
                     if needs_processing_subs:
-                        remove_all_mkv_track_tags(input_file)
+                        remove_all_mkv_track_tags(debug, input_file)
 
                     if needs_tag_rename:
                         if file_tag != "default":
@@ -557,9 +565,9 @@ def mkv_auto(args):
                     end_time = time.time()
                     processing_time = end_time - start_time
                     total_processing_time += processing_time
-                    print(f"[UTC {get_timestamp()}] [INFO] Processing time: {format_time(int(processing_time))}")
+                    print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Processing time: {format_time(int(processing_time))}")
 
-                    print(f"[UTC {get_timestamp()}] [INFO] Moving file to destination folder...")
+                    print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Moving file to destination folder...")
                     move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
                                         movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames,
                                         flatten_directories)
@@ -577,7 +585,8 @@ def mkv_auto(args):
                     sys.stdout.write('\033[?25h')
                     sys.stdout.flush()
                 print(
-                    f"[UTC {get_timestamp()}] [ERROR] An unknown error occured. Skipping processing...\n---\n{e}\n---\n")
+                    f"{GREY}[UTC {get_timestamp()}]{RESET} {RED}[ERROR]{RESET} "
+                    f"An unknown error occured. Skipping processing...\n---\n{e}\n---\n")
                 errored_file_names.append(file_name)
 
                 move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
@@ -605,9 +614,9 @@ def mkv_auto(args):
         # Calculate average (using float division)
         average_time = total_processing_time / len(mkv_files_list)
 
-        print(f"[INFO] All files successfully processed.")
-        print(f"[INFO] Processing took {format_time(int(total_processing_time))} to complete.")
-        print(f"[INFO] The average file took {format_time(int(average_time))} to process.\n")
+        print(f"{GREY}[INFO]{RESET} All files successfully processed.")
+        print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(total_processing_time))} to complete.")
+        print(f"{GREY}[INFO]{RESET} The average file took {format_time(int(average_time))} to process.\n")
     else:
         if os.path.exists('.last_processed_mkv.txt'):
             os.remove('.last_processed_mkv.txt')
@@ -617,7 +626,7 @@ def mkv_auto(args):
         else:
             error_str = 'error'
             files_str = 'file'
-        print(f"[INFO] During processing {len(errored_file_names)} {error_str} occurred in {files_str}:")
+        print(f"{GREY}[INFO]{RESET} During processing {len(errored_file_names)} {error_str} occurred in {files_str}:")
         for file in errored_file_names:
             print(f"'{file}'")
         print('')

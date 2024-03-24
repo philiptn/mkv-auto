@@ -11,6 +11,13 @@ import csv
 import re
 
 
+# ANSI color codes
+BLUE = '\033[34m'
+RESET = '\033[0m'  # Reset to default terminal color
+GREY = '\033[90m'
+YELLOW = '\033[33m'
+
+
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
     current_time = datetime.utcnow()
@@ -70,15 +77,21 @@ def run_with_xvfb(command):
     return result
 
 
-def remove_sdh(input_files, quiet, remove_music):
+def remove_sdh(debug, input_files, quiet, remove_music):
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
     if not quiet:
-        print(f"[UTC {get_timestamp()}] [SUBTITLES] Removing SDH in SRT subtitles...")
+        print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Removing SDH in SRT subtitles...")
+
     for index, input_file in enumerate(input_files):
 
         command = ["mono", subtitleedit, "/convert", input_file,
                    "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                    f"/outputfilename:{input_file}_tmp.srt"]
+
+        if debug:
+            print(f"{YELLOW}", end='')
+            print(' '.join(command))
+            print(f"{RESET}")
 
         run_with_xvfb(command)
         os.remove(input_file)
@@ -128,7 +141,7 @@ def remove_sdh(input_files, quiet, remove_music):
 
 
 def convert_ass_to_srt(subtitle_files, languages):
-    print(f"[UTC {get_timestamp()}] [ASS] Converting ASS subtitles to SRT...")
+    print(f"{GREY}[UTC {get_timestamp()}] [ASS]{RESET} Converting ASS subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = languages
     replaced_index = 0
@@ -157,7 +170,7 @@ def convert_ass_to_srt(subtitle_files, languages):
 
 def resync_srt_subs_ai(input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[UTC {get_timestamp()}] [AUTOSUBSYNC] Synchronizing subtitles to audio track (ai)...")
+        print(f"{GREY}[UTC {get_timestamp()}] [AUTOSUBSYNC]{RESET} Synchronizing subtitles to audio track (ai)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')
@@ -171,9 +184,9 @@ def resync_srt_subs_ai(input_file, subtitle_files, quiet):
         shutil.move(temp_filename, subtitle_filename)
 
 
-def resync_srt_subs_fast(input_file, subtitle_files, quiet):
+def resync_srt_subs_fast(debug, input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"[UTC {get_timestamp()}] [FFSUBSYNC] Synchronizing subtitles to audio track (fast)...")
+        print(f"{GREY}[UTC {get_timestamp()}] [FFSUBSYNC]{RESET} Synchronizing subtitles to audio track (fast)...")
 
     for index, subfile in enumerate(subtitle_files):
         base, _, extension = subfile.rpartition('.')
@@ -183,6 +196,11 @@ def resync_srt_subs_fast(input_file, subtitle_files, quiet):
 
         command = ["ffs", input_file, "--vad", "webrtc",
                    "-i", subtitle_filename, "-o", temp_filename]
+
+        if debug:
+            print(f"{YELLOW}", end='')
+            print(' '.join(command))
+            print(f"{RESET}")
 
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:

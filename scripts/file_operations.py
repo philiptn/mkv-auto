@@ -7,6 +7,13 @@ from tqdm import tqdm
 from datetime import datetime
 
 
+# ANSI color codes
+BLUE = '\033[34m'
+RESET = '\033[0m'  # Reset to default terminal color
+GREY = '\033[90m'
+YELLOW = '\033[33m'
+
+
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
     current_time = datetime.utcnow()
@@ -35,17 +42,17 @@ def extract_archives(input_folder):
 
             try:
                 if archive_file.endswith('.rar'):
-                    print(f"[UTC {get_timestamp()}] [RAR] Extracting '{archive_file}'...")
+                    print(f"{GREY}[UTC {get_timestamp()}] [RAR]{RESET} Extracting '{archive_file}'...")
                     # Extract RAR file
                     with rarfile.RarFile(archive_path) as rf:
                         rf.extractall(root)
                 elif archive_file.endswith('.zip'):
-                    print(f"[UTC {get_timestamp()}] [ZIP] Extracting '{archive_file}'...")
+                    print(f"{GREY}[UTC {get_timestamp()}] [ZIP]{RESET} Extracting '{archive_file}'...")
                     # Extract ZIP file
                     with zipfile.ZipFile(archive_path, 'r') as zf:
                         zf.extractall(root)
             except Exception as e:
-                print(f"[UTC {get_timestamp()}] [ERROR] Failed to extract {archive_file}: {e}")
+                print(f"{GREY}[UTC {get_timestamp()}] [ERROR]{RESET} Failed to extract {archive_file}: {e}")
     if len(files) != 0:
         print('')
 
@@ -79,7 +86,7 @@ def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files)
                 break
             fdst.write(chunk)
             pbar.update(len(chunk))
-        pbar.set_description(f"[INFO] Copying file {file_counter[0]} of {total_files}")
+        pbar.set_description(f"{GREY}[INFO]{RESET} Copying file {file_counter[0]} of {total_files}")
 
 
 def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):

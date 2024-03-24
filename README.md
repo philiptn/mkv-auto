@@ -71,9 +71,12 @@ If you want to run the utility in the future without typing the full command, a 
 ### mkv-auto
 
 ```
-usage: mkv-auto.py [-h] [--input_folder INPUT_DIR] [--output_folder OUTPUT_DIR] [--silent] [--notemp] [--docker]
+usage: mkv-auto.py [-h] [--input_folder INPUT_DIR]
+                   [--output_folder OUTPUT_DIR] [--silent] [--notemp]
+                   [--docker] [--debug]
 
-A tool that aims to remove necessary clutter from Matroska (.mkv) files by removing and/or converting any subtitle tracks in the source file(s).
+A tool that aims to remove necessary clutter from Matroska (.mkv) files by
+removing and/or converting any audio or subtitle tracks from the source file(s).
 
 options:
   -h, --help            show this help message and exit
@@ -81,9 +84,14 @@ options:
                         input folder path (default: 'input/')
   --output_folder OUTPUT_DIR, -of OUTPUT_DIR
                         output folder path (default: 'output/')
-  --silent              supress visual elements like progress bars (default: False)
-  --notemp              process files directly without using temp dir (default: False)
-  --docker              use docker-specific default directories from 'files/' (default: False)
+  --silent              supress visual elements like progress bars (default:
+                        False)
+  --notemp              process files directly without using temp dir
+                        (default: False)
+  --docker              use docker-specific default directories from 'files/'
+                        (default: False)
+  --debug               print debugging information such as track selection,
+                        codecs, prefs etc.
 ```
 
 ### queue-service

@@ -6,6 +6,12 @@ import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+# ANSI color codes
+BLUE = '\033[34m'
+RESET = '\033[0m'  # Reset to default terminal color
+GREY = '\033[90m'
+YELLOW = '\033[33m'
+
 
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
@@ -60,7 +66,7 @@ def find_and_replace(input_files, replacement_file):
 # Deprecated due to OCR problems with pgsrip #
 ##############################################
 def ocr_pgs_subtitles(subtitle_files, languages):
-    print(f"[UTC {get_timestamp()}] [OCR] Performing OCR on PGS subtitles...")
+    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Performing OCR on PGS subtitles...")
     output_subtitles = []
     generated_srt_files = []
     replaced_index = 0
@@ -90,8 +96,8 @@ def ocr_pgs_subtitles(subtitle_files, languages):
     return output_subtitles, updated_subtitle_languages, generated_srt_files
 
 
-def ocr_subtitles(subtitle_files, languages):
-    print(f"[UTC {get_timestamp()}] [OCR] Converting picture-based subtitles to SRT...")
+def ocr_subtitles(debug, subtitle_files, languages):
+    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting picture-based subtitles to SRT...")
 
     tessdata_location = '~/.mkv-auto/'
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
@@ -110,6 +116,12 @@ def ocr_subtitles(subtitle_files, languages):
         update_tesseract_lang_xml(languages[index + replaced_index])
         command = ["mono", subtitleedit, "/convert", file,
                    "srt", "/SplitLongLines", "/encoding:utf-8"]
+
+        if debug:
+            print(f"{YELLOW}", end='')
+            print(' '.join(command))
+            print(f"{RESET}")
+
         run_with_xvfb(command)
 
         output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
