@@ -9,6 +9,8 @@ from datetime import datetime
 import time
 import csv
 import re
+import concurrent.futures
+import random
 
 
 # ANSI color codes
@@ -55,62 +57,56 @@ def find_and_replace(input_file, replacement_file):
         file.write(data)
 
 
+def find_available_display():
+    while True:
+        display_number = random.randint(100, 1000)  # Adjust the range as necessary
+        lock_file = f"/tmp/.X11-unix/X{display_number}"
+        if not os.path.exists(lock_file):
+            return display_number
+
+
 def run_with_xvfb(command):
-    xvfb_cmd = ["Xvfb", ":99", "-screen", "0", "1024x768x24"]
+    display_number = find_available_display()
+    xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24"]
 
     # Start Xvfb in the background
     xvfb_process = subprocess.Popen(xvfb_cmd)
-    # Wait for the Xvfb process to initialize
-    time.sleep(2)
+    time.sleep(2)  # Allow time for Xvfb to start
 
     env = os.environ.copy()
-    env['DISPLAY'] = ':99'
-
+    env['DISPLAY'] = f":{display_number}"
     result = subprocess.run(command, env=env, capture_output=True, text=True)
 
-    # Kill the Xvfb process after we're done
     xvfb_process.terminate()
-    time.sleep(2)
+    xvfb_process.wait()
 
     if result.returncode != 0:
-        raise Exception("Error executing command: " + result.stderr)
+        raise Exception(f"Error executing command: {result.stderr}")
+
     return result
 
 
-def remove_sdh(debug, input_files, quiet, remove_music):
-    subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
-    if not quiet:
-        print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Removing SDH in SRT subtitles...")
+def remove_sdh_worker(debug, input_file, remove_music, subtitleedit, display_number):
+    command = ["mono", subtitleedit, "/convert", input_file,
+               "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
+               f"/outputfilename:{input_file}_tmp.srt"]
 
-    for index, input_file in enumerate(input_files):
+    if debug:
+        print(f"{YELLOW}{' '.join(command)}{RESET}")
 
-        command = ["mono", subtitleedit, "/convert", input_file,
-                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
-                   f"/outputfilename:{input_file}_tmp.srt"]
+    run_with_xvfb(command)
+    os.remove(input_file)
+    shutil.move(f"{input_file}_tmp.srt", input_file)
 
-        if debug:
-            print(f"{YELLOW}", end='')
-            print(' '.join(command))
-            print(f"{RESET}")
-
-        run_with_xvfb(command)
+    if remove_music:
+        clean_invalid_utf8(input_file, '.tmp.srt')
         os.remove(input_file)
-        shutil.move(f"{input_file}_tmp.srt", input_file)
+        shutil.move('.tmp.srt', input_file)
 
-        if remove_music:
-            # Fix any encoding errors
-            clean_invalid_utf8(input_file, '.tmp.srt')
-            os.remove(input_file)
-            shutil.move('.tmp.srt', input_file)
-
-            # Remove all music lines completely
-            subs = pysrt.open(input_file)
-            for sub in subs:
-                if '♪' in sub.text:
-                    sub.text = ''
-            subs.save('.tmp.srt', encoding='utf-8')
-            os.remove(input_file)
-            shutil.move('.tmp.srt', input_file)
+        subs = pysrt.open(input_file)
+        subs = [sub for sub in subs if '♪' not in sub.text]
+        pysrt.save(subs, f"{input_file}.tmp.srt", encoding='utf-8')
+        shutil.move(f"{input_file}.tmp.srt", input_file)
 
         subs = Subtitles(input_file)
         subs.filter(
@@ -123,21 +119,33 @@ def remove_sdh(debug, input_files, quiet, remove_music):
         )
         subs.save()
 
-        # Fix any encoding errors
         clean_invalid_utf8(input_file, '.tmp.srt')
-        os.remove(input_file)
-        shutil.move('.tmp.srt', input_file)
+        shutil.move(f"{input_file}.tmp.srt", input_file)
 
         subs = pysrt.open(input_file)
-        for sub in subs:
-            if sub.text.isupper():
-                sub.text = ''
-        subs.save('.tmp.srt', encoding='utf-8')
-        os.remove(input_file)
-        shutil.move('.tmp.srt', input_file)
+        subs = [sub for sub in subs if not sub.text.isupper()]
+        pysrt.save(subs, f"{input_file}.tmp.srt", encoding='utf-8')
+        shutil.move(f"{input_file}.tmp.srt", input_file)
 
-        # Replace unwanted characters or existing OCR errors
         find_and_replace(input_file, 'scripts/replacements_srt_only.csv')
+
+
+def remove_sdh(debug, input_files, quiet, remove_music):
+    subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
+    if not quiet:
+        print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Removing SDH in SRT subtitles...")
+
+    if debug:
+        print('')
+
+    max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
+    display_number = 99
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        tasks = [executor.submit(remove_sdh_worker, debug, input_file, remove_music, subtitleedit, display_number + i)
+                 for i, input_file in enumerate(input_files)]
+        concurrent.futures.wait(tasks)  # Wait for all tasks to complete
+    if debug:
+        print('')
 
 
 def convert_ass_to_srt(subtitle_files, languages):
@@ -188,23 +196,45 @@ def resync_srt_subs_fast(debug, input_file, subtitle_files, quiet):
     if not quiet:
         print(f"{GREY}[UTC {get_timestamp()}] [FFSUBSYNC]{RESET} Synchronizing subtitles to audio track (fast)...")
 
-    for index, subfile in enumerate(subtitle_files):
-        base, _, extension = subfile.rpartition('.')
-        base_nolang, _, extension = base.rpartition('.')
-        subtitle_filename = subfile
-        temp_filename = f"{base_nolang}_tmp.srt"
+    if debug:
+        print('')
 
-        command = ["ffs", input_file, "--vad", "webrtc",
-                   "-i", subtitle_filename, "-o", temp_filename]
+    max_workers = os.cpu_count() // 2
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Create a list of tasks for each subtitle file
+        tasks = [executor.submit(resync_srt_subs_fast_worker, debug, input_file, subfile, quiet, max_retries=3, retry_delay=2)
+                 for subfile in subtitle_files]
+        # Wait for all tasks to complete
+        for task in concurrent.futures.as_completed(tasks):
+            try:
+                task.result()  # This will re-raise any exception from the thread
+            except Exception as e:
+                print(f"Error processing subtitle: {e}")
+    if debug:
+        print('')
 
-        if debug:
-            print(f"{YELLOW}", end='')
-            print(' '.join(command))
-            print(f"{RESET}")
+
+def resync_srt_subs_fast_worker(debug, input_file, subtitle_filename, quiet, max_retries, retry_delay):
+    base, _, _ = subtitle_filename.rpartition('.')
+    base_nolang, _, _ = base.rpartition('.')
+    temp_filename = f"{base_nolang}_tmp.srt"
+
+    command = ["ffs", input_file, "--vad", "webrtc", "-i", subtitle_filename, "-o", temp_filename]
+
+    retries = 0
+    while retries < max_retries:
+        if debug and not quiet:
+            print(f"{YELLOW}{' '.join(command)}{RESET}")
 
         result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise Exception("Error executing FFsubsync command: " + result.stderr)
-
-        os.remove(subtitle_filename)
-        shutil.move(temp_filename, subtitle_filename)
+        if result.returncode == 0:
+            # Success, move the file and exit the loop
+            os.remove(subtitle_filename)
+            shutil.move(temp_filename, subtitle_filename)
+            break
+        else:
+            retries += 1
+            if retries >= max_retries:
+                # Exceeded the maximum number of retries, raise an exception
+                raise Exception(f"Error executing FFsubsync command: {result.stderr}")
+            time.sleep(retry_delay)  # Wait before retrying

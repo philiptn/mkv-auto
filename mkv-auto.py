@@ -383,8 +383,13 @@ def mkv_auto(args):
                         pref_audio_codec_found = False
                         keep_original_audio = False
 
+                    if not needs_processing_audio:
+                        after_reduction_debug = False
+                    else:
+                        after_reduction_debug = debug
+
                     # Get updated file info after mkv tracks reduction
-                    file_info, pretty_file_info = get_mkv_info(debug, input_file, args.silent)
+                    file_info, pretty_file_info = get_mkv_info(after_reduction_debug, input_file, args.silent)
 
                     wanted_audio_tracks, default_audio_track, needs_processing_audio, \
                         pref_audio_codec_found, track_ids_to_be_converted, \

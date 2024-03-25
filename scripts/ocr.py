@@ -118,15 +118,14 @@ def ocr_subtitles(debug, subtitle_files, languages):
                    "srt", "/SplitLongLines", "/encoding:utf-8"]
 
         if debug:
-            print(f"{YELLOW}", end='')
+            print(f"{YELLOW}")
             print(' '.join(command))
-            print(f"{RESET}")
+            print(f"{RESET}", end='')
 
         run_with_xvfb(command)
 
         output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
         generated_srt_files.append('srt')
-        #all_track_ids.append(track_id)
         all_track_ids.insert(replaced_index, track_id)
         updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
         replaced_index += 1
@@ -134,6 +133,9 @@ def ocr_subtitles(debug, subtitle_files, languages):
         # If the subtitle language is English, fix specific OCR errors
         if languages[index + replaced_index] == 'eng':
             find_and_replace(output_subtitles, 'scripts/replacements_eng_only.csv')
+
+    if debug:
+        print('')
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
 
