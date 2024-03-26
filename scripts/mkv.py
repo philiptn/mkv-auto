@@ -918,10 +918,14 @@ def extract_subtitle(debug, filename, track, output_filetype, language):
 def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_languages):
     if debug:
         print('')
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        tasks = [executor.submit(extract_subtitle, debug, filename, track, filetype, language)
-                 for track, filetype, language in zip(track_numbers, output_filetypes, subs_languages)]
-        results = [future.result() for future in concurrent.futures.as_completed(tasks)]
+        # Submit all tasks and store futures in a list
+        futures = [executor.submit(extract_subtitle, debug, filename, track, filetype, language)
+                   for track, filetype, language in zip(track_numbers, output_filetypes, subs_languages)]
+
+        # Wait for the futures to complete and get the results in the order they were submitted
+        results = [future.result() for future in futures]
 
     if debug:
         print('')
@@ -1003,7 +1007,7 @@ def encode_audio_tracks(debug, audio_files, languages, output_codec,
     if debug:
         print('')
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(encode_audio_track, file, index,
                                    debug, languages, output_codec, custom_ffmpeg_options)
                    for index, file in enumerate(audio_files)]

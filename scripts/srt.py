@@ -19,6 +19,8 @@ RESET = '\033[0m'  # Reset to default terminal color
 GREY = '\033[90m'
 YELLOW = '\033[33m'
 
+max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
+
 
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
@@ -138,7 +140,6 @@ def remove_sdh(debug, input_files, quiet, remove_music):
     if debug:
         print('')
 
-    max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
     display_number = 99
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         tasks = [executor.submit(remove_sdh_worker, debug, input_file, remove_music, subtitleedit, display_number + i)
@@ -152,7 +153,6 @@ def convert_ass_to_srt(subtitle_files, languages):
     print(f"{GREY}[UTC {get_timestamp()}] [ASS]{RESET} Converting ASS subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = languages
-    replaced_index = 0
     generated_srt_files = []
     all_track_ids = []
 
@@ -170,8 +170,7 @@ def convert_ass_to_srt(subtitle_files, languages):
 
         output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
         all_track_ids.append(track_id)
-        updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
-        replaced_index += 1
+        updated_subtitle_languages.insert(lang)
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
 
@@ -199,7 +198,6 @@ def resync_srt_subs_fast(debug, input_file, subtitle_files, quiet):
     if debug:
         print('')
 
-    max_workers = os.cpu_count() // 2
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Create a list of tasks for each subtitle file
         tasks = [executor.submit(resync_srt_subs_fast_worker, debug, input_file, subfile, quiet, max_retries=3, retry_delay=2)

@@ -5,12 +5,22 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import concurrent.futures
+import random
+import threading
+import tempfile
+import shutil
 
 # ANSI color codes
 BLUE = '\033[34m'
 RESET = '\033[0m'  # Reset to default terminal color
 GREY = '\033[90m'
 YELLOW = '\033[33m'
+
+max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
+
+# Define a global lock
+xml_file_lock = threading.Lock()
 
 
 def get_timestamp():
@@ -19,120 +29,116 @@ def get_timestamp():
     return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
+def find_available_display():
+    while True:
+        display_number = random.randint(100, 1000)  # Adjust the range as necessary
+        lock_file = f"/tmp/.X11-unix/X{display_number}"
+        if not os.path.exists(lock_file):
+            return display_number
+
+
 def run_with_xvfb(command):
-    xvfb_cmd = ["Xvfb", ":99", "-screen", "0", "1024x768x24"]
+    display_number = find_available_display()
+    xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24"]
 
     # Start Xvfb in the background
     xvfb_process = subprocess.Popen(xvfb_cmd)
-    # Wait for the Xvfb process to initialize
-    time.sleep(2)
+    time.sleep(2)  # Allow time for Xvfb to start
 
     env = os.environ.copy()
-    env['DISPLAY'] = ':99'
-
+    env['DISPLAY'] = f":{display_number}"
     result = subprocess.run(command, env=env, capture_output=True, text=True)
 
-    # Kill the Xvfb process after we're done
     xvfb_process.terminate()
-    time.sleep(2)
+    xvfb_process.wait()
 
     if result.returncode != 0:
-        raise Exception("Error executing command: " + result.stderr)
+        raise Exception(f"Error executing command: {result.stderr}")
+
     return result
 
 
-def find_and_replace(input_files, replacement_file):
+def find_and_replace(input_file, replacement_file):
     # For quick reference:
     # Special Regex Characters: These characters have special
     # meaning in regex: ., +, *, ?, ^, $, (, ), [, ], {, }, |, \.
-    for index, input_file in enumerate(input_files):
-        # Open SRT and replacement files
-        with open(input_file, 'r') as file:
-            data = file.read()
-        with open(replacement_file, 'r') as file:
-            reader = csv.reader(file)
-            replacements = list(reader)
+    # Open SRT and replacement files
+    with open(input_file, 'r') as file:
+        data = file.read()
+    with open(replacement_file, 'r') as file:
+        reader = csv.reader(file)
+        replacements = list(reader)
 
-        # Perform the find and replace operations
-        for find, replace in replacements:
-            data = re.sub(find, replace, data)
+    # Perform the find and replace operations
+    for find, replace in replacements:
+        data = re.sub(find, replace, data)
 
-        # Write the modified content back to the file
-        with open(input_file, 'w') as file:
-            file.write(data)
+    # Write the modified content back to the file
+    with open(input_file, 'w') as file:
+        file.write(data)
 
 
-##############################################
-# Deprecated due to OCR problems with pgsrip #
-##############################################
-def ocr_pgs_subtitles(subtitle_files, languages):
-    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Performing OCR on PGS subtitles...")
-    output_subtitles = []
-    generated_srt_files = []
-    replaced_index = 0
-    updated_subtitle_languages = languages
+def ocr_subtitle_worker(debug, file, language, subtitleedit_dir):
+    # Create a temporary directory for this thread's SubtitleEdit instance
+    temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
+    try:
+        # Copy the SubtitleEdit directory to the temporary directory
+        local_subtitleedit_dir = os.path.join(temp_dir, 'SubtitleEdit')
+        shutil.copytree(subtitleedit_dir, local_subtitleedit_dir)
 
-    for index, file in enumerate(subtitle_files):
-        base, _, extension = file.rpartition('.')
-        env = os.environ.copy()
-        env['TESSDATA_PREFIX'] = os.path.expanduser('~/.mkv-auto/tessdata')
+        subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
+        subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
 
-        command = ["pgsrip", "--debug", "--tag", "ocr", "--language",
-                   languages[index + replaced_index], file]
+        base_and_lang_with_id, _, extension = file.rpartition('.')
+        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+        base, _, track_id = base_with_id.rpartition('.')
 
-        result = subprocess.run(command, capture_output=True, text=True, env=env)
-        #result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise Exception("Error executing pgsrip command: " + result.stdout)
+        update_tesseract_lang_xml(language, subtitleedit_settings)
 
-        output_subtitles.append(f"{base}.srt")
-        generated_srt_files.append('srt')
-        updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
-        replaced_index += 1
+        command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
 
-    # Fix common OCR errors
-    find_and_replace(output_subtitles, 'scripts/replacements.csv')
+        if debug:
+            print(f"{YELLOW}{' '.join(command)}{RESET}")
 
-    return output_subtitles, updated_subtitle_languages, generated_srt_files
+        run_with_xvfb(command)
+
+        output_subtitle = f"{base}.{track_id}.{lang}.srt"
+
+        if language == 'eng':
+            find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv')
+    finally:
+        # Clean up the temporary directory
+        shutil.rmtree(temp_dir)
+
+    return file, output_subtitle, language, track_id
 
 
 def ocr_subtitles(debug, subtitle_files, languages):
     print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting picture-based subtitles to SRT...")
 
-    tessdata_location = '~/.mkv-auto/'
-    subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
-    output_subtitles = []
-    generated_srt_files = []
-    all_track_ids = []
-    replaced_index = 0
-    updated_subtitle_languages = languages
+    subtitleedit_dir = 'utilities/SubtitleEdit'
 
-    for index, file in enumerate(subtitle_files):
-        base_and_lang_with_id, _, extension = file.rpartition('.')
-        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-        base, _, track_id = base_with_id.rpartition('.')
-        all_track_ids.append(track_id)
+    if debug:
+        print('')
 
-        update_tesseract_lang_xml(languages[index + replaced_index])
-        command = ["mono", subtitleedit, "/convert", file,
-                   "srt", "/SplitLongLines", "/encoding:utf-8"]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_file = {executor.submit(ocr_subtitle_worker, debug, file, languages[index],
+                                          subtitleedit_dir): index
+                          for index, file in enumerate(subtitle_files)}
 
-        if debug:
-            print(f"{YELLOW}")
-            print(' '.join(command))
-            print(f"{RESET}", end='')
+        output_subtitles = []
+        updated_subtitle_languages = []
+        generated_srt_files = []
+        all_track_ids = []
 
-        run_with_xvfb(command)
-
-        output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
-        generated_srt_files.append('srt')
-        all_track_ids.insert(replaced_index, track_id)
-        updated_subtitle_languages.insert(replaced_index, languages[index + replaced_index])
-        replaced_index += 1
-
-        # If the subtitle language is English, fix specific OCR errors
-        if languages[index + replaced_index] == 'eng':
-            find_and_replace(output_subtitles, 'scripts/replacements_eng_only.csv')
+        for future in concurrent.futures.as_completed(future_to_file):
+            original_file, output_subtitle, language, track_id = future.result()
+            # Add both original and generated subtitles to the output list
+            output_subtitles.extend([output_subtitle])
+            # Repeat language and track ID for both original and generated files
+            updated_subtitle_languages.extend([language, language])
+            generated_srt_files.extend(['srt'])
+            all_track_ids.extend([track_id, track_id])
 
     if debug:
         print('')
@@ -140,10 +146,9 @@ def ocr_subtitles(debug, subtitle_files, languages):
     return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
 
 
-def update_tesseract_lang_xml(new_language):
-    se_settings = 'utilities/SubtitleEdit/Settings.xml'
+def update_tesseract_lang_xml(new_language, settings_file):
     # Parse XML file
-    tree = ET.parse(se_settings)
+    tree = ET.parse(settings_file)
     root = tree.getroot()
 
     for parent1 in root.findall('VobSubOcr'):
@@ -152,4 +157,4 @@ def update_tesseract_lang_xml(new_language):
             target_elem.text = new_language
 
     # Write back to file
-    tree.write(se_settings)
+    tree.write(settings_file)

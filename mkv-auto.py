@@ -445,73 +445,22 @@ def mkv_auto(args):
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
-                                # If there is a mix of srt files alongside (different languages), then
-                                # the srt file will be removed after it has been extracted
-                                alongside_srt_langs = []
-                                alongside_srt_files = []
-                                for index, filetype in enumerate(sub_filetypes):
-                                    if filetype == "srt":
-                                        alongside_srt_langs.append(subs_track_languages[index])
-                                        alongside_srt_files.append("srt")
-                                        sub_filetypes.pop(index)
-                                        subtitle_files.pop(index)
-                                        subs_track_languages.pop(index)
-
                                 output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = ocr_subtitles(
                                     debug, subtitle_files, subs_track_languages)
-
-                                for file in alongside_srt_files:
-                                    sub_filetypes.insert(0, file)
-                                for lang in alongside_srt_langs:
-                                    updated_subtitle_languages.insert(0, lang)
 
                             elif "sup" in sub_filetypes:
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
-                                # If there is a mix of srt files alongside (different languages), then
-                                # the srt file will be removed after it has been extracted
-                                alongside_srt_langs = []
-                                alongside_srt_files = []
-                                for index, filetype in enumerate(sub_filetypes):
-                                    if filetype == "srt":
-                                        alongside_srt_langs.append(subs_track_languages[index])
-                                        alongside_srt_files.append("srt")
-                                        sub_filetypes.pop(index)
-                                        subtitle_files.pop(index)
-                                        subs_track_languages.pop(index)
-
                                 output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = ocr_subtitles(
                                     debug, subtitle_files, subs_track_languages)
-
-                                for file in alongside_srt_files:
-                                    sub_filetypes.insert(0, file)
-                                for lang in alongside_srt_langs:
-                                    updated_subtitle_languages.insert(0, lang)
 
                             elif "ass" in sub_filetypes:
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
-                                # If there is a mix of srt files alongside (different languages), then
-                                # the srt file will be removed after it has been extracted
-                                alongside_srt_langs = []
-                                alongside_srt_files = []
-                                for index, filetype in enumerate(sub_filetypes):
-                                    if filetype == "srt":
-                                        alongside_srt_langs.append(subs_track_languages[index])
-                                        alongside_srt_files.append("srt")
-                                        sub_filetypes.pop(index)
-                                        subtitle_files.pop(index)
-                                        subs_track_languages.pop(index)
-
                                 output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids = convert_ass_to_srt(
                                     subtitle_files, subs_track_languages)
-
-                                for file in alongside_srt_files:
-                                    sub_filetypes.insert(0, file)
-                                for lang in alongside_srt_langs:
-                                    updated_subtitle_languages.insert(0, lang)
 
                             if always_remove_sdh:
                                 remove_sdh(debug, output_subtitles, quiet, remove_music)
@@ -522,8 +471,10 @@ def mkv_auto(args):
                             elif resync_subtitles == 'ai':
                                 resync_srt_subs_ai(input_file, output_subtitles, quiet)
 
-                            for file in generated_srt_files:
-                                sub_filetypes.insert(0, file)
+                            replaced_index = 0
+                            for i, ext in enumerate(generated_srt_files):
+                                sub_filetypes.insert(i + replaced_index, ext)
+                                replaced_index += 1
 
                             if has_closed_captions(input_file):
                                 # Will remove hidden CC data as long as
@@ -571,6 +522,10 @@ def mkv_auto(args):
                     processing_time = end_time - start_time
                     total_processing_time += processing_time
                     print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Processing time: {format_time(int(processing_time))}")
+
+                    if debug:
+                        # Print final mkv structure
+                        get_mkv_info(debug, input_file, args.silent)
 
                     print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Moving file to destination folder...")
                     move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
@@ -622,6 +577,10 @@ def mkv_auto(args):
         print(f"{GREY}[INFO]{RESET} All files successfully processed.")
         print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(total_processing_time))} to complete.")
         print(f"{GREY}[INFO]{RESET} The average file took {format_time(int(average_time))} to process.\n")
+
+        if not notemp:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
     else:
         if os.path.exists('.last_processed_mkv.txt'):
             os.remove('.last_processed_mkv.txt')
@@ -636,9 +595,6 @@ def mkv_auto(args):
             print(f"'{file}'")
         print('')
 
-    if not notemp:
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
     exit(0)
 
 
