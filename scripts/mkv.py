@@ -991,24 +991,36 @@ def encode_audio_tracks(debug, audio_files, languages, output_codec,
     if not audio_files:
         return
 
-    print(f"{GREY}[UTC {get_timestamp()}] [FFMPEG]{RESET} Generating {output_codec.upper()} audio tracks...")
+    if len(audio_files) > 1:
+        track_str = 'tracks'
+    else:
+        track_str = 'track'
+
+    print(f"{GREY}[UTC {get_timestamp()}] [FFMPEG]{RESET} Generating {output_codec.upper()} audio {track_str}...")
 
     custom_ffmpeg_options = ['-aq', '6', '-ac', '2'] if output_codec.lower() == 'aac' else []
 
+    if debug:
+        print('')
+
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(encode_audio_track, file, index, debug, languages, output_codec, custom_ffmpeg_options)
+        futures = [executor.submit(encode_audio_track, file, index,
+                                   debug, languages, output_codec, custom_ffmpeg_options)
                    for index, file in enumerate(audio_files)]
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+    if debug:
+        print('')
 
     output_audio_files_extensions, output_audio_langs, all_track_ids = zip(*results)
 
     if keep_original_audio:
         output_audio_files_extensions += tuple(ext for file in audio_files for ext in [file.rpartition('.')[-1]])
-        output_audio_langs += languages
-        all_track_ids += tuple(file.rpartition('.')[-1] for file in audio_files)
+        output_audio_langs += tuple(languages)  # Convert languages to a tuple before concatenating
+        all_track_ids += tuple(file.rpartition('.')[0].rpartition('.')[0].rpartition('.')[-1] for file in audio_files)
 
     output_audio_files_extensions += tuple(ext for file in other_files for ext in [file.rpartition('.')[-1]])
-    output_audio_langs += other_langs
-    all_track_ids += other_track_ids
+    output_audio_langs += tuple(other_langs)  # Convert other_langs to a tuple before concatenating
+    all_track_ids += tuple(other_track_ids)
 
     return output_audio_files_extensions, output_audio_langs, all_track_ids

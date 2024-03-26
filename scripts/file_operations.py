@@ -143,7 +143,7 @@ def reformat_filename(filename, movie_folder, tv_folder, movie_hdr_folder, tv_hd
     # Regular expression to match TV shows with season range, with or without year
     tv_show_pattern2 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})-s(\d{2})", re.IGNORECASE)
     # Regular expression to match movies
-    movie_pattern = re.compile(r"^(.*?)[. ]\(?(\d{4})\)[.\ ]+(.*\.(mkv|srt))$", re.IGNORECASE)
+    movie_pattern = re.compile(r"^(.*?)[. ](\d{4})[.) ]+(.*\.(mkv|srt))$", re.IGNORECASE)
 
     # Regular expression to detect 2160p without h264 or x264
     hdr_pattern = re.compile(r"2160p", re.IGNORECASE)
