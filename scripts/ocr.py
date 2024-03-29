@@ -17,7 +17,7 @@ RESET = '\033[0m'  # Reset to default terminal color
 GREY = '\033[90m'
 YELLOW = '\033[33m'
 
-max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
+max_workers = int(os.cpu_count() * 0.7)  # Use 70% of the CPU cores
 
 # Define a global lock
 xml_file_lock = threading.Lock()

@@ -88,7 +88,7 @@ def run_with_xvfb(command):
     return result
 
 
-def remove_sdh_worker(debug, input_file, remove_music, subtitleedit, display_number):
+def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     command = ["mono", subtitleedit, "/convert", input_file,
                "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                f"/outputfilename:{input_file}_tmp.srt"]
@@ -130,6 +130,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit, display_num
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
         find_and_replace(input_file, 'scripts/replacements_srt_only.csv')
+    time.sleep(0.5)
 
 
 def remove_sdh(debug, input_files, quiet, remove_music):
@@ -140,11 +141,11 @@ def remove_sdh(debug, input_files, quiet, remove_music):
     if debug:
         print('')
 
-    display_number = 99
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        tasks = [executor.submit(remove_sdh_worker, debug, input_file, remove_music, subtitleedit, display_number + i)
+        tasks = [executor.submit(remove_sdh_worker, debug, input_file, remove_music, subtitleedit)
                  for i, input_file in enumerate(input_files)]
         concurrent.futures.wait(tasks)  # Wait for all tasks to complete
+
     if debug:
         print('')
 
