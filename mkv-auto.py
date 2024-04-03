@@ -56,7 +56,7 @@ try:
     always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lower() == "true" else False
     always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
     remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "true" else False
-    resync_subtitles = variables.get('subtitles', 'RESYNC_SUBTITLES').lower()
+    resync_subtitles = True if variables.get('subtitles', 'RESYNC_SUBTITLES').lower() == "true" else False
 except configparser.NoOptionError:
     print("Error: Some fields are missing from 'user.ini'. Check 'defaults.ini' for reference.\n")
     exit(1)
@@ -293,16 +293,11 @@ def mkv_auto(args):
                             if external_subs_print:
                                 print(f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Removing SDH in external subtitles...")
                             remove_sdh(debug, input_files, quiet, remove_music)
-                        if resync_subtitles == 'fast':
+                        if resync_subtitles:
                             if external_subs_print:
                                 print(
-                                    f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Synchronizing external subtitles to audio track (fast)...")
-                            resync_srt_subs_fast(debug, input_file_mkv, input_files, quiet)
-                        elif resync_subtitles == 'ai':
-                            if external_subs_print:
-                                print(
-                                    f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Synchronizing external subtitles to audio track (ai)...")
-                            resync_srt_subs_ai(input_file_mkv, input_files, quiet)
+                                    f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Synchronizing external subtitles to audio track...")
+                            resync_srt_subs(debug, input_file_mkv, input_files, quiet)
                         external_subs_print = False
 
                         if needs_tag_rename:
@@ -466,10 +461,8 @@ def mkv_auto(args):
                                 remove_sdh(debug, output_subtitles, quiet, remove_music)
                                 needs_sdh_removal = False
 
-                            if resync_subtitles == 'fast':
-                                resync_srt_subs_fast(debug, input_file, output_subtitles, quiet)
-                            elif resync_subtitles == 'ai':
-                                resync_srt_subs_ai(input_file, output_subtitles, quiet)
+                            if resync_subtitles:
+                                resync_srt_subs(debug, input_file, output_subtitles, quiet)
 
                             replaced_index = 0
                             for i, ext in enumerate(generated_srt_files):
@@ -495,10 +488,8 @@ def mkv_auto(args):
                                 remove_sdh(debug, subtitle_files, quiet, remove_music)
 
                             if resync_subtitles != 'false' and subtitle_files:
-                                if resync_subtitles == 'fast':
-                                    resync_srt_subs_fast(debug, input_file, subtitle_files, quiet)
-                                elif resync_subtitles == 'ai':
-                                    resync_srt_subs_ai(input_file, subtitle_files, quiet)
+                                if resync_subtitles:
+                                    resync_srt_subs(debug, input_file, subtitle_files, quiet)
 
                             if has_closed_captions(input_file):
                                 if mkv_video_codec != 'MPEG-1/2':
@@ -600,9 +591,8 @@ def mkv_auto(args):
 
 def main():
     # Create the main parser
-    parser = argparse.ArgumentParser(description="A tool that aims to remove necessary clutter from Matroska (.mkv) "
-                                                 "files by removing and/or converting any subtitle tracks in the "
-                                                 "source file(s).")
+    parser = argparse.ArgumentParser(description="A tool that aims to remove necessary clutter from Matroska (.mkv) files by"
+                                                 "removing and/or converting any audio or subtitle tracks from the source file(s).")
     parser.add_argument("--input_folder", "-if", dest="input_dir", type=str, required=False,
                         help="input folder path (default: 'input/')")
     parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,

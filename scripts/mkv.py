@@ -839,14 +839,16 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                 else:
                     if (track["codec"] != "SubRip/SRT" and track["codec"] != "SubStationAlpha") \
                             and subs_track_languages.count(track_language) == 1:
-                        if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0:
+                        if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0 \
+                                and sub_filetypes.count("sub") == 0:
                             sub_filetypes.append('sup')
                             selected_sub_filetypes.append(track["codec"])
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "VobSub" and sub_filetypes.count("sub") == 0:
+                        elif track["codec"] == "VobSub" and sub_filetypes.count("sub") == 0 \
+                                and sub_filetypes.count("sup") == 0:
                             sub_filetypes.append('sub')
                             selected_sub_filetypes.append(track["codec"])
                             subs_track_ids.append(track["id"])
@@ -856,9 +858,11 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
 
                         if 'srt' in sub_filetypes:
                             sub_filetypes.remove('srt')
+                            subs_track_languages.remove(track_language)
 
                         if 'ass' in sub_filetypes:
                             sub_filetypes.remove('ass')
+                            subs_track_languages.remove(track_language)
 
                         subs_tracks_ids_no_srt = [x for x in subs_track_ids if x not in srt_track_ids]
                         subs_tracks_ids_no_ass = [x for x in subs_tracks_ids_no_srt if x not in ass_track_ids]
@@ -875,13 +879,13 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             break
 
     # Remove language duplicates
-    seen = set()
-    result = []
-    for item in subs_track_languages:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    subs_track_languages = result
+    #seen = set()
+    #result = []
+    #for item in subs_track_languages:
+    #    if item not in seen:
+    #        seen.add(item)
+    #        result.append(item)
+    #subs_track_languages = result
 
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True

@@ -176,23 +176,7 @@ def convert_ass_to_srt(subtitle_files, languages):
     return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
 
 
-def resync_srt_subs_ai(input_file, subtitle_files, quiet):
-    if not quiet:
-        print(f"{GREY}[UTC {get_timestamp()}] [AUTOSUBSYNC]{RESET} Synchronizing subtitles to audio track (ai)...")
-
-    for index, subfile in enumerate(subtitle_files):
-        base, _, extension = subfile.rpartition('.')
-        base_nolang, _, extension = base.rpartition('.')
-        subtitle_filename = subfile
-        temp_filename = f"{base_nolang}_tmp.srt"
-
-        autosubsync.synchronize(input_file, subtitle_filename, temp_filename)
-
-        os.remove(subtitle_filename)
-        shutil.move(temp_filename, subtitle_filename)
-
-
-def resync_srt_subs_fast(debug, input_file, subtitle_files, quiet):
+def resync_srt_subs(debug, input_file, subtitle_files, quiet):
     if not quiet:
         print(f"{GREY}[UTC {get_timestamp()}] [FFSUBSYNC]{RESET} Synchronizing subtitles to audio track (fast)...")
 
@@ -201,7 +185,7 @@ def resync_srt_subs_fast(debug, input_file, subtitle_files, quiet):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Create a list of tasks for each subtitle file
-        tasks = [executor.submit(resync_srt_subs_fast_worker, debug, input_file, subfile, quiet, max_retries=3, retry_delay=2)
+        tasks = [executor.submit(resync_srt_subs_worker, debug, input_file, subfile, quiet, max_retries=3, retry_delay=2)
                  for subfile in subtitle_files]
         # Wait for all tasks to complete
         for task in concurrent.futures.as_completed(tasks):
@@ -213,7 +197,7 @@ def resync_srt_subs_fast(debug, input_file, subtitle_files, quiet):
         print('')
 
 
-def resync_srt_subs_fast_worker(debug, input_file, subtitle_filename, quiet, max_retries, retry_delay):
+def resync_srt_subs_worker(debug, input_file, subtitle_filename, quiet, max_retries, retry_delay):
     base, _, _ = subtitle_filename.rpartition('.')
     base_nolang, _, _ = base.rpartition('.')
     temp_filename = f"{base_nolang}_tmp.srt"

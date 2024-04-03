@@ -6,20 +6,17 @@ A utility made in Python that aims to automatically remove any unwanted audio or
 - Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media using ffmpeg
 - Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using Tesseract OCR
 - Converts Advanced SubStation Alpha (ASS/SSA) and MP4 (tx3g) subtitles to SRT using Python libraries and ffmpeg
-- Removes SDH (such as `[GUNSHOTS]` or `[DOG BARKING]`) from SRT subtitles
-- Resyncs subtitles to properly match the speech in audio using language-agnostic automatic synchronization (fast) or AI & machine learning (ai)
+- Removes SDH (such as `[GUNSHOTS]` or `[DOG BARKING]`) from SRT subtitles if enabled (default enabled)
+- Resynchronizes subtitles to match the audio track of the video using ffsubsync (best effort)
 - Unpacks any `.rar` or `.zip` archives and converts `.mp4` or `.avi` files to MKV before processing the media
 - Remove any hidden Closed Captions (CC) from the video stream using ffmpeg 
 - Automatically categorize the media content type (TV Show/Movie) based on info in filename
 
 ## Prerequisites
-Most of the utility's functionality can be performed cross-platform as long as Python and the other packages is installed and available in PATH, however some features (such as DVD VobSub conversion) are only available when using Linux/WSL. Therefore, this utility mainly focuses its support on Linux-based operating systems.
 
 ### Linux (Ubuntu/Debian)
 
-1. Run `./prerequisites.sh` to install and configure the necessary `apt` and `pip` packages needed for this utility to work.  
-
-Note: Depending on your language preferences you may need to install additional tesseract language packs, modify script as needed.
+1. Run `./prerequisites.sh` to install and configure the necessary `apt` and `pip` packages needed for this utility to work.
 
 ## Usage
 Note: `defaults.ini` contains the default options set for this utility. If you want to make any changes, create a new file named `user.ini` with all the same parameters to override the default settings.  
@@ -99,12 +96,12 @@ options:
 ```
 usage: queue-service.py [-h] [--file_path FILE_PATH] [--output_folder OUTPUT_FOLDER]
 
-A service for mkv-auto that can parse input folder paths from a queue text file
+A service for mkv-auto that can parse input paths from a queue text file
 
 options:
   -h, --help            show this help message and exit
   --file_path FILE_PATH
-                        The path to the text file containing the input folder paths
+                        The path to the text file containing the input paths
   --output_folder OUTPUT_FOLDER
                         The output folder path used by mkv-auto to save its files
 ```
@@ -123,11 +120,8 @@ https://www.nikse.dk/subtitleedit/help#linux
 qqq1243 for asstosrt (SSA/ASS to SRT conversion)  
 https://github.com/sorz/asstosrt/
 
-smacke for ffsubsync (Resyncing subtitles to audio) [fast]  
+smacke for ffsubsync (Resyncing subtitles to audio)
 https://github.com/smacke/ffsubsync  
-
-oseiskar for autosubsync (Resyncing subtitles to audio) [ai]  
-https://github.com/oseiskar/autosubsync
 
 jeanb for pysrt (Removing all-uppercase letters in improperly formatted SDH subtitles)  
 https://github.com/byroot/pysrt

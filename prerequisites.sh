@@ -50,12 +50,6 @@ DEBIAN_FRONTEND=noninteractive apt-get install tzdata -y
 $SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr \
   vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module git xvfb -y
 
-# DEPRECATED due to pgsrip no longer being used
-# Installing training data for tesseract (tessdata) (note: large datasets, may take a while to download)
-# Reference: https://pypi.org/project/pgsrip/
-#mkdir -p ~/.mkv-auto
-#git clone https://github.com/tesseract-ocr/tessdata_best.git ~/.mkv-auto/tessdata
-
 # Create a Python virtual environment (venv) and activate it
 python3 -m venv venv
 source venv/bin/activate
