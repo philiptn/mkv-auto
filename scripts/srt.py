@@ -1,6 +1,5 @@
 from subtitle_filter import Subtitles
 import asstosrt
-import autosubsync
 import os
 import subprocess
 import pysrt
@@ -94,7 +93,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
                f"/outputfilename:{input_file}_tmp.srt"]
 
     if debug:
-        print(f"{YELLOW}{' '.join(command)}{RESET}")
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     run_with_xvfb(command)
     os.remove(input_file)
@@ -207,7 +206,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, quiet, max_retr
     retries = 0
     while retries < max_retries:
         if debug and not quiet:
-            print(f"{YELLOW}{' '.join(command)}{RESET}")
+            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode == 0:

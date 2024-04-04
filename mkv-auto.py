@@ -140,7 +140,6 @@ def mkv_auto(args):
     total_files = count_files(input_dir)
     total_bytes = count_bytes(input_dir)
 
-    # print('')
     if not args.silent:
         # Hide the cursor
         sys.stdout.write('\033[?25l')
@@ -188,9 +187,7 @@ def mkv_auto(args):
     errored_file_names = []
     dirpaths = []
     total_processing_time = 0
-    filenames = []
     mkv_files_list = []
-    flat_all_dirnames = []
 
     for dirpath, dirnames, filenames in os.walk(input_dir):
         dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
@@ -201,8 +198,6 @@ def mkv_auto(args):
 
         if not dirpath == 'input/':
             dirpaths.append(dirpath)
-
-        structure = os.path.join(output_dir, os.path.relpath(dirpath, input_dir))
 
         input_file_mkv = ''
         input_file_mkv_nopath = ''
@@ -241,7 +236,6 @@ def mkv_auto(args):
             grouped_files.sort(key=lambda x: (split_filename(x)[1], split_filename(x)[2]))
 
         mkv_file_found = False
-        needs_tag_rename = False
 
         for index, file_name in enumerate(filenames):
             all_dirnames = []
@@ -252,7 +246,6 @@ def mkv_auto(args):
                     continue
 
                 input_file = os.path.join(dirpath, file_name)
-                output_file = os.path.join(structure, file_name)
 
                 needs_tag_rename = True
 
@@ -306,7 +299,6 @@ def mkv_auto(args):
                                 file_name = updated_filename
 
                                 input_file = os.path.join(dirpath, file_name)
-                                output_file = os.path.join(structure, file_name)
 
                         move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
                                             movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames,
@@ -319,11 +311,7 @@ def mkv_auto(args):
                 elif file_name.endswith('.mkv'):
                     mkv_files_list.append(file_name)
                     mkv_file_found = False
-                    pref_audio_codec_found = False
-                    track_ids_to_be_converted = []
-                    track_langs_to_be_converted = []
-                    other_track_ids = []
-                    other_track_langs = []
+
                     extracted_other_audio_files = []
                     extracted_other_audio_langs = []
                     extracted_audio_extensions = []
@@ -331,10 +319,7 @@ def mkv_auto(args):
                     ready_audio_langs = []
                     ready_track_ids = []
                     keep_original_audio = True
-                    all_subs_track_ids = []
 
-                    # Construct the full path to the .mkv file
-                    full_path = os.path.join(dirpath, file_name)
                     # Extract the directory path relative to the input directory
                     relative_dir_path = os.path.relpath(dirpath, input_dir)
                     # Split the relative path into individual directories
@@ -344,12 +329,10 @@ def mkv_auto(args):
 
                     external_subs_print = True
                     quiet = False
-                    output_file_mkv = output_file
 
                     if not file_name_printed:
                         print(f"{GREY}[INFO]{RESET} Processing file {file_index} of {total_files}:\n")
                         print(f"{GREY}[UTC {get_timestamp()}] [FILE]{RESET} '{file_name}'")
-                        file_name_printed = True
 
                     # Get file info using mkvinfo
                     file_info, pretty_file_info = get_mkv_info(debug, input_file, args.silent)
@@ -375,7 +358,6 @@ def mkv_auto(args):
                     # Force-enabling the encoding regardless of the audio track already found, as well as removing
                     # the original audio track.
                     if pref_audio_codec.lower() == 'aac' or pref_audio_codec.lower() == 'opus':
-                        pref_audio_codec_found = False
                         keep_original_audio = False
 
                     if not needs_processing_audio:
@@ -459,7 +441,6 @@ def mkv_auto(args):
 
                             if always_remove_sdh:
                                 remove_sdh(debug, output_subtitles, quiet, remove_music)
-                                needs_sdh_removal = False
 
                             if resync_subtitles:
                                 resync_srt_subs(debug, input_file, output_subtitles, quiet)

@@ -66,7 +66,7 @@ def convert_all_videos_to_mkv(debug, input_folder, silent):
             # If the function returns "True", then there are
             # tx3g subtitles in the mp4 file that needs to be converted.
             if convert_mp4_to_mkv_with_subtitles(debug, video_file):
-                output_file = os.path.splitext(video_file)[0] + '.mkv'
+                pass
             else:
                 output_file = os.path.splitext(video_file)[0] + '.mkv'
                 convert_video_to_mkv(debug, video_file, output_file)
@@ -136,7 +136,6 @@ def get_mkv_info(debug, filename, silent):
     # Simplifying the JSON
     fields_to_keep = ['file_name', 'tracks']
     simplified_json = simplify_json(parsed_json, fields_to_keep)
-    pretty_simplified_json = json.dumps(simplified_json, indent=2)
     compact_json = format_tracks_as_blocks(simplified_json, 70)
 
     # Function to colorize text
@@ -210,8 +209,8 @@ def remove_all_mkv_track_tags(debug, filename):
 
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing all track tags in mkv...")
-        print(f"{YELLOW}")
-        print(' '.join(command))
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
@@ -265,8 +264,8 @@ def convert_mp4_to_mkv_with_subtitles(debug, mp4_file):
         mkvmerge_cmd.extend(['--language', f'0:{language}', srt_file])
 
     if debug:
-        print(f"{YELLOW}")
-        print(' '.join(mkvmerge_cmd))
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(mkvmerge_cmd)}")
         print(f"{RESET}")
 
     try:
@@ -295,8 +294,8 @@ def remove_cc_hidden_in_file(debug, filename):
     command = [arg for arg in command if arg]
 
     if debug:
-        print(f"{YELLOW}")
-        print(' '.join(command))
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
@@ -373,8 +372,8 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
     command = [arg for arg in command if arg]
 
     if debug:
-        print(f"{YELLOW}")
-        print(' '.join(command))
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
@@ -464,7 +463,6 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
     temp_filename = new_base + extension
 
     default_locked = False
-    default_track_str = []
 
     for index, filetype in enumerate(final_audio_filetypes):
         if not default_locked:
@@ -506,8 +504,8 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", filename]
 
     if debug:
-        print(f"{YELLOW}")
-        print(' '.join(command))
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
@@ -525,8 +523,8 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
                    "--output", temp_filename, filename] + sub_files_list
 
     if debug:
-        print(f"{YELLOW}")
-        print(' '.join(command))
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
@@ -568,7 +566,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     pref_audio_track_ids = []
     pref_audio_track_languages = []
     audio_track_codecs = []
-    latest_audio_codec = ''
 
     tracks_ids_to_be_converted = []
     tracks_langs_to_be_converted = []
@@ -584,7 +581,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     total_audio_tracks = 0
     preferred_audio_codec = pref_audio_codec
     needs_processing = False
-    pref_audio_codec_found = False
     first_audio_track_found = False
 
     for track in file_info["tracks"]:
@@ -754,24 +750,21 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     subs_track_ids = []
     subs_track_languages = []
 
-    unmatched_subs_track_ids = []
     unmatched_subs_track_languages = []
 
     default_subs_track = ''
     all_sub_filetypes = []
-    selected_sub_filetypes = []
     sub_filetypes = []
     srt_track_ids = []
     ass_track_ids = []
-    video_codec = None
     needs_sdh_removal = False
     needs_convert = False
     needs_processing = False
 
-    # Get video codec
+    # Get all subtitle codecs
     for track in file_info['tracks']:
-        if track['type'] == 'video':
-            video_codec = track['codec']
+        if track['type'] == 'subtitles':
+            all_sub_filetypes.append(track['codec'])
 
     # Check for matching subs languages
     for track in file_info["tracks"]:
@@ -829,7 +822,9 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         needs_convert = True
                         needs_processing = True
                     elif track["codec"] == "VobSub":
-                        if 'MPEG-1/2' in video_codec:
+                        # If VobSub is the only subtitle type in the file (DVD), keep it.
+                        # If it is a mix of Vobsub and PGS (BluRay), only the PGS should be kept.
+                        if all(codec == "VobSub" for codec in all_sub_filetypes):
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
                             sub_filetypes.append('sub')
@@ -887,15 +882,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             default_subs_track = track_id
             break
 
-    # Remove language duplicates
-    #seen = set()
-    #result = []
-    #for item in subs_track_languages:
-    #    if item not in seen:
-    #        seen.add(item)
-    #        result.append(item)
-    #subs_track_languages = result
-
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True
 
@@ -919,7 +905,7 @@ def extract_subtitle(debug, filename, track, output_filetype, language):
     command = ["mkvextract", filename, "tracks", f"{track}:{subtitle_filename}"]
 
     if debug:
-        print(f"{YELLOW}{' '.join(command)}{RESET}")
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -953,7 +939,7 @@ def extract_audio_track(debug, filename, track, language):
     command = ["mkvextract", filename, "tracks", f"{track}:{audio_filename}"]
 
     if debug:
-        print(f"{YELLOW}{' '.join(command)}{RESET}")
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -991,7 +977,7 @@ def encode_audio_track(file, index, debug, languages, output_codec, custom_ffmpe
     command = ["ffmpeg", "-i", file] + custom_ffmpeg_options + ["-strict", "-2",
                                                                 f"{base}.{track_id}.{lang}.{output_codec.lower()}"]
     if debug:
-        print(f"{YELLOW}{' '.join(command)}{RESET}")
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:

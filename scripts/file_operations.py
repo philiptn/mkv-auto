@@ -3,7 +3,6 @@ import shutil
 import re
 import rarfile
 import zipfile
-from tqdm import tqdm
 from datetime import datetime
 
 

@@ -98,7 +98,7 @@ def ocr_subtitle_worker(debug, file, language, subtitleedit_dir):
         command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
 
         if debug:
-            print(f"{YELLOW}{' '.join(command)}{RESET}")
+            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
         run_with_xvfb(command)
 
