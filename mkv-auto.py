@@ -591,8 +591,9 @@ def mkv_auto(args):
 
 def main():
     # Create the main parser
-    parser = argparse.ArgumentParser(description="A tool that aims to remove necessary clutter from Matroska (.mkv) files by"
-                                                 "removing and/or converting any audio or subtitle tracks from the source file(s).")
+    parser = argparse.ArgumentParser(description="A tool that aims to remove necessary clutter from Matroska (.mkv) "
+                                                 "files by removing and/or converting any audio or "
+                                                 "subtitle tracks from the source file(s).")
     parser.add_argument("--input_folder", "-if", dest="input_dir", type=str, required=False,
                         help="input folder path (default: 'input/')")
     parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,

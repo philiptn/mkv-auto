@@ -763,9 +763,15 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     sub_filetypes = []
     srt_track_ids = []
     ass_track_ids = []
+    video_codec = None
     needs_sdh_removal = False
     needs_convert = False
     needs_processing = False
+
+    # Get video codec
+    for track in file_info['tracks']:
+        if track['type'] == 'video':
+            video_codec = track['codec']
 
     # Check for matching subs languages
     for track in file_info["tracks"]:
@@ -816,22 +822,27 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                     pref_subs_langs.append('eng')
 
                 if subs_track_languages.count(track_language) == 0 and not forced_track:
-                    selected_sub_filetypes.append(track["codec"])
-                    subs_track_ids.append(track["id"])
-                    subs_track_languages.append(track_language)
-
                     if track["codec"] == "HDMV PGS":
+                        subs_track_ids.append(track["id"])
+                        subs_track_languages.append(track_language)
                         sub_filetypes.append('sup')
                         needs_convert = True
                         needs_processing = True
                     elif track["codec"] == "VobSub":
-                        sub_filetypes.append('sub')
-                        needs_convert = True
-                        needs_processing = True
+                        if 'MPEG-1/2' in video_codec:
+                            subs_track_ids.append(track["id"])
+                            subs_track_languages.append(track_language)
+                            sub_filetypes.append('sub')
+                            needs_convert = True
+                            needs_processing = True
                     elif track["codec"] == "SubRip/SRT":
+                        subs_track_ids.append(track["id"])
+                        subs_track_languages.append(track_language)
                         sub_filetypes.append('srt')
                         srt_track_ids.append(track["id"])
                     elif track["codec"] == "SubStationAlpha":
+                        subs_track_ids.append(track["id"])
+                        subs_track_languages.append(track_language)
                         sub_filetypes.append('ass')
                         ass_track_ids.append(track["id"])
                         needs_convert = True
@@ -842,7 +853,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0 \
                                 and sub_filetypes.count("sub") == 0:
                             sub_filetypes.append('sup')
-                            selected_sub_filetypes.append(track["codec"])
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
                             needs_convert = True
@@ -850,7 +860,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         elif track["codec"] == "VobSub" and sub_filetypes.count("sub") == 0 \
                                 and sub_filetypes.count("sup") == 0:
                             sub_filetypes.append('sub')
-                            selected_sub_filetypes.append(track["codec"])
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
                             needs_convert = True
