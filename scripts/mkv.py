@@ -494,33 +494,12 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         filelist_str = f"{base}.{final_sub_track_ids[index]}.{final_sub_languages[index][:-1]}.{filetype}"
         sub_files_list += '--default-track', default_track_str, '--language', langs_str, filelist_str
 
-    if audio_filetypes:
-        # Remove all subtitle and audio tracks
-        print(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} Removing existing tracks in mkv...")
-        command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", "--no-audio", filename]
-    else:
-        # Remove all subtitle tracks
-        print(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} Removing existing subtitles in mkv...")
-        command = ["mkvmerge", "--output", temp_filename, "--no-subtitles", filename]
-
-    if debug:
-        print('')
-        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
-        print(f"{RESET}")
-
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception("Error executing mkvmerge command: " + result.stdout)
-    os.remove(filename)
-    shutil.move(temp_filename, filename)
-
     print(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} Repacking tracks into mkv...")
     if audio_filetypes:
-        command = ["mkvmerge",
-                   "--output", temp_filename, filename] + audio_files_list + sub_files_list
+        command = ["mkvmerge", "--no-subtitles", "--no-audio", "--output",
+                   temp_filename, filename] + audio_files_list + sub_files_list
     else:
-        command = ["mkvmerge",
-                   "--output", temp_filename, filename] + sub_files_list
+        command = ["mkvmerge", "--no-subtitles", "--output", temp_filename, filename] + sub_files_list
 
     if debug:
         print('')
