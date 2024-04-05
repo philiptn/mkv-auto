@@ -177,7 +177,7 @@ def convert_ass_to_srt(subtitle_files, languages):
 
 def resync_srt_subs(debug, input_file, subtitle_files, quiet):
     if not quiet:
-        print(f"{GREY}[UTC {get_timestamp()}] [FFSUBSYNC]{RESET} Synchronizing subtitles to audio track (fast)...")
+        print(f"{GREY}[UTC {get_timestamp()}] [FFSUBSYNC]{RESET} Synchronizing subtitles to audio track...")
 
     if debug:
         print('')
