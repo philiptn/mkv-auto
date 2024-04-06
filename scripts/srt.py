@@ -129,7 +129,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
         find_and_replace(input_file, 'scripts/replacements_srt_only.csv')
-    time.sleep(0.5)
+    time.sleep(1)
 
 
 def remove_sdh(debug, input_files, quiet, remove_music):
@@ -149,30 +149,35 @@ def remove_sdh(debug, input_files, quiet, remove_music):
         print('')
 
 
-def convert_ass_to_srt(subtitle_files, languages):
+def convert_ass_to_srt(subtitle_files, languages, names):
     print(f"{GREY}[UTC {get_timestamp()}] [ASS]{RESET} Converting ASS subtitles to SRT...")
     output_subtitles = []
-    updated_subtitle_languages = languages
+    updated_subtitle_languages = []
     generated_srt_files = []
     all_track_ids = []
+    all_track_names = []
 
     for index, file in enumerate(subtitle_files):
         base_and_lang_with_id, _, extension = file.rpartition('.')
         base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
         base, _, track_id = base_with_id.rpartition('.')
-        all_track_ids.append(track_id)
 
         ass_file = open(file)
         srt_output = asstosrt.convert(ass_file)
         with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
             srt_file.write(srt_output)
         generated_srt_files.append('srt')
-
-        output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
         all_track_ids.append(track_id)
-        updated_subtitle_languages.insert(lang)
+        all_track_names.append('')
+        updated_subtitle_languages.append(languages[index])
+        output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
 
-    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
+        # Adding the original track as well
+        all_track_ids.append(track_id)
+        all_track_names.append(names[index] if names[index] else "Original")
+        updated_subtitle_languages.append(languages[index])
+
+    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids, all_track_names
 
 
 def resync_srt_subs(debug, input_file, subtitle_files, quiet):

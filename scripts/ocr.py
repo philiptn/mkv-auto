@@ -78,7 +78,7 @@ def find_and_replace(input_file, replacement_file):
         file.write(data)
 
 
-def ocr_subtitle_worker(debug, file, language, subtitleedit_dir):
+def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
     try:
@@ -110,10 +110,10 @@ def ocr_subtitle_worker(debug, file, language, subtitleedit_dir):
         # Clean up the temporary directory
         shutil.rmtree(temp_dir)
 
-    return file, output_subtitle, language, track_id
+    return file, output_subtitle, language, track_id, name
 
 
-def ocr_subtitles(debug, subtitle_files, languages):
+def ocr_subtitles(debug, subtitle_files, languages, names):
     print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting picture-based subtitles to SRT...")
 
     subtitleedit_dir = 'utilities/SubtitleEdit'
@@ -122,7 +122,7 @@ def ocr_subtitles(debug, subtitle_files, languages):
         print('')
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_file = {executor.submit(ocr_subtitle_worker, debug, file, languages[index],
+        future_to_file = {executor.submit(ocr_subtitle_worker, debug, file, languages[index], names[index],
                                           subtitleedit_dir): index
                           for index, file in enumerate(subtitle_files)}
 
@@ -130,20 +130,22 @@ def ocr_subtitles(debug, subtitle_files, languages):
         updated_subtitle_languages = []
         generated_srt_files = []
         all_track_ids = []
+        all_track_names = []
 
         for future in concurrent.futures.as_completed(future_to_file):
-            original_file, output_subtitle, language, track_id = future.result()
+            original_file, output_subtitle, language, track_id, name = future.result()
             # Add both original and generated subtitles to the output list
             output_subtitles.extend([output_subtitle])
             # Repeat language and track ID for both original and generated files
             updated_subtitle_languages.extend([language, language])
             generated_srt_files.extend(['srt'])
             all_track_ids.extend([track_id, track_id])
+            all_track_names.extend(['', name if name else "Original"])
 
     if debug:
         print('')
 
-    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids
+    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids, all_track_names
 
 
 def update_tesseract_lang_xml(new_language, settings_file):
