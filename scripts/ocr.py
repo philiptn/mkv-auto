@@ -10,12 +10,15 @@ import random
 import threading
 import tempfile
 import shutil
+from collections import Counter
 
 # ANSI color codes
 BLUE = '\033[34m'
 RESET = '\033[0m'  # Reset to default terminal color
 GREY = '\033[90m'
 YELLOW = '\033[33m'
+RED = '\033[31m'
+GREEN = '\033[32m'
 
 max_workers = int(os.cpu_count() * 0.7)  # Use 70% of the CPU cores
 
@@ -59,26 +62,41 @@ def run_with_xvfb(command):
 
 
 def find_and_replace(input_file, replacement_file):
-    # For quick reference:
-    # Special Regex Characters: These characters have special
-    # meaning in regex: ., +, *, ?, ^, $, (, ), [, ], {, }, |, \.
-    # Open SRT and replacement files
     with open(input_file, 'r') as file:
         data = file.read()
+
+    changes = []  # List to hold before/after strings for each replacement
     with open(replacement_file, 'r') as file:
         reader = csv.reader(file)
         replacements = list(reader)
 
-    # Perform the find and replace operations
+    # Apply each replacement in the file data
     for find, replace in replacements:
-        data = re.sub(find, replace, data)
+        # This regex will find the word with some context
+        pattern = re.compile(r'(\b.{0,30}\b)?(' + re.escape(find) + r')(\b.{0,30}\b)?')
+        for match in pattern.finditer(data):
+            before_context = match.group(1) or ''  # context before the match
+            matched_text = match.group(2)  # the actual text that will be replaced
+            after_context = match.group(3) or ''  # context after the match
+
+            before_snippet = f"{before_context}{matched_text}{after_context}"
+            after_snippet = f"{before_context}{replace}{after_context}"
+
+            changes.append(f"{GREY}found{RESET}: '{RED}{before_snippet}{RESET}', "
+                           f"{GREY}replaced{RESET}: '{GREEN}{after_snippet}{RESET}'")
+
+        # Replace in data to keep it updated
+        data = pattern.sub(f'\g<1>{replace}\g<3>', data)
 
     # Write the modified content back to the file
     with open(input_file, 'w') as file:
         file.write(data)
 
+    return changes
+
 
 def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
+    replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
     try:
@@ -105,18 +123,20 @@ def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
         output_subtitle = f"{base}.{track_id}.{lang}.srt"
 
         if language == 'eng':
-            find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv')
+            replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv')
+        replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements.csv')
     finally:
         # Clean up the temporary directory
         shutil.rmtree(temp_dir)
 
-    return file, output_subtitle, language, track_id, name
+    return file, output_subtitle, language, track_id, name, replacements
 
 
 def ocr_subtitles(debug, subtitle_files, languages, names):
     print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting picture-based subtitles to SRT...")
 
     subtitleedit_dir = 'utilities/SubtitleEdit'
+    all_replacements = []
 
     if debug:
         print('')
@@ -133,7 +153,8 @@ def ocr_subtitles(debug, subtitle_files, languages, names):
         all_track_names = []
 
         for future in concurrent.futures.as_completed(future_to_file):
-            original_file, output_subtitle, language, track_id, name = future.result()
+            original_file, output_subtitle, language, track_id, name, replacements = future.result()
+            all_replacements = all_replacements + replacements
             # Add both original and generated subtitles to the output list
             output_subtitles.extend([output_subtitle])
             # Repeat language and track ID for both original and generated files
@@ -143,6 +164,18 @@ def ocr_subtitles(debug, subtitle_files, languages, names):
             all_track_names.extend(['', name if name else "Original"])
 
     if debug:
+        print('')
+
+    if all_replacements and debug:
+        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
+
+        replacements_counter = Counter(all_replacements)
+
+        for replacement, count in replacements_counter.items():
+            if count > 1:
+                print(f"{replacement} {GREY}({count} times){RESET}")
+            else:
+                print(replacement)
         print('')
 
     return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids, all_track_names

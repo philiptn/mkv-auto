@@ -459,7 +459,6 @@ def mkv_auto(args):
 
                         # Check if any of the subtitle tracks needs to be converted using OCR
                         if needs_convert:
-                            print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Extracting subtitles...")
                             output_subtitles = []
                             generated_srt_files = []
 
@@ -484,8 +483,10 @@ def mkv_auto(args):
                                 output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids, all_subs_track_names = convert_ass_to_srt(
                                     subtitle_files, subs_track_languages, subs_track_names)
 
+                            # Pass an empty list for the track names, as this is only needed
+                            # when subtitles are SRT format to begin with
                             if always_remove_sdh:
-                                remove_sdh(debug, output_subtitles, quiet, remove_music)
+                                remove_sdh(debug, output_subtitles, quiet, remove_music, [])
 
                             if resync_subtitles:
                                 resync_srt_subs(debug, input_file, output_subtitles, quiet)
@@ -512,7 +513,7 @@ def mkv_auto(args):
                                                                      sub_filetypes, subs_track_languages)
 
                             if needs_sdh_removal and (always_remove_sdh or remove_music) and subtitle_files:
-                                remove_sdh(debug, subtitle_files, quiet, remove_music)
+                                all_subs_track_names = remove_sdh(debug, subtitle_files, quiet, remove_music, subs_track_names)
 
                             if resync_subtitles != 'false' and subtitle_files:
                                 if resync_subtitles:

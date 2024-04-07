@@ -17,6 +17,8 @@ BLUE = '\033[34m'
 RESET = '\033[0m'  # Reset to default terminal color
 GREY = '\033[90m'
 YELLOW = '\033[33m'
+RED = '\033[31m'
+GREEN = '\033[32m'
 
 max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
 
@@ -38,24 +40,37 @@ def clean_invalid_utf8(input_file, output_file):
 
 
 def find_and_replace(input_file, replacement_file):
-    # For quick reference:
-    # Special Regex Characters: These characters have special
-    # meaning in regex: ., +, *, ?, ^, $, (, ), [, ], {, }, |, \.
-
-    # Open SRT and replacement files
     with open(input_file, 'r') as file:
         data = file.read()
+
+    changes = []  # List to hold before/after strings for each replacement
     with open(replacement_file, 'r') as file:
         reader = csv.reader(file)
         replacements = list(reader)
 
-    # Perform the find and replace operations
+    # Apply each replacement in the file data
     for find, replace in replacements:
-        data = re.sub(find, replace, data)
+        # This regex will find the word with some context
+        pattern = re.compile(r'(\b.{0,30}\b)?(' + re.escape(find) + r')(\b.{0,30}\b)?')
+        for match in pattern.finditer(data):
+            before_context = match.group(1) or ''  # context before the match
+            matched_text = match.group(2)  # the actual text that will be replaced
+            after_context = match.group(3) or ''  # context after the match
+
+            before_snippet = f"{before_context}{matched_text}{after_context}"
+            after_snippet = f"{before_context}{replace}{after_context}"
+
+            changes.append(f"{GREY}found{RESET}: '{RED}{before_snippet}{RESET}', "
+                           f"{GREY}replaced{RESET}: '{GREEN}{after_snippet}{RESET}'")
+
+        # Replace in data to keep it updated
+        data = pattern.sub(f'\g<1>{replace}\g<3>', data)
 
     # Write the modified content back to the file
     with open(input_file, 'w') as file:
         file.write(data)
+
+    return changes
 
 
 def find_available_display():
@@ -92,6 +107,8 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
                "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                f"/outputfilename:{input_file}_tmp.srt"]
 
+    replacements = []
+
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
@@ -100,13 +117,14 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     shutil.move(f"{input_file}_tmp.srt", input_file)
 
     if remove_music:
-        clean_invalid_utf8(input_file, '.tmp.srt')
+        clean_invalid_utf8(input_file, f'{input_file}.tmp.srt')
         os.remove(input_file)
-        shutil.move('.tmp.srt', input_file)
+        shutil.move(f'{input_file}.tmp.srt', input_file)
 
         subs = pysrt.open(input_file)
-        subs = [sub for sub in subs if '♪' not in sub.text]
-        pysrt.save(subs, f"{input_file}.tmp.srt", encoding='utf-8')
+        # Filter the subtitles in place, removing entries with '♪' in their text
+        subs = pysrt.SubRipFile([sub for sub in subs if '♪' not in sub.text])
+        subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
         subs = Subtitles(input_file)
@@ -120,20 +138,23 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         )
         subs.save()
 
-        clean_invalid_utf8(input_file, '.tmp.srt')
+        clean_invalid_utf8(input_file, f'{input_file}.tmp.srt')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
         subs = pysrt.open(input_file)
-        subs = [sub for sub in subs if not sub.text.isupper()]
-        pysrt.save(subs, f"{input_file}.tmp.srt", encoding='utf-8')
+        subs = pysrt.SubRipFile([sub for sub in subs if not sub.text.isupper()])
+        subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
-        find_and_replace(input_file, 'scripts/replacements_srt_only.csv')
-    time.sleep(1)
+        replacements = replacements + find_and_replace(input_file, 'scripts/replacements_srt_only.csv')
+
+    return replacements
 
 
-def remove_sdh(debug, input_files, quiet, remove_music):
+def remove_sdh(debug, input_files, quiet, remove_music, track_names):
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
+    all_replacements = []
+    cleaned_track_names = []
     if not quiet:
         print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Removing SDH in SRT subtitles...")
 
@@ -145,8 +166,24 @@ def remove_sdh(debug, input_files, quiet, remove_music):
                  for i, input_file in enumerate(input_files)]
         concurrent.futures.wait(tasks)  # Wait for all tasks to complete
 
+    for future in concurrent.futures.as_completed(tasks):
+        replacements = future.result()
+        all_replacements = all_replacements + replacements
+
+    if track_names:
+        cleaned_track_names = [track.replace("SDH", "").replace("sdh", "")
+                               .replace("()", "").strip() for track in track_names]
     if debug:
         print('')
+
+    if all_replacements and debug:
+        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During processing, the following words were fixed:")
+        print('')
+        for replacement in all_replacements:
+            print(replacement)
+        print('')
+
+    return cleaned_track_names
 
 
 def convert_ass_to_srt(subtitle_files, languages, names):

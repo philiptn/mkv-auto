@@ -951,6 +951,7 @@ def extract_subtitle(debug, filename, track, output_filetype, language):
 
 
 def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_languages):
+    print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Extracting subtitles...")
     if debug:
         print('')
 
