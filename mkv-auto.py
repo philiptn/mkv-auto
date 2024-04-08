@@ -642,7 +642,7 @@ def main():
     parser.add_argument("--docker", action="store_true", default=False, required=False,
                         help="use docker-specific default directories from 'files/' (default: False)")
     parser.add_argument("--debug", action="store_true", default=False, required=False,
-                        help="print debugging information such as track selection, codecs, prefs etc.")
+                        help="print debugging information such as track selection, codecs, prefs etc. (default: False)")
 
     parser.set_defaults(func=mkv_auto)
     args = parser.parse_args()
