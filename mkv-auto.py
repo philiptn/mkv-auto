@@ -87,6 +87,7 @@ def debug_pause():
 
         if key.lower() == 'q':
             exit()
+    print('')
 
 
 def format_time(seconds):
@@ -570,7 +571,8 @@ def mkv_auto(args):
                 traceback.print_tb(e.__traceback__)
                 errored_file_names.append(file_name)
 
-                move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
+                if not debug:
+                    move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
                                     movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames,
                                     flatten_directories)
 
@@ -598,9 +600,11 @@ def mkv_auto(args):
         print(f"{GREY}[INFO]{RESET} All files successfully processed.")
         print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(total_processing_time))} to complete.")
         print(f"{GREY}[INFO]{RESET} The average file took {format_time(int(average_time))} to process.\n")
-        # Show the cursor
-        sys.stdout.write('\033[?25h')
-        sys.stdout.flush()
+
+        if not args.silent:
+            # Show the cursor
+            sys.stdout.write('\033[?25h')
+            sys.stdout.flush()
 
         if not notemp:
             if os.path.exists(temp_dir):

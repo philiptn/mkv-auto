@@ -583,12 +583,17 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     all_track_names = []
     for track in file_info["tracks"]:
         if track["type"] == "audio":
+            track_name = None
             for key, value in track["properties"].items():
                 if key == 'track_name':
-                    all_track_names.append(value)
+                    track_name = value
+            if not track_name:
+                track_name = ''
+            all_track_names.append(track_name)
+
     commentary_tracks_found = any("commentary" in track.lower() for track in all_track_names)
 
-    for track in file_info["tracks"]:
+    for index, track in enumerate(file_info["tracks"]):
         if track["type"] == "audio":
             total_audio_tracks += 1
 
@@ -619,8 +624,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             if track_language in pref_audio_langs:
                 if preferred_audio_codec in audio_codec.upper():
                     if ((not remove_commentary and commentary_tracks_found)
-                            or (pref_audio_track_languages.count(track_language) == 0
-                                and audio_track_languages.count(track_language) == 0)):
+                            or (pref_audio_track_languages.count(track_language) == 0 and audio_track_languages.count(track_language) == 0))\
+                            or ("Original" in all_track_names[total_audio_tracks - 1]):
                         pref_audio_track_ids.append(track["id"])
                         pref_audio_track_languages.append(track_language)
                         pref_audio_track_names.append(track_name)
@@ -640,12 +645,22 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
                 elif preferred_audio_codec not in audio_codec.upper():
                     if ((not remove_commentary and commentary_tracks_found)
-                            or (audio_track_languages.count(track_language) == 0
-                                and pref_audio_track_languages.count(track_language) == 0)):
-                        audio_track_ids.append(track["id"])
-                        audio_track_languages.append(track_language)
-                        audio_track_names.append(track_name)
-                        audio_track_codecs.append(audio_codec.upper())
+                            or (audio_track_languages.count(track_language) == 0 and pref_audio_track_languages.count(track_language) == 0))\
+                            or ("Original" in all_track_names[total_audio_tracks - 1]):
+
+                        # If the next audio track is an original audio track that has previously been
+                        # converted, it does not need to be converted again, but simply kept. Therefore will
+                        # be added as a "preferred audio codec" even though it may not be.
+                        if "Original" in all_track_names[total_audio_tracks - 1] and len(all_track_names) > 1:
+                            pref_audio_track_ids.append(track["id"])
+                            pref_audio_track_languages.append(track_language)
+                            pref_audio_track_names.append(track_name)
+                            audio_track_codecs.append(preferred_audio_codec)
+                        else:
+                            audio_track_ids.append(track["id"])
+                            audio_track_languages.append(track_language)
+                            audio_track_names.append(track_name)
+                            audio_track_codecs.append(audio_codec.upper())
 
                         if not default_audio_track_set:
                             default_audio_track = track["id"]
@@ -742,11 +757,16 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             other_tracks_langs.append(first_audio_track_lang)
             other_tracks_names.append(first_audio_track_name)
 
-    iter_pref_audio_langs = iter(pref_audio_langs)
     # If the relative order of the audio track langs is
     # not the same as the found audio langs, it needs processing
-    if not all(elem in iter_pref_audio_langs for elem in all_audio_track_langs):
-        needs_processing = True
+    min_index = 0
+    for lang in all_audio_track_langs:
+        if lang in pref_audio_langs[min_index:]:
+            current_index = pref_audio_langs.index(lang, min_index)
+            min_index = current_index
+        else:
+            needs_processing = True
+            break
 
     if debug:
         print(f"{BLUE}preferred audio codec found{RESET}: {pref_audio_codec_found}")
