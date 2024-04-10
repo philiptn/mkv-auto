@@ -897,32 +897,31 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                 else:
                     if (track["codec"] != "SubRip/SRT" and track["codec"] != "SubStationAlpha") \
                             and subs_track_languages.count(track_language) == 1:
-                        if track["codec"] == "HDMV PGS" and sub_filetypes.count("sup") == 0 \
-                                and sub_filetypes.count("sub") == 0:
+
+                        if 'srt' in sub_filetypes:
+                            sub_filetypes.remove('srt')
+                            subs_track_languages.remove(track_language)
+                            subs_track_names.pop()
+
+                        if 'ass' in sub_filetypes:
+                            sub_filetypes.remove('ass')
+                            subs_track_languages.remove(track_language)
+                            subs_track_names.pop()
+
+                        if track["codec"] == "HDMV PGS":
                             sub_filetypes.append('sup')
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
                             subs_track_names.append(track_name)
                             needs_convert = True
                             needs_processing = True
-                        elif track["codec"] == "VobSub" and sub_filetypes.count("sub") == 0 \
-                                and sub_filetypes.count("sup") == 0:
+                        elif track["codec"] == "VobSub":
                             sub_filetypes.append('sub')
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
                             subs_track_names.append(track_name)
                             needs_convert = True
                             needs_processing = True
-
-                        if 'srt' in sub_filetypes:
-                            sub_filetypes.remove('srt')
-                            subs_track_languages.remove(track_language)
-                            subs_track_names.remove(track_name)
-
-                        if 'ass' in sub_filetypes:
-                            sub_filetypes.remove('ass')
-                            subs_track_languages.remove(track_language)
-                            subs_track_names.remove(track_name)
 
                         subs_tracks_ids_no_srt = [x for x in subs_track_ids if x not in srt_track_ids]
                         subs_tracks_ids_no_ass = [x for x in subs_tracks_ids_no_srt if x not in ass_track_ids]
