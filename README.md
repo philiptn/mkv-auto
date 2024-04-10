@@ -2,21 +2,21 @@
 A utility made in Python that aims to automatically remove any unwanted audio or subtitle tracks from Matroska (mkv) files, as well as converting/cleaning/resyncing any subtitles from the source video.
 
 ### Features
-- Removes any audio or subtitle tracks in video file that does not match user preferences
-- Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media using ffmpeg
+- Removes any audio or subtitle tracks from video that does not match user preferences
+- Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (ffmpeg)
 - Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using Tesseract OCR
 - Converts Advanced SubStation Alpha (ASS/SSA) and MP4 (tx3g) subtitles to SRT using Python libraries and ffmpeg
-- Removes SDH (such as `[GUNSHOTS]` or `[DOG BARKING]`) from SRT subtitles if enabled (default enabled)
+- Removes SDH (such as `[MAN COUGHING]` or `[DISTANT CHATTER]`) from SRT subtitles (default enabled)
 - Resynchronizes subtitles to match the audio track of the video using ffsubsync (best effort)
 - Unpacks any `.rar` or `.zip` archives and converts `.mp4` or `.avi` files to MKV before processing the media
 - Remove any hidden Closed Captions (CC) from the video stream using ffmpeg 
-- Automatically categorize the media content type (TV Show/Movie) based on info in filename
+- Automatically categorize the media content type (TV Show/Movie, SDR/HDR) based on info in filename
 
 ## Prerequisites
 
 ### Linux (Ubuntu/Debian)
 
-1. Run `./prerequisites.sh` to install and configure the necessary `apt` and `pip` packages needed for this utility to work.
+1. Run `./prerequisites.sh` to install the necessary `apt` and `pip` packages needed for this utility to work.
 
 ## Usage
 Note: `defaults.ini` contains the default options set for this utility. If you want to make any changes, create a new file named `user.ini` with all the same parameters to override the default settings.  
@@ -24,7 +24,7 @@ Note: `defaults.ini` contains the default options set for this utility. If you w
 Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the process of unpacking and repacking mkv files benefits greatly from high read/write performance. Alternatively, point the `TEMP_DIR` variable (from `user.ini`) to a fast storage medium.
 
 1. Place the mkv files inside the `input/` folder (files inside folders are also supported). Alternatively, a custom input folder can be specified using `--input_folder` option. Enclosing the directories in double quotes (`--input_folder "folder/input media"`) is recommended to prevent any parsing errors. The utility will then copy all the files to `<mkv-auto folder>/.tmp/` unless a custom `TEMP_DIR` is specified. 
-2. Activate the Python virtual environment using `source venv/bin/activate`
+2. Activate the Python virtual environment using `source venv/bin/activate` or `. venv/bin/activate`.
 3. Run the utility using `python3 mkv-auto.py`
 4. Processed files can then be found in the output folder, categorized as either a movie (`output/Movies/movie.mkv`) or TV Show (`output/TV Shows/tv show name/tv.show.name.S01E01.mkv`).
 5. To exit the Python virtual environment, run `deactivate` in the terminal.
@@ -36,10 +36,12 @@ To run this utility using Docker, a Docker image first need to be built from the
 sudo docker build -t mkv-auto .  
 ````
 
-Next, create a separate folder on your host system for where you like the files to be read/processed from, such as "mkv-auto-docker"
-**(NOTE: This folder cannot be a subdirectory of the main repository folder)**.  
+Next, create a separate folder on your host system for where you like the files to be read/processed from, such as `mkv-auto-docker/`  
+
+**NOTE: This folder cannot be a subdirectory of the main repository folder**.  
+
 In here you need to make two sub-folders: `input/` and `output/`. Within the `mkv-auto-docker/`folder you can also place the `user.ini` file for easy customization of your preferences.
-Make sure that this location has sufficient storage space for processing both the input, output and TEMP files. If storage space is scarce, consider using the `--notemp` option (files from `input/` will be processed directly and moved to the `output/` folder without keeping the original). 
+Make sure that this location has sufficient storage space for processing both the <ins>**input**</ins>, <ins>**output**</ins> and <ins>**TEMP**</ins> files. If storage space is scarce, consider using the `--notemp` option (files from `input/` will be processed directly and moved to the `output/` folder without keeping the original). 
 
 The folder structure should look something like this:  
 ```text
@@ -54,11 +56,13 @@ Make sure you know the full path of your "mkv-auto-docker" folder (this can be f
 This needs to be passed to the Docker Engine for volume mounting the folder inside the Docker container to your host system (`<host system folder>:/mkv-auto/files`).
 To start the utility using a Docker container, run the following command:
 
+**In this example, mkv-auto will be started from Docker using WSL in Windows (mkv-auto folder on the D: drive)**
+
 ```bash
 sudo docker run --rm --name mkv-auto -it -v "/mnt/d/mkv-auto-docker:/mkv-auto/files" mkv-auto --docker
 ```
 
-Note: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
+**Note**: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
 If you want to specify a custom output folder, you simply add `--docker --output_folder "/mnt/x/custom_folder"` to the command to pass the arguments properly.
 
 If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `HOST_FOLDER` variable in your `.env` file to the proper location. The `.env` file can be created using the `.env_example` as reference.
@@ -88,7 +92,7 @@ options:
   --docker              use docker-specific default directories from 'files/'
                         (default: False)
   --debug               print debugging information such as track selection,
-                        codecs, prefs etc.
+                        codecs, prefs etc. (default: False)
 ```
 
 ### queue-service
@@ -120,7 +124,7 @@ https://www.nikse.dk/subtitleedit/help#linux
 qqq1243 for asstosrt (SSA/ASS to SRT conversion)  
 https://github.com/sorz/asstosrt/
 
-smacke for ffsubsync (Resyncing subtitles to audio)
+smacke for ffsubsync (Resyncing subtitles to audio)  
 https://github.com/smacke/ffsubsync  
 
 jeanb for pysrt (Removing all-uppercase letters in improperly formatted SDH subtitles)  
