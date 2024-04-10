@@ -708,6 +708,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
     if pref_audio_codec.lower() == 'false' or default_audio_track is None:
         default_audio_track = pref_default_audio_track
+        needs_processing = False
 
     # If none of the language selections matched, assign those that are
     # unmatched as audio track ids + langs to keep.
@@ -765,6 +766,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             current_index = pref_audio_langs.index(lang, min_index)
             min_index = current_index
         else:
+            print("IT SURE DID CAME HERE")
             needs_processing = True
             break
 
@@ -1035,7 +1037,7 @@ def encode_audio_track(file, index, debug, languages, track_names, output_codec,
 
     output_extension = output_codec.lower()
     output_lang = languages[index]
-    output_name = track_names[index]
+    output_name = ''
 
     return output_extension, output_lang, output_name, track_id
 
@@ -1071,7 +1073,7 @@ def encode_audio_tracks(debug, audio_files, languages, track_names, output_codec
     if keep_original_audio:
         output_audio_files_extensions += tuple(ext for file in audio_files for ext in [file.rpartition('.')[-1]])
         output_audio_langs += tuple(languages)  # Convert languages to a tuple before concatenating
-        output_audio_names += tuple(f"{name} (Original)" if name else "Original" for name in track_names)
+        output_audio_names += tuple(name if name else "Original" for name in track_names)
         all_track_ids += tuple(file.rpartition('.')[0].rpartition('.')[0].rpartition('.')[-1] for file in audio_files)
 
     output_audio_files_extensions = (tuple(ext for file in other_files for ext in [file.rpartition('.')[-1]])

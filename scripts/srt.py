@@ -10,6 +10,9 @@ import csv
 import re
 import concurrent.futures
 import random
+from langdetect import detect
+from langdetect.lang_detect_exception import LangDetectException
+import pycountry
 
 
 # ANSI color codes
@@ -21,6 +24,21 @@ RED = '\033[31m'
 GREEN = '\033[32m'
 
 max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
+
+
+def detect_language_of_subtitle(subtitle_path):
+    try:
+        with open(subtitle_path, 'r', encoding='utf-8') as file:
+            subtitle_content = file.read()
+            # Detect language of the subtitle content
+            language_code = detect(subtitle_content)
+            # Get the full language name
+            language = pycountry.languages.get(alpha_2=language_code)
+            return language_code, language.name if language else "Unknown language"
+    except LangDetectException:
+        return "Language detection failed"
+    except FileNotFoundError:
+        return "File not found"
 
 
 def get_timestamp():
@@ -151,12 +169,14 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     return replacements
 
 
-def remove_sdh(debug, input_files, quiet, remove_music, track_names):
+def remove_sdh(debug, input_files, quiet, remove_music, track_names, external_sub):
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
     all_replacements = []
     cleaned_track_names = []
+    subs_print = "[SRT_EXT]" if external_sub else "[SUBTITLES]"
+
     if not quiet:
-        print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Removing SDH in SRT subtitles...")
+        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Removing SDH in SRT subtitles...")
 
     if debug:
         print('')
@@ -217,9 +237,11 @@ def convert_ass_to_srt(subtitle_files, languages, names):
     return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids, all_track_names
 
 
-def resync_srt_subs(debug, input_file, subtitle_files, quiet):
+def resync_srt_subs(debug, input_file, subtitle_files, quiet, external_sub):
+    sync_print = "[SRT_EXT]" if external_sub else "[FFSUBSYNC]"
+
     if not quiet:
-        print(f"{GREY}[UTC {get_timestamp()}] [FFSUBSYNC]{RESET} Synchronizing subtitles to audio track...")
+        print(f"{GREY}[UTC {get_timestamp()}] {sync_print}{RESET} Synchronizing subtitles to audio track...")
 
     if debug:
         print('')

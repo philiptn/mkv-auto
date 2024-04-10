@@ -4,6 +4,7 @@ import re
 import rarfile
 import zipfile
 from datetime import datetime
+import concurrent.futures
 
 
 # ANSI color codes
@@ -11,6 +12,8 @@ BLUE = '\033[34m'
 RESET = '\033[0m'  # Reset to default terminal color
 GREY = '\033[90m'
 YELLOW = '\033[33m'
+
+max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
 
 
 def get_timestamp():
@@ -91,17 +94,33 @@ def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files)
 def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
-    for item in os.listdir(source_directory):
-        if item.startswith('.'):  # Skip files or folders starting with a dot
-            continue
-        s = os.path.join(source_directory, item)
-        d = os.path.join(destination_directory, item)
+
+    # Function to copy a single file or directory
+    def copy_item(s, d):
         if os.path.isdir(s):
-            copy_directory_contents(s, d, pbar, file_counter, total_files)
+            if not os.path.exists(d):
+                os.makedirs(d)
+            for item in os.listdir(s):
+                next_source = os.path.join(s, item)
+                next_destination = os.path.join(d, item)
+                copy_item(next_source, next_destination)
         else:
-            file_counter[0] += 1
-            pbar.set_postfix_str(f"Copying file {file_counter[0]} of {total_files}...")
+            with pbar.get_lock():  # Synchronize access to shared resources
+                file_counter[0] += 1
+                pbar.set_postfix_str(f"Copying file {file_counter[0]} of {total_files}...")
             copy_file_with_progress(s, d, pbar, file_counter, total_files)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for item in os.listdir(source_directory):
+            if item.startswith('.'):  # Skip files or folders starting with a dot
+                continue
+            s = os.path.join(source_directory, item)
+            d = os.path.join(destination_directory, item)
+            futures.append(executor.submit(copy_item, s, d))
+
+        # Wait for all the tasks to complete
+        concurrent.futures.wait(futures)
 
 
 def to_sentence_case(s):

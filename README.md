@@ -112,7 +112,7 @@ options:
 
 ## PyPI Acknowledgments
 
-#### This project would not be possible without the following third-party packages: 
+#### This project would not be possible without the following third-party tools/packages: 
 
 Matt Lyon for subtitle-filter (SDH removal)  
 https://github.com/m-lyon/filter-subs
@@ -132,6 +132,12 @@ https://github.com/byroot/pysrt
 
 Marko Kreen for rarfile (Unpacking `.rar` and `.zip` archives in Python)  
 https://github.com/markokr/rarfile
+
+Michal Mimino Danilak for langdetect (detecting the subtitle language of SRT files)  
+https://github.com/Mimino666/langdetect  
+
+Christian Theune and Nate Schimoller for pycountry (converting ISO two-letter language codes to country names)  
+https://github.com/pycountry/pycountry  
 
 ## Donations
 This utility is completely free to use, but if you want to support me and my work you can buy me a coffee using the link below:  

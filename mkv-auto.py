@@ -37,7 +37,6 @@ try:
     keep_original = True if variables.get('general', 'KEEP_ORIGINAL').lower() == "true" else False
     ini_temp_dir = variables.get('general', 'TEMP_DIR')
     file_tag = variables.get('general', 'FILE_TAG')
-    flatten_directories = True if variables.get('general', 'FLATTEN_DIRECTORIES').lower() == "true" else False
     remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
     movies_folder = variables.get('general', 'MOVIES_FOLDER')
     movies_hdr_folder = variables.get('general', 'MOVIES_HDR_FOLDER')
@@ -188,9 +187,6 @@ def mkv_auto(args):
     if remove_samples:
         remove_sample_files_and_dirs(input_dir)
 
-    if flatten_directories:
-        flatten_dirs(input_dir)
-
     fix_episodes_naming(input_dir)
     remove_ds_store(input_dir)
 
@@ -210,6 +206,7 @@ def mkv_auto(args):
     dirpaths = []
     total_processing_time = 0
     mkv_files_list = []
+    flatten_directories = True
 
     for dirpath, dirnames, filenames in os.walk(input_dir):
         dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
@@ -221,12 +218,8 @@ def mkv_auto(args):
         if not dirpath == 'input/':
             dirpaths.append(dirpath)
 
-        input_file_mkv = ''
-        input_file_mkv_nopath = ''
         input_file = ''
         file_name_printed = False
-        external_subs_print = True
-        quiet = False
 
         def split_filename(filename):
             match = re.match(r'^(.*?\d+)\.(.*)(\.\w{2,3})$', filename)
@@ -257,8 +250,6 @@ def mkv_auto(args):
             # Within each group, sort the files first by extension priority and then by language code
             grouped_files.sort(key=lambda x: (split_filename(x)[1], split_filename(x)[2]))
 
-        mkv_file_found = False
-
         for index, file_name in enumerate(filenames):
             all_dirnames = []
             try:
@@ -266,74 +257,15 @@ def mkv_auto(args):
 
                 if file_name.startswith('.'):
                     continue
+                elif file_name.endswith('.srt'):
+                    continue
 
                 input_file = os.path.join(dirpath, file_name)
 
                 needs_tag_rename = True
 
-                parts = file_name.split('.')
-                language_prefix = parts[-2]  # The language prefix is always the second to last part
-
-                if file_name.endswith('.srt'):
-                    # If the SRT file does not have any language prefix, assume it is 'eng'
-                    if len(language_prefix) > 3:
-                        language_prefix = 'eng'
-                    if language_prefix in pref_subs_langs_short or language_prefix in pref_subs_langs:
-                        if not mkv_file_found:
-                            last_processed_mkv = ''
-                            try:
-                                with open(".last_processed_mkv.txt", "r") as f:
-                                    last_processed_mkv = f.read().strip()
-                            except FileNotFoundError:
-                                pass
-
-                            mkv_files = [file for file in filenames if
-                                         file.endswith('.mkv') and file != last_processed_mkv]
-                            if mkv_files:
-                                file_name = mkv_files[0]
-                                input_file_mkv = os.path.join(dirpath, str(file_name))
-                                input_file_mkv_nopath = str(file_name)
-                                with open(".last_processed_mkv.txt", "w") as f:
-                                    f.write(file_name)
-                                mkv_file_found = True
-
-                        if not file_name_printed:
-                            print(f"{GREY}[INFO]{RESET} Processing file {file_index} of {total_files}:\n")
-                            print(f"{GREY}[UTC {get_timestamp()}] [FILE]{RESET} '{input_file_mkv_nopath}'")
-                            file_name_printed = True
-                        if external_subs_print:
-                            quiet = True
-                        input_files = [input_file]
-                        if always_remove_sdh or remove_music:
-                            if external_subs_print:
-                                print(
-                                    f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Removing SDH in external subtitles...")
-                            remove_sdh(debug, input_files, quiet, remove_music)
-                        if resync_subtitles:
-                            if external_subs_print:
-                                print(
-                                    f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Synchronizing external subtitles to audio track...")
-                            resync_srt_subs(debug, input_file_mkv, input_files, quiet)
-                        external_subs_print = False
-
-                        if needs_tag_rename:
-                            if file_tag != "default":
-                                updated_filename = replace_tags_in_file(input_file, file_tag)
-                                file_name = updated_filename
-
-                                input_file = os.path.join(dirpath, file_name)
-
-                        move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
-                                            movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames,
-                                            flatten_directories)
-                        continue
-                    else:
-                        os.remove(input_file)
-                        continue
-
-                elif file_name.endswith('.mkv'):
+                if file_name.endswith('.mkv'):
                     mkv_files_list.append(file_name)
-                    mkv_file_found = False
 
                     extracted_other_audio_files = []
                     extracted_other_audio_langs = []
@@ -344,21 +276,81 @@ def mkv_auto(args):
                     ready_track_ids = []
                     ready_track_names = []
                     keep_original_audio = True
+                    quiet = False
 
                     # Extract the directory path relative to the input directory
                     relative_dir_path = os.path.relpath(dirpath, input_dir)
                     # Split the relative path into individual directories
                     all_dirnames = relative_dir_path.split(os.sep)
-                    # Reset dirnames to avoid traversing further as we already found an .mkv file
-                    dirnames[:] = []
-
-                    external_subs_print = True
-                    quiet = False
 
                     if not file_name_printed:
                         print(f"{GREY}[INFO]{RESET} Processing file {file_index} of {total_files}:\n")
                         print(f"{GREY}[UTC {get_timestamp()}] [FILE]{RESET} '{file_name}'")
 
+                    """
+                    External SRT subtitles processing
+                    """
+
+                    mkv_base, _, mkv_extension = input_file.rpartition('.')
+                    base_path, mkv_base_name = os.path.split(mkv_base)
+                    srt_pattern = re.compile(f"{re.escape(mkv_base_name)}(\\.[a-zA-Z]{{2,3}})?\\.srt$")
+                    no_country_code_pattern = re.compile(f"{re.escape(mkv_base_name)}\\.srt$")
+                    standalone_srt_file = False
+
+                    # Find all SRT files matching the patterns
+                    srt_files = []
+                    for file in os.listdir(dirpath):
+                        full_path = os.path.join(dirpath, file)
+                        if srt_pattern.match(file):
+                            srt_files.append(full_path)
+                    # If it did not find any SRT files matching the correct naming scheme,
+                    # check if the entire folder has just one subtitle file
+                    if not srt_files:
+                        all_srt_files = []
+                        for file in os.listdir(dirpath):
+                            full_path = os.path.join(dirpath, file)
+                            if file.endswith('.srt'):
+                                all_srt_files.append(full_path)
+                        if len(all_srt_files) == 1:
+                            srt_files = all_srt_files
+                            standalone_srt_file = True
+
+                    # Process each matching SRT file
+                    if srt_files:
+                        external_sub = True
+                        for srt_file in srt_files:
+                            file_name = os.path.basename(srt_file)
+                            if no_country_code_pattern.match(file_name) or standalone_srt_file:
+                                lang_code, full_language = detect_language_of_subtitle(srt_file)
+                                new_srt_file_name = os.path.join(base_path, f"{mkv_base_name}.{lang_code}.srt")
+                                os.rename(srt_file, new_srt_file_name)
+                                srt_file = new_srt_file_name
+
+                                print(f"{GREY}[UTC {get_timestamp()}] "
+                                      f"[SRT_EXT]{RESET} Language '{full_language}' detected.")
+
+                            if always_remove_sdh or remove_music:
+                                remove_sdh(debug, [srt_file], quiet, remove_music, [], external_sub)
+
+                            if resync_subtitles:
+                                resync_srt_subs(debug, input_file, [srt_file], quiet, external_sub)
+
+                            if needs_tag_rename:
+                                if file_tag != "default":
+                                    updated_filename = replace_tags_in_file(srt_file, file_tag)
+                                    file_name = updated_filename
+
+                                    srt_file = os.path.join(dirpath, file_name)
+
+                            move_file_to_output(srt_file, output_dir, movies_folder, tv_shows_folder,
+                                                movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames,
+                                                flatten_directories)
+
+                    """
+                    MKV file processing
+                    """
+
+                    external_sub = False
                     # Get file info using mkvinfo
                     file_info, pretty_file_info = get_mkv_info(debug, input_file, args.silent)
                     # Get video codec
@@ -380,8 +372,10 @@ def mkv_auto(args):
                     if needs_processing_audio:
                         strip_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track,
                                             wanted_subs_tracks, default_subs_track, always_enable_subs)
-                    else:
+                    elif not needs_processing_audio and needs_processing_subs:
                         print(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} No audio track filtering needed.")
+                    elif not needs_processing_subs:
+                        print(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} No track filtering needed.")
 
                     # If the preferred audio codec is set to AAC or OPUS, the purpose is probably to save on storage space.
                     # Force-enabling the encoding regardless of the audio track already found, as well as removing
@@ -487,10 +481,10 @@ def mkv_auto(args):
                             # Pass an empty list for the track names, as this is only needed
                             # when subtitles are SRT format to begin with
                             if always_remove_sdh:
-                                remove_sdh(debug, output_subtitles, quiet, remove_music, [])
+                                remove_sdh(debug, output_subtitles, quiet, remove_music, [], external_sub)
 
                             if resync_subtitles:
-                                resync_srt_subs(debug, input_file, output_subtitles, quiet)
+                                resync_srt_subs(debug, input_file, output_subtitles, quiet, external_sub)
 
                             replaced_index = 0
                             for i, ext in enumerate(generated_srt_files):
@@ -514,11 +508,11 @@ def mkv_auto(args):
                                                                      sub_filetypes, subs_track_languages)
 
                             if needs_sdh_removal and (always_remove_sdh or remove_music) and subtitle_files:
-                                all_subs_track_names = remove_sdh(debug, subtitle_files, quiet, remove_music, subs_track_names)
+                                all_subs_track_names = remove_sdh(debug, subtitle_files, quiet, remove_music, subs_track_names, external_sub)
 
                             if resync_subtitles != 'false' and subtitle_files:
                                 if resync_subtitles:
-                                    resync_srt_subs(debug, input_file, subtitle_files, quiet)
+                                    resync_srt_subs(debug, input_file, subtitle_files, quiet, external_sub)
 
                             if has_closed_captions(input_file):
                                 if mkv_video_codec != 'MPEG-1/2':
@@ -558,7 +552,7 @@ def mkv_auto(args):
 
                     print('')
                 else:
-                    continue
+                    os.remove(os.path.join(dirpath, file_name))
             except Exception as e:
                 # If some of the functions were to fail, move the file unprocessed instead
                 if not args.silent:
@@ -573,8 +567,8 @@ def mkv_auto(args):
 
                 if not debug:
                     move_file_to_output(input_file, output_dir, movies_folder, tv_shows_folder,
-                                    movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames,
-                                    flatten_directories)
+                                        movies_hdr_folder, tv_shows_hdr_folder, others_folder, all_dirnames,
+                                        flatten_directories)
 
                 file_index += 1
                 file_name_printed = False
