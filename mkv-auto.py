@@ -125,11 +125,11 @@ def mkv_auto(args):
     output_dir = output_folder
 
     if keep_original:
-        notemp = False
+        move_files = False
     else:
-        notemp = True
-    if args.notemp:
-        notemp = True
+        move_files = True
+    if args.move:
+        move_files = True
 
     if args.docker:
         if not input_dir:
@@ -152,8 +152,10 @@ def mkv_auto(args):
         temp_dir = 'files/tmp/'
     else:
         temp_dir = ini_temp_dir
+    if args.temp_dir:
+        temp_dir = args.temp_dir
 
-    if not notemp:
+    if not move_files:
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
         os.mkdir(temp_dir)
@@ -166,12 +168,17 @@ def mkv_auto(args):
         sys.stdout.write('\033[?25l')
         sys.stdout.flush()
 
-    if not notemp:
+    if not move_files:
         with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
                   bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
             pbar.set_description(f"{GREY}[INFO]{RESET} Copying file 1 of {total_files}")
             copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
-        input_dir = temp_dir
+    else:
+        with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
+                  bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
+            pbar.set_description(f"{GREY}[INFO]{RESET} Moving file 1 of {total_files}")
+            move_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
+    input_dir = temp_dir
 
     convert_all_videos_to_mkv(debug, input_dir, args.silent)
     rename_others_file_to_folder(input_dir, movies_folder, tv_shows_folder, movies_hdr_folder, tv_shows_hdr_folder,
@@ -366,7 +373,7 @@ def mkv_auto(args):
                         needs_sdh_removal, needs_convert, a, b, c, needs_processing_subs = get_wanted_subtitle_tracks(
                         debug, file_info, pref_subs_langs)
 
-                    if debug and notemp:
+                    if debug and move_files:
                         debug_pause()
 
                     if needs_processing_audio:
@@ -600,7 +607,7 @@ def mkv_auto(args):
             sys.stdout.write('\033[?25h')
             sys.stdout.flush()
 
-        if not notemp:
+        if not move_files:
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
     else:
@@ -629,10 +636,12 @@ def main():
                         help="input folder path (default: 'input/')")
     parser.add_argument("--output_folder", "-of", dest="output_dir", type=str, required=False,
                         help="output folder path (default: 'output/')")
+    parser.add_argument("--temp_folder", "-tf", dest="temp_dir", type=str, required=False,
+                        help="temp folder path (default: '.tmp/')")
     parser.add_argument("--silent", action="store_true", default=False, required=False,
                         help="supress visual elements like progress bars (default: False)")
-    parser.add_argument("--notemp", action="store_true", default=False, required=False,
-                        help="process files directly without using temp dir (default: False)")
+    parser.add_argument("--move", action="store_true", default=False, required=False,
+                        help="process files directly by moving them, no copying (default: False)")
     parser.add_argument("--docker", action="store_true", default=False, required=False,
                         help="use docker-specific default directories from 'files/' (default: False)")
     parser.add_argument("--debug", action="store_true", default=False, required=False,

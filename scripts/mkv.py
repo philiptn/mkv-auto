@@ -581,15 +581,23 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
     # Check if there are any commentary tracks
     all_track_names = []
+    all_track_codecs = []
+    all_track_ids = []
+    all_track_langs = []
     for track in file_info["tracks"]:
         if track["type"] == "audio":
             track_name = None
             for key, value in track["properties"].items():
                 if key == 'track_name':
                     track_name = value
+                if key == 'codec_id':
+                    all_track_codecs.append(value)
+                if key == 'language':
+                    all_track_langs.append(value)
             if not track_name:
                 track_name = ''
             all_track_names.append(track_name)
+        all_track_ids.append(track["id"])
 
     commentary_tracks_found = any("commentary" in track.lower() for track in all_track_names)
 
@@ -652,10 +660,24 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                         # converted, it does not need to be converted again, but simply kept. Therefore will
                         # be added as a "preferred audio codec" even though it may not be.
                         if "Original" in all_track_names[total_audio_tracks - 1] and len(all_track_names) > 1:
-                            pref_audio_track_ids.append(track["id"])
-                            pref_audio_track_languages.append(track_language)
-                            pref_audio_track_names.append(track_name)
-                            audio_track_codecs.append(preferred_audio_codec)
+                            if all_track_codecs[total_audio_tracks - 2].upper() != preferred_audio_codec:
+                                if audio_track_ids:
+                                    audio_track_ids.pop()
+                                    audio_track_languages.pop()
+                                    audio_track_names.pop()
+                                    audio_track_codecs.pop()
+
+                                audio_track_ids.append(all_track_ids[total_audio_tracks - 1])
+                                audio_track_languages.append(all_track_langs[total_audio_tracks - 1])
+                                audio_track_names.append(all_track_names[total_audio_tracks - 1])
+                                audio_track_codecs.append(all_track_codecs[total_audio_tracks - 1])
+
+                            else:
+                                pref_audio_track_ids.append(track["id"])
+                                pref_audio_track_languages.append(track_language)
+                                pref_audio_track_names.append(track_name)
+                                audio_track_codecs.append(preferred_audio_codec)
+
                         else:
                             audio_track_ids.append(track["id"])
                             audio_track_languages.append(track_language)
@@ -766,7 +788,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             current_index = pref_audio_langs.index(lang, min_index)
             min_index = current_index
         else:
-            print("IT SURE DID CAME HERE")
             needs_processing = True
             break
 
@@ -1075,6 +1096,9 @@ def encode_audio_tracks(debug, audio_files, languages, track_names, output_codec
         output_audio_langs += tuple(languages)  # Convert languages to a tuple before concatenating
         output_audio_names += tuple(name if name else "Original" for name in track_names)
         all_track_ids += tuple(file.rpartition('.')[0].rpartition('.')[0].rpartition('.')[-1] for file in audio_files)
+    else:
+        for audio_file in audio_files:
+            os.remove(audio_file)
 
     output_audio_files_extensions = (tuple(ext for file in other_files for ext in [file.rpartition('.')[-1]])
                                      + output_audio_files_extensions)
