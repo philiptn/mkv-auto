@@ -35,18 +35,13 @@ $SUDO apt install python3.10-venv -y
 # Installing MKVToolNix
 $SUDO apt-get install mkvtoolnix -y
 
-# Installing flatpak and HandBrakeCLI (via flatpak)
-$SUDO apt-get install flatpak -y
-$SUDO flatpak install app/fr.handbrake.ghb/x86_64/stable -y
-
 # Needed for unpacking archives, is most likely already installed
 $SUDO apt-get install unrar -y
 
 # Install tzdata and set timezone to UTC
 DEBIAN_FRONTEND=noninteractive apt-get install tzdata -y
 
-# Installing packages required for SubtitleEdit (in 'utlities/') to work,
-# as well as autosubsync and other packages
+# Installing packages required for SubtitleEdit to work + other remaining packages
 $SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr \
   vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module git xvfb -y
 

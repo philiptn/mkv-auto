@@ -5,4 +5,5 @@ execute_command() {
     python3 -u mkv-auto.py "$@"
 }
 
-execute_command "$@" 2>&1 | stdbuf -oL tee -a /mkv-auto/files/mkv-auto.log
+# Pipe the output through sed to remove ANSI codes before writing to the log file
+execute_command "$@" 2>&1 | stdbuf -oL tee -a >(sed 's/\x1b\[[0-9;]*m//g' > /mkv-auto/files/mkv-auto.log)

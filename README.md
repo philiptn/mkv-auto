@@ -110,9 +110,15 @@ options:
                         The output folder path used by mkv-auto to save its files
 ```
 
-## PyPI Acknowledgments
+## Acknowledgments
 
 #### This project would not be possible without the following third-party tools/packages: 
+
+ffmpeg (for converting audio/subtitle streams and general handling of video containers)  
+https://ffmpeg.org/
+
+MKVToolNix (for managing MKV files, extracting, merging, file info, etc.)  
+https://mkvtoolnix.download/
 
 Matt Lyon for subtitle-filter (SDH removal)  
 https://github.com/m-lyon/filter-subs
@@ -120,6 +126,9 @@ https://github.com/m-lyon/filter-subs
 NikseDK for SubtitleEdit (OCR of BluRay/DVD subtitles)  
 https://github.com/SubtitleEdit/subtitleedit/releases  
 https://www.nikse.dk/subtitleedit/help#linux
+
+Tesseract OCR (an Optical Character Recognition (OCR) engine used for converting subtitles within SubtitleEdit)  
+https://github.com/tesseract-ocr/tesseract
 
 qqq1243 for asstosrt (SSA/ASS to SRT conversion)  
 https://github.com/sorz/asstosrt/
