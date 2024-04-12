@@ -37,7 +37,7 @@ If you would like to run mkv-auto as a service, meaning that it simply checks a 
 
 - To get started, create a folder on your host system, such as `~/mkv-auto-service`.
 - Next you need to copy `docker-compose.yml`, `.env_example` and `defaults.ini` over to this folder.
-- Next, rename the `default.ini` to `user.ini` and make the necessary modifications to suite your preferences. This file also needs to be placed inside a folder named `config`. 
+- Next, rename the `defaults.ini` to `user.ini` and make the necessary modifications to suit your preferences. This file also needs to be placed inside a folder named `config`. 
 - The `.env_example` file also needs to be renamed to `.env`. In here you need to change the `$HOST_FOLDER` variable to the location of the mkv-auto-service folder (`/home/philip/mkv-auto-service` in my case).
 - The `$INPUT_FOLDER`, `$OUTPUT_FOLDER` and `$TEMP_DIR` variables in `.env` should be changed to the appropriate input, output and TEMP locations. If you have an NVMe SSD that is mounted to your system, and you have sufficient storage capacity, the tool will greatly benefit from the increased read/write speed if this drive is assigned to TEMP.
 
