@@ -65,20 +65,20 @@ sudo docker compose up -d
 
 The service will now process any files from the input folder automatically and place them in the output folder. To see the progress/logs of the service, this can be viewed using `sudo docker logs mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` file manually.
 
-Tip: If you want to continuously monitor the progress of mkv-auto-service you can easily do this by adding this to your `~/.bash_aliases` file (or create it if you do not already have it)
+Tip: If you want to continuously monitor the progress of mkv-auto-service you can easily do this by adding this to your `~/.bash_aliases` file (create it if you do not already have it).  
 
 ````bash
 # If you are logged in to the machine that is running the mkv-auto-service
-alias mkv-auto-service-logs='watch --color -n 0.5 "docker logs --tail 30 mkv-auto-service"'
+alias mkv-auto-logs='watch --color -n 0.5 "docker logs --tail 30 mkv-auto-service"'
 
 # If you want to check the progress, but you are on another machine. Replace "ubuntu-desktop"
 # with the machine/host that is running the mkv-auto-service container.
-mkv-auto-service-logs() {
+mkv-auto-logs() {
     ssh -t ubuntu-desktop 'watch --color -n 0.5 "docker logs --tail 30 mkv-auto-service"'
 }
 ````
 
-To apply the changes to your `~/.bash_aliases` file, you can simply log in and out again, or refresh the environment by running `source ~/.bashrc`.
+To apply the changes to your `~/.bash_aliases` file, you can simply log in and out again, or refresh the environment by typing `source ~/.bashrc`. You can now continuously monitor the progress by running `mkv-auto-service-logs` in the terminal.
 
 
 ### mkv-auto (standalone)
