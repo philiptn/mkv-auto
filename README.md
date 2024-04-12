@@ -15,7 +15,7 @@ A utility made in Python that aims to automatically remove any unwanted audio or
 - Automatically categorize the media content type (TV Show/Movie, SDR/HDR) based on info in filename
 
 ### Processing example
-<img src="https://github.com/philiptn/mkv-auto/blob/dev/utilities/mkv-auto_output.png?raw=true" width="500">
+<img src="https://github.com/philiptn/mkv-auto/blob/dev/utilities/mkv-auto_output.png?raw=true" width="600">
 
 ## Prerequisites
 
