@@ -72,7 +72,7 @@ def process_file(file_path, output_folder):
                 print(f"\n[SERVICE] An error occurred while executing the command: {e}")
 
             command = ["venv/bin/python3", "-u", "mkv-auto.py", "--output_folder",
-                       output_folder, "--silent", "--notemp"]
+                       output_folder, "--silent", "--move"]
         else:
             command = ["venv/bin/python3", "-u", "mkv-auto.py", "--output_folder",
                        output_folder, "--silent", "--input_folder", linux_path]
@@ -105,7 +105,7 @@ def process_file(file_path, output_folder):
     elif tag == 'Ready':
         # Command template
         command = ["venv/bin/python3", "-u", "mkv-auto.py", "--output_folder",
-                   output_folder, "--silent", "--notemp", "--input_folder",
+                   output_folder, "--silent", "--move", "--input_folder",
                    ready_for_final_processing_path]
 
         # Execute the command

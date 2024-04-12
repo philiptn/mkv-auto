@@ -65,10 +65,25 @@ sudo docker compose up -d
 
 The service will now process any files from the input folder automatically and place them in the output folder. To see the progress/logs of the service, this can be viewed using `sudo docker logs mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` file manually.
 
+Tip: If you want to continuously monitor the progress of mkv-auto-service you can easily do this by adding this to your `~/.bash_aliases` file (or create it if you do not already have it)
+
+````bash
+# If you are logged in to the machine that is running the mkv-auto-service
+alias mkv-auto-service-logs='watch --color -n 0.5 "docker logs --tail 30 mkv-auto-service"'
+
+# If you want to check the progress, but you are on another machine. Replace "ubuntu-desktop"
+# with the machine/host that is running the mkv-auto-service container.
+mkv-auto-service-logs() {
+    ssh -t ubuntu-desktop 'watch --color -n 0.5 "docker logs --tail 30 mkv-auto-service"'
+}
+````
+
+To apply the changes to your `~/.bash_aliases` file, you can simply log in and out again, or refresh the environment by running `source ~/.bashrc`.
+
 
 ### mkv-auto (standalone)
 
-To run this utility using Docker, a Docker image first need to be built from the repository root folder (`mkv-auto/`) using:
+To run this utility standalone, a Docker image first need to be built from the repository root folder using:
 
 ````bash
 sudo docker build -t mkv-auto .  
@@ -79,7 +94,7 @@ Next, create a separate folder on your host system for where you like the files 
 ***NOTE: This folder cannot be a subdirectory of the main repository folder***.  
 
 In here you need to make two sub-folders: `input/` and `output/`. Within the `mkv-auto-docker/`folder you can also place the `user.ini` file for easy customization of your preferences.
-Make sure that this location has sufficient storage space for processing both the <ins>**input**</ins>, <ins>**output**</ins> and <ins>**TEMP**</ins> files. If storage space is scarce, consider using the `--notemp` option (files from `input/` will be processed directly and moved to the `output/` folder without keeping the original). 
+Make sure that this location has sufficient storage space for processing both the <ins>**input**</ins>, <ins>**output**</ins> and <ins>**TEMP**</ins> files if using the default TEMP location.  
 
 The folder structure should look something like this:  
 ```text
@@ -91,7 +106,7 @@ The folder structure should look something like this:
 ```
 
 Make sure you know the full path of your "mkv-auto-docker" folder (this can be found by navigating to the folder and running `pwd`). 
-This needs to be passed to the Docker Engine for volume mounting the folder inside the Docker container to your host system (`<host system folder>:/mkv-auto/files`).
+This needs to be passed to the Docker Engine for volume mounting the folder inside the Docker container to your host system (`<host system folder>:/mkv-auto/files`).  
 To start the utility using a Docker container, run the following command:
 
 **In this example, mkv-auto will be started from Docker using WSL in Windows (mkv-auto folder on the D: drive)**

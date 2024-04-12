@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mkv-auto-service:
     image: ${IMAGE_NAME}
@@ -8,6 +6,6 @@ services:
       - ${INPUT_FOLDER}:/mkv-auto/files/input
       - ${OUTPUT_FOLDER}:/mkv-auto/files/output
       - ${TEMP_FOLDER}:/mkv-auto/files/tmp
-      - ${HOST_FOLDER}/config:/mkv-auto/config
+      - ${CONFIG_FOLDER}:/mkv-auto/config
       - ${HOST_FOLDER}/logs:/mkv-auto/logs
     entrypoint: ["/bin/bash", "/mkv-auto/service-entrypoint.sh"]
