@@ -38,7 +38,7 @@ Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the
 
 ### mkv-auto-service
 
-If you would like to run mkv-auto as a service, meaning that it simply checks a defined input folder for new files, then processes them automatically, this can be achieved with the mkv-auto service.
+If you would like to run mkv-auto as a service, meaning that it simply checks a defined input folder for new files, then processes them automatically, this can be achieved with the mkv-auto-service.
 
 - To get started, create a folder on your host system, such as `~/mkv-auto-service`.
 - Next you need to copy `docker-compose.yml`, `.env_example` and `defaults.ini` over to this folder.
