@@ -68,7 +68,11 @@ To start the mkv-auto-service, run the following command from the mkv-auto-servi
 sudo docker compose up -d 
 ````
 
-The service will now process any files from the input folder automatically and place them in the output folder. To see the progress/logs of the service, this can be viewed using `sudo docker logs mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` file manually.
+The service will now process any files from the input folder automatically and place them in the output folder.  
+
+**NOTE: ALL files from the input folder will be MOVED to TEMP before starting, not copied. If you are processing many large files at once, make sure that you have enough TEMP storage capacity.**
+
+To see the progress/logs of the service, this can be viewed using `sudo docker logs mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` file manually.
 
 Tip: If you want to continuously monitor the progress of mkv-auto-service you can easily do this by adding this to your `~/.bash_aliases` file (create it if you do not already have it).  
 
@@ -83,7 +87,7 @@ mkv-auto-logs() {
 }
 ````
 
-To apply the changes to your `~/.bash_aliases` file, you can simply log in and out again, or refresh the environment by typing `source ~/.bashrc`. You can now continuously monitor the progress by running `mkv-auto-service-logs` in the terminal.
+To apply the changes to your `~/.bash_aliases` file, you can simply log in and out again, or refresh the environment by typing `source ~/.bashrc`. You can now continuously monitor the progress by running `mkv-auto-logs` in the terminal.
 
 
 ### mkv-auto (standalone)
