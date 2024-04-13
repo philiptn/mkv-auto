@@ -78,12 +78,12 @@ Tip: If you want to continuously monitor the progress of mkv-auto-service you ca
 
 ````bash
 # If you are logged in to the machine that is running the mkv-auto-service
-alias mkv-auto-logs='watch --color -n 0.5 "docker logs --tail 30 mkv-auto-service"'
+alias mkv-auto-logs='watch --color -n 1 "docker logs --tail 30 mkv-auto-service"'
 
 # If you want to check the progress, but you are on another machine. Replace "ubuntu-desktop"
 # with the machine/host that is running the mkv-auto-service container.
 mkv-auto-logs() {
-    ssh -t ubuntu-desktop 'watch --color -n 0.5 "docker logs --tail 30 mkv-auto-service"'
+    ssh -t ubuntu-desktop 'watch --color -n 1 "docker logs --tail 30 mkv-auto-service"'
 }
 ````
 
