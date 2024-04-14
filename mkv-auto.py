@@ -369,9 +369,14 @@ def mkv_auto(args):
                      track_names_to_be_converted, other_track_names) = get_wanted_audio_tracks(
                         debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
 
-                    wanted_subs_tracks, default_subs_track, \
-                        needs_sdh_removal, needs_convert, a, b, c, needs_processing_subs = get_wanted_subtitle_tracks(
+                    (wanted_subs_tracks, default_subs_track,
+                     needs_sdh_removal, needs_convert, sub_filetypes,
+                     subs_track_languages, subs_track_names, needs_processing_subs) = get_wanted_subtitle_tracks(
                         debug, file_info, pref_subs_langs)
+
+                    updated_subtitle_languages = subs_track_languages
+                    all_subs_track_ids = wanted_subs_tracks
+                    all_subs_track_names = subs_track_names
 
                     if debug and move_files:
                         debug_pause()
@@ -444,9 +449,6 @@ def mkv_auto(args):
                             if debug:
                                 print('')
 
-                        # Set to true regardless, to invoke processing pipeline
-                        needs_processing_subs = True
-
                     if needs_processing_subs:
                         subtitle_files = []
                         # Get updated file info after mkv tracks reduction
@@ -504,11 +506,6 @@ def mkv_auto(args):
                                 if mkv_video_codec != 'MPEG-1/2':
                                     remove_cc_hidden_in_file(debug, input_file)
 
-                            repack_tracks_in_mkv(debug, input_file, sub_filetypes, updated_subtitle_languages,
-                                                 pref_subs_langs,
-                                                 ready_audio_extensions, ready_audio_langs, pref_audio_langs,
-                                                 ready_track_ids, ready_track_names, all_subs_track_ids, all_subs_track_names)
-
                         elif not needs_convert:
                             if needs_sdh_removal and always_remove_sdh or resync_subtitles != 'false':
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
@@ -525,10 +522,11 @@ def mkv_auto(args):
                                 if mkv_video_codec != 'MPEG-1/2':
                                     remove_cc_hidden_in_file(debug, input_file)
 
-                            repack_tracks_in_mkv(debug, input_file, sub_filetypes, updated_subtitle_languages,
-                                                 pref_subs_langs,
-                                                 ready_audio_extensions, ready_audio_langs, pref_audio_langs,
-                                                 ready_track_ids, ready_track_names, all_subs_track_ids, all_subs_track_names)
+                    if needs_processing_audio or needs_processing_subs:
+                        repack_tracks_in_mkv(debug, input_file, sub_filetypes, updated_subtitle_languages,
+                                             pref_subs_langs,
+                                             ready_audio_extensions, ready_audio_langs, pref_audio_langs,
+                                             ready_track_ids, ready_track_names, all_subs_track_ids, all_subs_track_names)
 
                     if needs_processing_subs:
                         remove_all_mkv_track_tags(debug, input_file)

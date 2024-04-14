@@ -31,11 +31,6 @@ def convert_video_to_mkv(debug, video_file, output_file):
         '-y', output_file
     ]
 
-    if debug:
-        print(f"{YELLOW}")
-        print(' '.join(command))
-        print(f"{RESET}")
-
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
 
@@ -61,7 +56,7 @@ def convert_all_videos_to_mkv(debug, input_folder, silent):
 
     pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}%', leave=False, disable=silent)
     for i, video_file in enumerate(video_files, start=1):
-        pbar.set_description(f'{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Converting file {i} of {total_files} to MKV')
+        pbar.set_description(f'{GREY}[INFO]{RESET} Converting file {i} of {total_files} to MKV')
         if video_file.endswith('.mp4'):
             # If the function returns "True", then there are
             # tx3g subtitles in the mp4 file that needs to be converted.

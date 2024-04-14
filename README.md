@@ -129,6 +129,11 @@ If you want to specify a custom output folder, you simply add `--docker --output
 
 If you want to run the utility in the future without typing the full command, a simple launch script can be invoked using `./run_docker.sh`. Make sure to change the `HOST_FOLDER` variable in your `.env` file to the proper location. The `.env` file can be created using the `.env_example` as reference.
 
+## To-do
+- [ ] Clean up functions and use more sensible data-types such as classes, structs etc.
+- [ ] Process multiple files at once - full multithreading support
+- [ ] Add support for video encoding workers - Handbrake/NVEncc/ffmpeg
+- [ ] (maybe) add support for automatically fetching missing subtitles
 
 ## CLI
 ### mkv-auto
