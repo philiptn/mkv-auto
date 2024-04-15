@@ -55,8 +55,8 @@ def extract_archives(input_folder):
                         zf.extractall(root)
             except Exception as e:
                 print(f"{GREY}[UTC {get_timestamp()}] [ERROR]{RESET} Failed to extract {archive_file}: {e}")
-    if len(files) != 0:
-        print('')
+        if len(files) != 0:
+            print('')
 
 
 def count_files(directory):

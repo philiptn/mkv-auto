@@ -817,6 +817,11 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     unmatched_subs_track_languages = []
     unmatched_subs_track_names = []
 
+    forced_track_ids = []
+    forced_track_languages = []
+    forced_track_names = []
+    forced_sub_filetypes = []
+
     default_subs_track = ''
     all_sub_filetypes = []
     sub_filetypes = []
@@ -874,6 +879,19 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             if track_language in pref_subs_langs:
                 needs_processing = True
                 needs_sdh_removal = True
+
+                if forced_track:
+                    forced_track_ids.append(track["id"])
+                    forced_track_languages.append(track_language)
+                    forced_track_names.append(track_name)
+                    if track["codec"] == "HDMV PGS":
+                        forced_sub_filetypes.append('sup')
+                    elif track["codec"] == "VobSub":
+                        forced_sub_filetypes.append('sub')
+                    elif track["codec"] == "SubRip/SRT":
+                        forced_sub_filetypes.append('srt')
+                    elif track["codec"] == "SubStationAlpha":
+                        forced_sub_filetypes.append('ass')
 
                 # If the track language is "und" (undefined), assume english subtitles
                 if track_language.lower() == "und":
@@ -944,6 +962,13 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         subs_tracks_ids_no_srt = [x for x in subs_track_ids if x not in srt_track_ids]
                         subs_tracks_ids_no_ass = [x for x in subs_tracks_ids_no_srt if x not in ass_track_ids]
                         subs_track_ids = subs_tracks_ids_no_ass
+
+    # If none of the subtitles matched, add the forced tracks as a last effort
+    if len(subs_track_ids) == 0:
+        subs_track_ids = forced_track_ids
+        subs_track_languages = forced_track_languages
+        subs_track_names = forced_track_names
+        sub_filetypes = forced_sub_filetypes
 
     # Sets the default subtitle track to first entry in preferences,
     # reverts to any entry if not first
