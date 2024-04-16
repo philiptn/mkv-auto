@@ -948,12 +948,20 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             srt_ass_track_removed.append(track_language)
 
                         if track["codec"] == "HDMV PGS":
-                            sub_filetypes.append('sup')
-                            subs_track_ids.append(track["id"])
-                            subs_track_languages.append(track_language)
-                            subs_track_names.append(track_name)
+                            if sub_filetypes:
+                                if sub_filetypes[-1] != 'sup':
+                                    sub_filetypes.append('sup')
+                                    subs_track_ids.append(track["id"])
+                                    subs_track_languages.append(track_language)
+                                    subs_track_names.append(track_name)
+                            elif not sub_filetypes:
+                                sub_filetypes.append('sup')
+                                subs_track_ids.append(track["id"])
+                                subs_track_languages.append(track_language)
+                                subs_track_names.append(track_name)
                             needs_convert = True
                             needs_processing = True
+
                         elif track["codec"] == "VobSub":
                             sub_filetypes.append('sub')
                             subs_track_ids.append(track["id"])

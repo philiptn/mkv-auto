@@ -35,6 +35,7 @@ def move_file(src, dst):
 
 
 def extract_archives(input_folder):
+
     for root, dirs, files in os.walk(input_folder):
         # Filter for .rar and .zip files
         archive_files = [f for f in files if f.endswith('.rar') or f.endswith('.zip')]
@@ -55,8 +56,6 @@ def extract_archives(input_folder):
                         zf.extractall(root)
             except Exception as e:
                 print(f"{GREY}[UTC {get_timestamp()}] [ERROR]{RESET} Failed to extract {archive_file}: {e}")
-        if len(files) != 0:
-            print('')
 
 
 def count_files(directory):
