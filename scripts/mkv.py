@@ -376,7 +376,7 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
 
 def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_subs_langs,
                          audio_filetypes, audio_languages, pref_audio_langs, audio_track_ids,
-                         audio_track_names, sub_track_ids, sub_track_names):
+                         audio_track_names, sub_track_ids, sub_track_names, always_enable_subs):
     sub_files_list = []
     final_sub_languages = sub_languages
     audio_files_list = []
@@ -475,18 +475,17 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
                              '--track-name', name_str, filelist_str)
 
     default_locked = False
-    default_track_str = []
     for index, filetype in enumerate(final_sub_filetypes):
+        default_track_str = "0:no"
         # mkvmerge does not support the .sub file as input,
         # and requires the .idx specified instead
         if filetype == "sub":
             filetype = "idx"
         if not default_locked:
             if filetype == "srt":
-                default_track_str = "0:yes"
+                if always_enable_subs:
+                    default_track_str = "0:yes"
                 default_locked = True
-        else:
-            default_track_str = "0:no"
         lang_str = f"0:{final_sub_languages[index]}"
         name_str = f"0:{final_sub_track_names[index]}"
         filelist_str = f"{base}.{final_sub_track_ids[index]}.{final_sub_languages[index][:-1]}.{filetype}"

@@ -462,32 +462,36 @@ def mkv_auto(args):
                         updated_subtitle_languages = subs_track_languages
                         all_subs_track_ids = wanted_subs_tracks
                         all_subs_track_names = subs_track_names
-
+                        updated_sub_filetypes = sub_filetypes
                         # Check if any of the subtitle tracks needs to be converted using OCR
                         if needs_convert:
                             output_subtitles = []
-                            generated_srt_files = []
 
                             if "sub" in sub_filetypes:
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
-                                output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids, all_subs_track_names = ocr_subtitles(
+                                (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
+                                 all_subs_track_names, updated_sub_filetypes) = ocr_subtitles(
                                     debug, subtitle_files, subs_track_languages, subs_track_names)
 
                             elif "sup" in sub_filetypes:
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
-                                output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids, all_subs_track_names = ocr_subtitles(
+                                (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
+                                 all_subs_track_names, updated_sub_filetypes) = ocr_subtitles(
                                     debug, subtitle_files, subs_track_languages, subs_track_names)
 
                             elif "ass" in sub_filetypes:
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
                                                                      sub_filetypes, subs_track_languages)
 
-                                output_subtitles, updated_subtitle_languages, generated_srt_files, all_subs_track_ids, all_subs_track_names = convert_ass_to_srt(
+                                (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
+                                 all_subs_track_names, updated_sub_filetypes) = convert_ass_to_srt(
                                     subtitle_files, subs_track_languages, subs_track_names)
+
+                            sub_filetypes = updated_sub_filetypes
 
                             # Pass an empty list for the track names, as this is only needed
                             # when subtitles are SRT format to begin with
@@ -496,11 +500,6 @@ def mkv_auto(args):
 
                             if resync_subtitles:
                                 resync_srt_subs(debug, input_file, output_subtitles, quiet, external_sub)
-
-                            replaced_index = 0
-                            for i, ext in enumerate(generated_srt_files):
-                                sub_filetypes.insert(i + replaced_index, ext)
-                                replaced_index += 1
 
                             if has_closed_captions(input_file):
                                 # Will remove hidden CC data as long as
@@ -528,7 +527,8 @@ def mkv_auto(args):
                         repack_tracks_in_mkv(debug, input_file, sub_filetypes, updated_subtitle_languages,
                                              pref_subs_langs,
                                              ready_audio_extensions, ready_audio_langs, pref_audio_langs,
-                                             ready_track_ids, ready_track_names, all_subs_track_ids, all_subs_track_names)
+                                             ready_track_ids, ready_track_names, all_subs_track_ids,
+                                             all_subs_track_names, always_enable_subs)
 
                     if needs_processing_subs:
                         remove_all_mkv_track_tags(debug, input_file)

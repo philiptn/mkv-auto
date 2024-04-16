@@ -210,31 +210,34 @@ def convert_ass_to_srt(subtitle_files, languages, names):
     print(f"{GREY}[UTC {get_timestamp()}] [ASS]{RESET} Converting ASS subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = []
-    generated_srt_files = []
+    updated_sub_filetypes = []
     all_track_ids = []
     all_track_names = []
 
     for index, file in enumerate(subtitle_files):
-        base_and_lang_with_id, _, extension = file.rpartition('.')
+        base_and_lang_with_id, _, original_extension = file.rpartition('.')
         base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
         base, _, track_id = base_with_id.rpartition('.')
 
-        ass_file = open(file)
-        srt_output = asstosrt.convert(ass_file)
-        with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
-            srt_file.write(srt_output)
-        generated_srt_files.append('srt')
-        all_track_ids.append(track_id)
-        all_track_names.append('')
-        updated_subtitle_languages.append(languages[index])
-        output_subtitles.append(f"{base}.{track_id}.{lang}.srt")
+        if "ass" in file:
+            ass_file = open(file)
+            srt_output = asstosrt.convert(ass_file)
+            with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
+                srt_file.write(srt_output)
+            updated_sub_filetypes = ['srt', original_extension] + updated_sub_filetypes
+            all_track_ids = [track_id, track_id] + all_track_ids
+            all_track_names = ['', names[index] if names[index] else "Original"] + all_track_names
+            updated_subtitle_languages = [languages[index], languages[index]] + updated_subtitle_languages
+            output_subtitles = [f"{base}.{track_id}.{lang}.srt"] + output_subtitles
+        else:
+            updated_sub_filetypes.append(original_extension)
+            output_subtitles.append(file)
+            updated_subtitle_languages.append(languages[index])
+            all_track_ids.append(track_id)
+            all_track_names.append(names[index] if names[index] else "Original")
 
-        # Adding the original track as well
-        all_track_ids.append(track_id)
-        all_track_names.append(names[index] if names[index] else "Original")
-        updated_subtitle_languages.append(languages[index])
 
-    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids, all_track_names
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names
 
 
 def resync_srt_subs(debug, input_file, subtitle_files, quiet, external_sub):

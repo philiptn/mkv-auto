@@ -107,29 +107,32 @@ def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
         subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
         subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
 
-        base_and_lang_with_id, _, extension = file.rpartition('.')
+        base_and_lang_with_id, _, original_extension = file.rpartition('.')
         base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
         base, _, track_id = base_with_id.rpartition('.')
 
-        update_tesseract_lang_xml(language, subtitleedit_settings)
+        if "sup" in file or "sub" in file:
+            update_tesseract_lang_xml(language, subtitleedit_settings)
 
-        command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
+            command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
 
-        if debug:
-            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+            if debug:
+                print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
-        run_with_xvfb(command)
+            run_with_xvfb(command)
 
-        output_subtitle = f"{base}.{track_id}.{lang}.srt"
+            output_subtitle = f"{base}.{track_id}.{lang}.srt"
 
-        if language == 'eng':
-            replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv')
-        replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements.csv')
+            if language == 'eng':
+                replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv')
+            replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements.csv')
+        else:
+            output_subtitle = ''
     finally:
         # Clean up the temporary directory
         shutil.rmtree(temp_dir)
 
-    return file, output_subtitle, language, track_id, name, replacements
+    return file, output_subtitle, language, track_id, name, replacements, original_extension
 
 
 def ocr_subtitles(debug, subtitle_files, languages, names):
@@ -148,20 +151,27 @@ def ocr_subtitles(debug, subtitle_files, languages, names):
 
         output_subtitles = []
         updated_subtitle_languages = []
-        generated_srt_files = []
         all_track_ids = []
         all_track_names = []
+        updated_sub_filetypes = []
 
         for future in concurrent.futures.as_completed(future_to_file):
-            original_file, output_subtitle, language, track_id, name, replacements = future.result()
+            original_file, output_subtitle, language, track_id, name, replacements, original_extension = future.result()
             all_replacements = all_replacements + replacements
-            # Add both original and generated subtitles to the output list
-            output_subtitles.extend([output_subtitle])
-            # Repeat language and track ID for both original and generated files
-            updated_subtitle_languages.extend([language, language])
-            generated_srt_files.extend(['srt'])
-            all_track_ids.extend([track_id, track_id])
-            all_track_names.extend(['', name if name else "Original"])
+            if output_subtitle:
+                updated_sub_filetypes = ['srt', original_extension] + updated_sub_filetypes
+                # Add both original and generated subtitles to the output list
+                output_subtitles = [output_subtitle] + output_subtitles
+                # Repeat language and track ID for both original and generated files
+                updated_subtitle_languages = [language, language] + updated_subtitle_languages
+                all_track_ids = [track_id, track_id] + all_track_ids
+                all_track_names = ['', name if name else "Original"] + all_track_names
+            else:
+                updated_sub_filetypes.append(original_extension)
+                output_subtitles.append(original_file)
+                updated_subtitle_languages.append(language)
+                all_track_ids.append(track_id)
+                all_track_names.append(name if name else '')
 
     if debug:
         print('')
@@ -178,7 +188,7 @@ def ocr_subtitles(debug, subtitle_files, languages, names):
                 print(replacement)
         print('')
 
-    return output_subtitles, updated_subtitle_languages, generated_srt_files, all_track_ids, all_track_names
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
 
 
 def update_tesseract_lang_xml(new_language, settings_file):
