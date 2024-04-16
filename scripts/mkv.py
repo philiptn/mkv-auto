@@ -652,7 +652,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                             or ("Original" in all_track_names[total_audio_tracks - 1]):
 
                         # If the next audio track is an original audio track that has previously been
-                        # converted, it does not need to be converted again, but simply kept. Therefore will
+                        # converted, it does not need to be converted again, but simply kept. Therefore, will
                         # be added as a "preferred audio codec" even though it may not be.
                         if "Original" in all_track_names[total_audio_tracks - 1] and len(all_track_names) > 1:
                             if all_track_codecs[total_audio_tracks - 2].upper() != preferred_audio_codec:
@@ -830,6 +830,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     needs_sdh_removal = False
     needs_convert = False
     needs_processing = False
+    srt_ass_track_removed = []
 
     # Get all subtitle codecs
     for track in file_info['tracks']:
@@ -840,7 +841,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     for track in file_info["tracks"]:
         if track["type"] == "subtitles":
             track_language = ''
-            track_name = ''
             for key, value in track["properties"].items():
                 if key == 'language':
                     track_language = value
@@ -931,18 +931,21 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         needs_convert = True
                         needs_processing = True
                 else:
-                    if (track["codec"] != "SubRip/SRT" and track["codec"] != "SubStationAlpha") \
-                            and subs_track_languages.count(track_language) == 1:
+                    if ((track["codec"] != "SubRip/SRT" and track["codec"] != "SubStationAlpha")
+                            and subs_track_languages.count(track_language) == 1 and
+                            track_language not in srt_ass_track_removed):
 
                         if 'srt' in sub_filetypes:
                             sub_filetypes.remove('srt')
                             subs_track_languages.remove(track_language)
                             subs_track_names.pop()
+                            srt_ass_track_removed.append(track_language)
 
                         if 'ass' in sub_filetypes:
                             sub_filetypes.remove('ass')
                             subs_track_languages.remove(track_language)
                             subs_track_names.pop()
+                            srt_ass_track_removed.append(track_language)
 
                         if track["codec"] == "HDMV PGS":
                             sub_filetypes.append('sup')
