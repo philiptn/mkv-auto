@@ -7,8 +7,8 @@ from itertools import groupby
 
 from scripts.file_operations import *
 from scripts.mkv import *
-from scripts.ocr import *
-from scripts.srt import *
+from scripts.subs import *
+from scripts.audio import *
 
 # ANSI color codes
 BLUE = '\033[34m'

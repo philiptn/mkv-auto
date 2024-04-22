@@ -13,7 +13,12 @@ import random
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 import pycountry
-
+import concurrent.futures
+import xml.etree.ElementTree as ET
+import concurrent.futures
+import threading
+import tempfile
+from collections import Counter
 
 # ANSI color codes
 BLUE = '\033[34m'
@@ -24,6 +29,9 @@ RED = '\033[31m'
 GREEN = '\033[32m'
 
 max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
+
+# Define a global lock
+xml_file_lock = threading.Lock()
 
 
 def detect_language_of_subtitle(subtitle_path):
@@ -236,8 +244,7 @@ def convert_ass_to_srt(subtitle_files, languages, names):
             all_track_ids.append(track_id)
             all_track_names.append(names[index] if names[index] else "Original")
 
-
-    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
 
 
 def resync_srt_subs(debug, input_file, subtitle_files, quiet, external_sub):
@@ -287,3 +294,148 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, quiet, max_retr
                 # Exceeded the maximum number of retries, raise an exception
                 raise Exception(f"Error executing FFsubsync command: {result.stderr}")
             time.sleep(retry_delay)  # Wait before retrying
+
+
+# Function to extract a single subtitle track
+def extract_subtitle(debug, filename, track, output_filetype, language):
+    base, _, _ = filename.rpartition('.')
+    subtitle_filename = f"{base}.{track}.{language[:-1]}.{output_filetype}"
+    command = ["mkvextract", filename, "tracks", f"{track}:{subtitle_filename}"]
+
+    if debug:
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Exception("Error executing mkvextract command: " + result.stderr)
+
+    return subtitle_filename
+
+
+def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_languages):
+    print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Extracting subtitles...")
+    if debug:
+        print('')
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks and store futures in a list
+        futures = [executor.submit(extract_subtitle, debug, filename, track, filetype, language)
+                   for track, filetype, language in zip(track_numbers, output_filetypes, subs_languages)]
+
+        # Wait for the futures to complete and get the results in the order they were submitted
+        results = [future.result() for future in futures]
+
+    if debug:
+        print('')
+
+    return results
+
+
+def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
+    replacements = []
+    # Create a temporary directory for this thread's SubtitleEdit instance
+    temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
+    try:
+        # Copy the SubtitleEdit directory to the temporary directory
+        local_subtitleedit_dir = os.path.join(temp_dir, 'SubtitleEdit')
+        shutil.copytree(subtitleedit_dir, local_subtitleedit_dir)
+
+        subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
+        subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
+
+        base_and_lang_with_id, _, original_extension = file.rpartition('.')
+        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+        base, _, track_id = base_with_id.rpartition('.')
+
+        if "sup" in file or "sub" in file:
+            update_tesseract_lang_xml(language, subtitleedit_settings)
+
+            command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
+
+            if debug:
+                print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+
+            run_with_xvfb(command)
+
+            output_subtitle = f"{base}.{track_id}.{lang}.srt"
+
+            if language == 'eng':
+                replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv')
+            replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements.csv')
+        else:
+            output_subtitle = ''
+    finally:
+        # Clean up the temporary directory
+        shutil.rmtree(temp_dir)
+
+    return file, output_subtitle, language, track_id, name, replacements, original_extension
+
+
+def ocr_subtitles(debug, subtitle_files, languages, names):
+    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting picture-based subtitles to SRT...")
+
+    subtitleedit_dir = 'utilities/SubtitleEdit'
+    all_replacements = []
+
+    if debug:
+        print('')
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_file = {executor.submit(ocr_subtitle_worker, debug, file, languages[index], names[index],
+                                          subtitleedit_dir): index
+                          for index, file in enumerate(subtitle_files)}
+
+        output_subtitles = []
+        updated_subtitle_languages = []
+        all_track_ids = []
+        all_track_names = []
+        updated_sub_filetypes = []
+
+        for future in concurrent.futures.as_completed(future_to_file):
+            original_file, output_subtitle, language, track_id, name, replacements, original_extension = future.result()
+            all_replacements = all_replacements + replacements
+            if output_subtitle:
+                updated_sub_filetypes = ['srt', original_extension] + updated_sub_filetypes
+                # Add both original and generated subtitles to the output list
+                output_subtitles = [output_subtitle] + output_subtitles
+                # Repeat language and track ID for both original and generated files
+                updated_subtitle_languages = [language, language] + updated_subtitle_languages
+                all_track_ids = [track_id, track_id] + all_track_ids
+                all_track_names = ['', name if name else "Original"] + all_track_names
+            else:
+                updated_sub_filetypes.append(original_extension)
+                output_subtitles.append(original_file)
+                updated_subtitle_languages.append(language)
+                all_track_ids.append(track_id)
+                all_track_names.append(name if name else '')
+
+    if debug:
+        print('')
+
+    if all_replacements and debug:
+        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
+
+        replacements_counter = Counter(all_replacements)
+
+        for replacement, count in replacements_counter.items():
+            if count > 1:
+                print(f"{replacement} {GREY}({count} times){RESET}")
+            else:
+                print(replacement)
+        print('')
+
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
+
+
+def update_tesseract_lang_xml(new_language, settings_file):
+    # Parse XML file
+    tree = ET.parse(settings_file)
+    root = tree.getroot()
+
+    for parent1 in root.findall('VobSubOcr'):
+        target_elem = parent1.find('TesseractLastLanguage')
+        if target_elem is not None:
+            target_elem.text = new_language
+
+    # Write back to file
+    tree.write(settings_file)
