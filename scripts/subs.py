@@ -109,7 +109,8 @@ def find_available_display():
 
 def run_with_xvfb(command):
     display_number = find_available_display()
-    xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24"]
+    xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24"
+                "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
 
     # Start Xvfb in the background
     xvfb_process = subprocess.Popen(xvfb_cmd)
