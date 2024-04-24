@@ -150,3 +150,6 @@ testing.py
 
 # Builds
 service/mkv-auto-builds/
+
+# Bak files
+*.bak

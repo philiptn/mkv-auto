@@ -120,6 +120,18 @@ def format_time(seconds):
         return " ".join(parts)
 
 
+def get_main_audio_track_language(file_info):
+    main_audio_track_lang = None
+    # Get the main audio language
+    for track in file_info['tracks']:
+        if track['type'] == 'audio':
+            for key, value in track["properties"].items():
+                if key == 'language':
+                    language = pycountry.languages.get(alpha_3=value)
+                    main_audio_track_lang = language.name
+    return main_audio_track_lang
+
+
 def mkv_auto(args):
     input_dir = input_folder
     output_dir = output_folder
@@ -132,10 +144,8 @@ def mkv_auto(args):
         move_files = True
 
     if args.docker:
-        if not input_dir:
-            input_dir = 'files/input'
-        if not output_dir:
-            output_dir = 'files/output'
+        input_dir = 'files/input'
+        output_dir = 'files/output'
     if args.input_dir:
         input_dir = args.input_dir
     if args.output_dir:
@@ -364,6 +374,8 @@ def mkv_auto(args):
                     file_info, pretty_file_info = get_mkv_info(debug, input_file, args.silent)
                     # Get video codec
                     mkv_video_codec = get_mkv_video_codec(input_file)
+                    # Get main audio track language
+                    main_audio_track_lang = get_main_audio_track_language(file_info)
 
                     (wanted_audio_tracks, default_audio_track, needs_processing_audio,
                      pref_audio_codec_found, track_ids_to_be_converted,
@@ -473,7 +485,7 @@ def mkv_auto(args):
 
                                 (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
                                  all_subs_track_names, updated_sub_filetypes) = ocr_subtitles(
-                                    debug, subtitle_files, subs_track_languages, subs_track_names)
+                                    debug, subtitle_files, subs_track_languages, subs_track_names, main_audio_track_lang)
 
                             elif "sup" in sub_filetypes:
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
@@ -481,7 +493,7 @@ def mkv_auto(args):
 
                                 (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
                                  all_subs_track_names, updated_sub_filetypes) = ocr_subtitles(
-                                    debug, subtitle_files, subs_track_languages, subs_track_names)
+                                    debug, subtitle_files, subs_track_languages, subs_track_names, main_audio_track_lang)
 
                             elif "ass" in sub_filetypes:
                                 subtitle_files = extract_subs_in_mkv(debug, input_file, wanted_subs_tracks,
@@ -489,7 +501,7 @@ def mkv_auto(args):
 
                                 (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
                                  all_subs_track_names, updated_sub_filetypes) = convert_ass_to_srt(
-                                    subtitle_files, subs_track_languages, subs_track_names)
+                                    subtitle_files, subs_track_languages, subs_track_names, main_audio_track_lang)
 
                             sub_filetypes = updated_sub_filetypes
 
