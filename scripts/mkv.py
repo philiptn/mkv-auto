@@ -420,19 +420,34 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
     # If the first preferred language is found in the sub languages,
     # reorder the list to place the preferred language first
     if sub_languages:
-        # Function to get the priority of each language
         def get_priority(lang):
             try:
                 return pref_subs_langs.index(lang)
             except ValueError:
                 return len(pref_subs_langs)
 
-        # Zip the subs_languages and subs_filetypes together, sort them, and unzip them
         paired = zip(sub_languages, sub_filetypes, sub_track_ids, sub_track_names)
         sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
         sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names = zip(*sorted_paired)
 
-        # Convert tuples back to lists if necessary
+        final_sub_languages = list(sorted_sub_languages)
+        final_sub_filetypes = list(sorted_sub_filetypes)
+        final_sub_track_ids = list(sorted_sub_track_ids)
+        final_sub_track_names = list(sorted_sub_track_names)
+
+    # Reorder sub filetypes to put SRT subtitles first
+    filetype_priority = ['srt', 'ass', 'sup', 'sub']
+    if sub_filetypes:
+        def get_priority(filetype):
+            try:
+                return filetype_priority.index(filetype)
+            except ValueError:
+                return len(filetype_priority)  # Default priority for unknown file types
+
+        paired = zip(final_sub_languages, final_sub_filetypes, final_sub_track_ids, final_sub_track_names)
+        sorted_paired = sorted(paired, key=lambda x: get_priority(x[1]))
+        sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names = zip(*sorted_paired)
+
         final_sub_languages = list(sorted_sub_languages)
         final_sub_filetypes = list(sorted_sub_filetypes)
         final_sub_track_ids = list(sorted_sub_track_ids)
