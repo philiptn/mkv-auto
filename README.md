@@ -1,5 +1,5 @@
 # mkv-auto
-A tool that aims to remove necessary clutter from Matroska (.mkv) files by  
+A tool that aims to remove unecessary clutter from Matroska (.mkv) files by  
 removing and/or converting any audio or subtitle tracks from the source video.
 
 ### Features
