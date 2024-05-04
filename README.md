@@ -14,7 +14,7 @@ removing and/or converting any audio or subtitle tracks from the source video.
 - Automatically categorize the media content type (TV Show/Movie, SDR/HDR) based on info in filename
 
 ### Processing example
-<img src="https://github.com/philiptn/mkv-auto/blob/dev/utilities/mkv-auto_output.png?raw=true" width="600">
+<img src="https://github.com/philiptn/mkv-auto/blob/main/utilities/mkv-auto_output.png?raw=true" width="600">
 
 ## Prerequisites
 
