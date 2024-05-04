@@ -10,3 +10,5 @@ services:
       - ${CONFIG_FOLDER}:/mkv-auto/config
       - ${HOST_FOLDER}/logs:/mkv-auto/logs
     entrypoint: ["/bin/bash", "/mkv-auto/service-entrypoint.sh"]
+    environment:
+      - DEBUG_MODE=${DEBUG_MODE}
