@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# Defaults
-IMAGE_NAME="mkv-auto"
+IMAGE_NAME="philiptn/mkv-auto"
 HOST_FOLDER="$(pwd)"
 
 # Check if the user is root or not
@@ -28,13 +27,13 @@ done
 # Invoke sudo
 $SUDO true
 
+# Not needed as the image now exists on Docker Hub
 # Build the Docker image
-echo "Building Docker image..."
-$SUDO docker build -t "$IMAGE_NAME" . > /dev/null 2>&1
-echo -e "\033[K\033[1A\033[K"
+#echo "Building Docker image..."
+#$SUDO docker build -t "$IMAGE_NAME" . > /dev/null 2>&1
+#echo -e "\033[K\033[1A\033[K"
 
 # Remove old, dangling images to free up space
-$SUDO docker image prune -f > /dev/null 2>&1
+#$SUDO docker image prune -f > /dev/null 2>&1
 
-# Run the Docker container with the accumulated options
-$SUDO docker run --rm --name "$IMAGE_NAME" -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker "${extra_args[@]}"
+$SUDO docker run --rm -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --move "${extra_args[@]}"

@@ -56,12 +56,6 @@ The folder structure should look something like this:
 ├── output
 ```
 
-#### Building the mkv-auto Docker image manually ####
-As the mkv-auto Docker image currently does not exist on Docker Hub, the image needs to be built manually. To do this, run the following command from the mkv-auto repository (not the `mkv-auto-service/` directory):
-````bash
-sudo docker build -t mkv-auto .  
-````
-
 To start the mkv-auto-service, run the following command from the mkv-auto-service folder:
 ````bash
 sudo docker compose up -d 
@@ -90,23 +84,26 @@ To apply the changes to your `~/.bash_aliases` file, you can simply log in and o
 
 
 ### mkv-auto (standalone)
-
-To run this utility standalone, a Docker image first need to be built from the repository root folder using:
-
-````bash
-sudo docker build -t mkv-auto .  
-````
  
-To start the utility using a Docker container, run the following command:
+To run the utility like a program using Docker, simply run `./run_docker.sh` ***from the repository folder***.
 
+If you are not running Linux/WSL, the utility can also be run using one of the commands below:  
+**Note**: If you want to keep the source media, do not include `--move` in the command.
+
+#### MacOS
 ```bash
-sudo docker run --rm --name mkv-auto -it -v "$(pwd):/mkv-auto/files" mkv-auto --docker
+sudo docker run --rm -it -v "$(pwd)":/mkv-auto/files philiptn/mkv-auto --docker --move
+```
+#### Command Prompt (Windows)
+```cmd
+docker run --rm -it -v "%cd%:/mkv-auto/files" philiptn/mkv-auto --docker --move
+```
+#### PowerShell (Windows)
+```powershell
+docker run --rm -it -v ${PWD}:/mkv-auto/files philiptn/mkv-auto --docker --move
 ```
 
-If you want to automatically build and run the utility without running the commands above, a simple launch script can be invoked using `./run_docker.sh`.
-
 **Note**: Everything up to `... mkv-auto` in the command above is Docker specific, while `--docker ...` is the arguments forwarded to the mkv-auto utility.
-If you want to specify a custom output folder, you simply add `--docker --output_folder "/mnt/x/custom_folder"` to the command to pass the arguments properly.
 
 ## To-do
 - [ ] Clean up functions and use more sensible data-types such as classes, structs etc.
