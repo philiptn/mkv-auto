@@ -139,6 +139,7 @@ options:
                         (default: False)
   --debug               print debugging information such as track selection,
                         codecs, prefs etc. (default: False)
+  --service             disables debug pause if enabled (default: False)
 ```
 
 ### queue-service

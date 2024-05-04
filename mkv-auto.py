@@ -393,7 +393,7 @@ def mkv_auto(args):
                     all_subs_track_ids = wanted_subs_tracks
                     all_subs_track_names = subs_track_names
 
-                    if debug and move_files:
+                    if debug and move_files and not args.service:
                         debug_pause()
 
                     if needs_processing_audio:
@@ -647,6 +647,8 @@ def main():
                         help="use docker-specific default directories from 'files/' (default: False)")
     parser.add_argument("--debug", action="store_true", default=False, required=False,
                         help="print debugging information such as track selection, codecs, prefs etc. (default: False)")
+    parser.add_argument("--service", action="store_true", default=False, required=False,
+                        help="disables debug pause if enabled (default: False)")
 
     parser.set_defaults(func=mkv_auto)
     args = parser.parse_args()
