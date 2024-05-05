@@ -56,8 +56,23 @@ def encode_audio_track(file, index, debug, languages, track_names, output_codec,
     base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
     base, _, track_id = base_with_id.rpartition('.')
 
-    command = ["ffmpeg", "-i", file] + custom_ffmpeg_options + ["-strict", "-2",
-                                                                f"{base}.{track_id}.{lang}.{output_codec.lower()}"]
+    # Get the audio stream info using FFmpeg
+    command_probe = ['ffmpeg', '-i', file, '-hide_banner']
+    result = subprocess.run(command_probe, stderr=subprocess.PIPE, text=True)
+    audio_info = result.stderr
+
+    # Determine the channel layout and set the appropriate filter
+    channel_layout = []
+    if '5.1(side)' in audio_info:
+        channel_layout = ['-af', 'channelmap=channel_layout=5.1']
+    elif '5.1' in audio_info:
+        channel_layout = ['-af', 'channelmap=channel_layout=5.1']
+    elif '7.1' in audio_info:
+        channel_layout = ['-af', 'channelmap=channel_layout=7.1']
+
+    command = (["ffmpeg", "-i", file] + channel_layout
+               + custom_ffmpeg_options +
+               ["-strict", "-2", f"{base}.{track_id}.{lang}.{output_codec.lower()}"])
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
@@ -84,7 +99,8 @@ def encode_audio_tracks(debug, audio_files, languages, track_names, output_codec
 
     print(f"{GREY}[UTC {get_timestamp()}] [FFMPEG]{RESET} Generating {output_codec.upper()} audio {track_str}...")
 
-    custom_ffmpeg_options = ['-aq', '6', '-ac', '2'] if output_codec.lower() == 'aac' else []
+    custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-af', '"pan=stereo|c0=c0|c1=c0"'] \
+        if output_codec.lower() == 'aac' else []
 
     if debug:
         print('')
