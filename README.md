@@ -85,21 +85,27 @@ To apply the changes to your `~/.bash_aliases` file, you can simply log in and o
 
 ### mkv-auto (standalone)
  
-To run the utility like a program using Docker, simply run `./run_docker.sh` ***from the repository folder***.
+To run the utility like a program using Docker, this can be done by using one of the built-in scripts.
 
-If you are not running Linux/WSL, the utility can also be run using one of the commands below:  
-**Note**: If you want to keep the source media, do not include `--move` in the command.
+#### Windows
+1. Make sure you have Docker for Windows installed. Docker Desktop can be found [here](https://www.docker.com/products/docker-desktop/).
+2. Navigate to the mkv-auto repository folder. If you downloaded a zip, make sure to unpack it first. 
+3. Copy the files you want to process inside the `input/` folder.
+4. Double-click the `mkv-auto.bat` file to start mkv-auto using Docker.
+5. Check the `output/` folder for the finished files.
 
-#### MacOS
-```bash
+#### Linux
+1. Make sure you have Docker Engine installed.
+2. Run the `mkv-auto.sh` script from the repository folder. 
+
+If you prefer to run mkv-auto in the console manually, some Docker run examples can be found below:
+
+```text
+# Linux
 sudo docker run --rm -it -v "$(pwd)":/mkv-auto/files philiptn/mkv-auto --docker --move
-```
-#### Command Prompt (Windows)
-```cmd
+# Command Prompt (CMD)
 docker run --rm -it -v "%cd%:/mkv-auto/files" philiptn/mkv-auto --docker --move
-```
-#### PowerShell (Windows)
-```powershell
+# PowerShell
 docker run --rm -it -v ${PWD}:/mkv-auto/files philiptn/mkv-auto --docker --move
 ```
 
