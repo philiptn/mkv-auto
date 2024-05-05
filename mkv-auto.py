@@ -190,7 +190,7 @@ def mkv_auto(args):
             pbar.set_description(f"{GREY}[INFO]{RESET} Copying file 1 of {total_files}")
             copy_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
         input_dir = temp_dir
-    if move_files and not debug:
+    if move_files and not debug or move_files and args.service:
         with tqdm(total=total_bytes, unit='B', unit_scale=True, unit_divisor=1024,
                   bar_format='\r{desc}{bar:10} {percentage:3.0f}%', leave=False, disable=args.silent) as pbar:
             pbar.set_description(f"{GREY}[INFO]{RESET} Moving file 1 of {total_files}")
