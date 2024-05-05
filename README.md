@@ -91,10 +91,11 @@ To run the utility like a program using Docker, this can be done by using one of
 
 #### Windows
 1. Make sure you have Docker for Windows installed. Docker Desktop can be found [here](https://www.docker.com/products/docker-desktop/).
-2. Navigate to the mkv-auto repository folder. If you downloaded a zip, make sure to unpack it first. 
-3. Copy the files you want to process inside the `input/` folder.
-4. Double-click the `mkv-auto.bat` file to start mkv-auto using Docker.
-5. Check the `output/` folder for the finished files.
+2. Download the [repository](https://github.com/philiptn/mkv-auto/archive/refs/heads/main.zip) and save it to your computer. If you have a fast SSD with sufficient storage capacity, saving the repository to that drive is recommended.
+3. Extract `mkv-auto-main.zip` to a folder and enter it.
+4. Copy the media files you want to process inside the `input/` folder.
+5. Double-click the `mkv-auto.bat` file to start mkv-auto.
+6. Check the `output/` folder for the finished files.
 
 #### Linux
 1. Make sure you have Docker Engine installed.
