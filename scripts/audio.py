@@ -1,6 +1,7 @@
 import subprocess
 import os
 import concurrent.futures
+import re
 from datetime import datetime
 
 
@@ -61,14 +62,16 @@ def encode_audio_track(file, index, debug, languages, track_names, output_codec,
     result = subprocess.run(command_probe, stderr=subprocess.PIPE, text=True)
     audio_info = result.stderr
 
-    # Determine the channel layout and set the appropriate filter
+    # Search for audio codec information and determine the channel layout
     channel_layout = []
-    if '5.1(side)' in audio_info:
-        channel_layout = ['-af', 'channelmap=channel_layout=5.1']
-    elif '5.1' in audio_info:
-        channel_layout = ['-af', 'channelmap=channel_layout=5.1']
-    elif '7.1' in audio_info:
-        channel_layout = ['-af', 'channelmap=channel_layout=7.1']
+    codec_pattern = re.compile(r'Audio: ([^\n]+)')
+    codec_match = codec_pattern.search(audio_info)
+    if codec_match:
+        codec_info = codec_match.group(1)
+        if '5.1(side)' in codec_info or '5.1' in codec_info:
+            channel_layout = ['-af', 'channelmap=channel_layout=5.1']
+        elif '7.1' in codec_info:
+            channel_layout = ['-af', 'channelmap=channel_layout=7.1']
 
     command = (["ffmpeg", "-i", file] + channel_layout
                + custom_ffmpeg_options +
