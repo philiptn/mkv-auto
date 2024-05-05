@@ -435,8 +435,8 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         final_sub_track_ids = list(sorted_sub_track_ids)
         final_sub_track_names = list(sorted_sub_track_names)
 
-    # Reorder sub filetypes to put SRT subtitles first
-    filetype_priority = ['srt', 'ass', 'sup', 'sub']
+    # Reorder sub filetypes to priority list
+    filetype_priority = ['ass', 'srt', 'sup', 'sub']
     if sub_filetypes:
         def get_priority(filetype):
             try:

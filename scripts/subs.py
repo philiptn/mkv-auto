@@ -237,9 +237,9 @@ def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
             all_track_ids = [track_id, track_id] + all_track_ids
             if 'forced' in names[index].lower():
                 all_track_names = [f'non-{main_audio_track_lang} dialogue',
-                                   names[index] if names[index] else "Original"] + all_track_names
+                                   names[index] if names[index] else ''] + all_track_names
             else:
-                all_track_names = ['', names[index] if names[index] else "Original"] + all_track_names
+                all_track_names = ['', names[index] if names[index] else ''] + all_track_names
             updated_subtitle_languages = [languages[index], languages[index]] + updated_subtitle_languages
             output_subtitles = [f"{base}.{track_id}.{lang}.srt"] + output_subtitles
         else:
