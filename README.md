@@ -2,6 +2,8 @@
 A tool that aims to remove unnecessary clutter from Matroska (.mkv) files by  
 removing and/or converting any audio or subtitle tracks from the source video.
 
+***Note***: If you are running Windows and just want to try the program, go [here](https://github.com/philiptn/mkv-auto?tab=readme-ov-file#windows).
+
 ### Features
 - Removes any audio or subtitle tracks from video that does not match user preferences
 - Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (ffmpeg)
