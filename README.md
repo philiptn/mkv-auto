@@ -97,6 +97,9 @@ To run the utility like a program using Docker, this can be done by using one of
 5. Double-click the `mkv-auto.bat` file to start mkv-auto.
 6. Check the `output/` folder for the finished files.
 
+If you would like to change the default behaviour of mkv-auto, make a copy of `defaults.ini` and rename it to `user.ini`. Adjust the settings to match your preferences.
+
+
 #### Linux
 1. Make sure you have Docker Engine installed.
 2. Run the `mkv-auto.sh` script from the repository folder. 
