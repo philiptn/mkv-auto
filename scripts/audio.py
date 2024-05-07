@@ -34,7 +34,7 @@ def extract_audio_track(debug, filename, track, language, name):
     if result.returncode != 0:
         raise Exception("Error executing mkvextract command: " + result.stderr)
 
-    return audio_filename, 'mkv', name
+    return audio_filename, 'mkv', name, language
 
 
 def extract_audio_tracks_in_mkv(debug, filename, track_numbers, audio_languages, audio_names):
@@ -47,9 +47,9 @@ def extract_audio_tracks_in_mkv(debug, filename, track_numbers, audio_languages,
                  for track, language, name in zip(track_numbers, audio_languages, audio_names)]
         results = [future.result() for future in concurrent.futures.as_completed(tasks)]
 
-    audio_files, audio_extensions, audio_names = zip(*results)  # Unpack results into separate lists
+    audio_files, audio_extensions, updated_audio_names, updated_audio_langs = zip(*results)
 
-    return audio_files, audio_languages, audio_names, audio_extensions
+    return audio_files, updated_audio_langs, updated_audio_names, audio_extensions
 
 
 def encode_audio_track(file, index, debug, languages, track_names, output_codec, custom_ffmpeg_options):
@@ -92,6 +92,7 @@ def encode_audio_track(file, index, debug, languages, track_names, output_codec,
 
 def encode_audio_tracks(debug, audio_files, languages, track_names, output_codec,
                         other_files, other_langs, other_names, keep_original_audio, other_track_ids):
+
     if not audio_files:
         return
 

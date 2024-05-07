@@ -403,7 +403,6 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         sorted_audio_languages, sorted_audio_filetypes, sorted_audio_track_ids, sorted_audio_track_names = zip(
             *sorted_paired)
 
-        # Convert tuples back to lists if necessary
         final_audio_languages = list(sorted_audio_languages)
         final_audio_filetypes = list(sorted_audio_filetypes)
         final_audio_track_ids = list(sorted_audio_track_ids)
@@ -416,6 +415,25 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         if lang in final_audio_languages:
             first_pref_audio_index = i
             break
+
+    # Reorder audio filetypes to priority list
+    if final_audio_filetypes:
+        filetype_priority = final_audio_filetypes[0]
+        def get_priority(filetype):
+            try:
+                return filetype_priority.index(filetype)
+            except ValueError:
+                return len(filetype_priority)  # Default priority for unknown file types
+
+        paired = zip(audio_languages, audio_filetypes, audio_track_ids, audio_track_names)
+        sorted_paired = sorted(paired, key=lambda x: get_priority(x[1]))
+        sorted_audio_languages, sorted_audio_filetypes, sorted_audio_track_ids, sorted_audio_track_names = zip(
+            *sorted_paired)
+
+        final_audio_languages = list(sorted_audio_languages)
+        final_audio_filetypes = list(sorted_audio_filetypes)
+        final_audio_track_ids = list(sorted_audio_track_ids)
+        final_audio_track_names = list(sorted_audio_track_names)
 
     # If the first preferred language is found in the sub languages,
     # reorder the list to place the preferred language first
