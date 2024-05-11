@@ -13,10 +13,15 @@ fi
 
 # Initialize variables for the options
 extra_args=()
+build_flag=false
 
 # Loop through all the arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --build)
+            build_flag=true
+            shift  # Move to the next argument
+            ;;
         *)  # Capture any other arguments
             extra_args+=("$1")
             shift # Move to the next argument
@@ -27,13 +32,11 @@ done
 # Invoke sudo
 $SUDO true
 
-# Not needed as the image now exists on Docker Hub
-# Build the Docker image
-#echo "Building Docker image..."
-#$SUDO docker build -t "$IMAGE_NAME" . > /dev/null 2>&1
-#echo -e "\033[K\033[1A\033[K"
-
-# Remove old, dangling images to free up space
-#$SUDO docker image prune -f > /dev/null 2>&1
+# Building the image locally if "--build" is passed to the script
+if [ "$build_flag" = true ]; then
+    echo "Building Docker image..."
+    $SUDO docker build -t mkv-auto . > /dev/null 2>&1
+    echo -e "\033[K\033[1A\033[K"
+fi
 
 $SUDO docker run --rm -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker --move "${extra_args[@]}"

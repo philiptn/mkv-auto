@@ -474,7 +474,7 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} repack_tracks_in_mkv:\n")
         print(f"{BLUE}preferred audio languages{RESET}: {pref_audio_langs}")
-        print(f"{BLUE}preferred subtitle languages{RESET}: {pref_subs_langs}\n")
+        print(f"{BLUE}preferred subtitle languages{RESET}: {pref_subs_langs}")
         print(f"{BLUE}preferred subtitle extensions{RESET}: {pref_subs_ext}\n")
         print(f"{BLUE}audio tracks to be added{RESET}:"
               f"\n  {BLUE}filetypes{RESET}: {final_audio_filetypes}"

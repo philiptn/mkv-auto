@@ -19,6 +19,7 @@ import concurrent.futures
 import threading
 import tempfile
 from collections import Counter
+import concurrent.futures
 
 # ANSI color codes
 BLUE = '\033[34m'
@@ -216,6 +217,7 @@ def remove_sdh(debug, input_files, quiet, remove_music, track_names, external_su
 
 
 def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
+    print(subtitle_files, languages, names, main_audio_track_lang)
     print(f"{GREY}[UTC {get_timestamp()}] [ASS]{RESET} Converting ASS subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = []
@@ -233,15 +235,15 @@ def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
             srt_output = asstosrt.convert(ass_file)
             with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
                 srt_file.write(srt_output)
-            updated_sub_filetypes = ['srt', original_extension] + updated_sub_filetypes
-            all_track_ids = [track_id, track_id] + all_track_ids
+            updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
+            all_track_ids = all_track_ids + [track_id, track_id]
             if 'forced' in names[index].lower():
-                all_track_names = [f'non-{main_audio_track_lang} dialogue',
-                                   names[index] if names[index] else ''] + all_track_names
+                all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
+                                   names[index] if names[index] else '']
             else:
-                all_track_names = ['', names[index] if names[index] else ''] + all_track_names
-            updated_subtitle_languages = [languages[index], languages[index]] + updated_subtitle_languages
-            output_subtitles = [f"{base}.{track_id}.{lang}.srt"] + output_subtitles
+                all_track_names = all_track_names + ['', names[index] if names[index] else '']
+            updated_subtitle_languages = updated_subtitle_languages + [languages[index], languages[index]]
+            output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
         else:
             updated_sub_filetypes.append(original_extension)
             output_subtitles.append(file)
@@ -322,13 +324,18 @@ def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_l
     if debug:
         print('')
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks and store futures in a list
-        futures = [executor.submit(extract_subtitle, debug, filename, track, filetype, language)
-                   for track, filetype, language in zip(track_numbers, output_filetypes, subs_languages)]
+    results = [None] * len(track_numbers)  # Pre-allocate a list for the results in order
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Create a dictionary to store futures with their respective indices
+        future_to_index = {
+            executor.submit(extract_subtitle, debug, filename, track, filetype, language): i
+            for i, (track, filetype, language) in enumerate(zip(track_numbers, output_filetypes, subs_languages))
+        }
 
-        # Wait for the futures to complete and get the results in the order they were submitted
-        results = [future.result() for future in futures]
+        # As each future completes, place the result in the corresponding index
+        for future in concurrent.futures.as_completed(future_to_index):
+            index = future_to_index[future]
+            results[index] = future.result()  # Store the result at the correct index
 
     if debug:
         print('')
@@ -337,6 +344,7 @@ def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_l
 
 
 def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
+    print(debug, file, language, name, subtitleedit_dir)
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
@@ -385,53 +393,63 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
     if debug:
         print('')
 
+    # Prepare to track the results in the order they were submitted
+    results = [None] * len(subtitle_files)  # Placeholder list for results
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_file = {executor.submit(ocr_subtitle_worker, debug, file, languages[index], names[index],
-                                          subtitleedit_dir): index
-                          for index, file in enumerate(subtitle_files)}
+        # Submit all tasks and store futures in a dictionary with their index
+        future_to_index = {
+            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], languages[i], names[i],
+                            subtitleedit_dir): i
+            for i in range(len(subtitle_files))
+        }
 
-        output_subtitles = []
-        updated_subtitle_languages = []
-        all_track_ids = []
-        all_track_names = []
-        updated_sub_filetypes = []
+        # As each future completes, store the result at the corresponding index
+        for future in concurrent.futures.as_completed(future_to_index):
+            index = future_to_index[future]
+            results[index] = future.result()
 
-        for future in concurrent.futures.as_completed(future_to_file):
-            original_file, output_subtitle, language, track_id, name, replacements, original_extension = future.result()
-            all_replacements = all_replacements + replacements
-            if output_subtitle:
-                updated_sub_filetypes = ['srt', original_extension] + updated_sub_filetypes
-                # Add both original and generated subtitles to the output list
-                output_subtitles = [output_subtitle] + output_subtitles
-                # Repeat language and track ID for both original and generated files
-                updated_subtitle_languages = [language, language] + updated_subtitle_languages
-                all_track_ids = [track_id, track_id] + all_track_ids
-                if 'forced' in name.lower():
-                    all_track_names = [f'non-{main_audio_track_lang} dialogue',
-                                       name if name else "Original"] + all_track_names
-                else:
-                    all_track_names = ['', name if name else "Original"] + all_track_names
+    # Initialize lists for the structured results
+    output_subtitles = []
+    updated_subtitle_languages = []
+    all_track_ids = []
+    all_track_names = []
+    updated_sub_filetypes = []
+
+    # Process each result and organize the outputs
+    for original_file, output_subtitle, language, track_id, name, replacements, original_extension in results:
+        all_replacements = replacements + all_replacements
+        if output_subtitle:
+            updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
+            # Add both original and generated subtitles to the output list
+            output_subtitles = output_subtitles + [output_subtitle]
+            # Repeat language and track ID for both original and generated files
+            updated_subtitle_languages = updated_subtitle_languages + [language, language]
+            all_track_ids = all_track_ids + [track_id, track_id]
+            if 'forced' in name.lower():
+                all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
+                                                     name if name else "Original"]
             else:
-                updated_sub_filetypes.append(original_extension)
-                output_subtitles.append(original_file)
-                updated_subtitle_languages.append(language)
-                all_track_ids.append(track_id)
-                all_track_names.append(name if name else '')
+                all_track_names = all_track_names + ['', name if name else "Original"]
+        else:
+            updated_sub_filetypes.append(original_extension)
+            output_subtitles.append(original_file)
+            updated_subtitle_languages.append(language)
+            all_track_ids.append(track_id)
+            all_track_names.append(name if name else '')
 
     if debug:
         print('')
 
-    if all_replacements and debug:
-        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
-
-        replacements_counter = Counter(all_replacements)
-
-        for replacement, count in replacements_counter.items():
-            if count > 1:
-                print(f"{replacement} {GREY}({count} times){RESET}")
-            else:
-                print(replacement)
-        print('')
+        if all_replacements:
+            print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
+            replacements_counter = Counter(all_replacements)
+            for replacement, count in replacements_counter.items():
+                if count > 1:
+                    print(f"{replacement} {GREY}({count} times){RESET}")
+                else:
+                    print(replacement)
+            print('')
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
 
@@ -634,7 +652,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         subs_tracks_ids_no_ass = [x for x in subs_tracks_ids_no_srt if x not in ass_track_ids]
                         subs_track_ids = subs_tracks_ids_no_ass
 
-    # Add the forced audio tracks with name "Foreign Only"
+    # Add the forced audio tracks
     subs_track_ids = subs_track_ids + forced_track_ids
     subs_track_languages = subs_track_languages + forced_track_languages
     subs_track_names = subs_track_names + forced_track_names
