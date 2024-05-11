@@ -376,7 +376,7 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
 
 def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_subs_langs,
                          audio_filetypes, audio_languages, pref_audio_langs, audio_track_ids,
-                         audio_track_names, sub_track_ids, sub_track_names, always_enable_subs):
+                         audio_track_names, sub_track_ids, sub_track_names, always_enable_subs, pref_subs_ext):
     sub_files_list = []
     final_sub_languages = sub_languages
     audio_files_list = []
@@ -454,7 +454,7 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         final_sub_track_names = list(sorted_sub_track_names)
 
     # Reorder sub filetypes to priority list
-    filetype_priority = ['ass', 'srt', 'sup', 'sub']
+    filetype_priority = pref_subs_ext
     if sub_filetypes:
         def get_priority(filetype):
             try:
@@ -475,6 +475,7 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} repack_tracks_in_mkv:\n")
         print(f"{BLUE}preferred audio languages{RESET}: {pref_audio_langs}")
         print(f"{BLUE}preferred subtitle languages{RESET}: {pref_subs_langs}\n")
+        print(f"{BLUE}preferred subtitle extensions{RESET}: {pref_subs_ext}\n")
         print(f"{BLUE}audio tracks to be added{RESET}:"
               f"\n  {BLUE}filetypes{RESET}: {final_audio_filetypes}"
               f"\n  {BLUE}langs{RESET}: {final_audio_languages}"

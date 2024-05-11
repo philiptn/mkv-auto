@@ -345,8 +345,9 @@ def remove_sample_files_and_dirs(root_dir):
                 shutil.rmtree(os.path.join(dirpath, dirname))
 
         for filename in filenames:
+            base, ext = os.path.splitext(filename)
             if not filename.startswith('.'):
-                if filename.lower().endswith("-sample") or filename.lower() == "sample":
+                if base.lower().endswith("-sample") or base.lower() == "sample":
                     os.remove(os.path.join(dirpath, filename))
 
 

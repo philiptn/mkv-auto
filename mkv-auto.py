@@ -18,47 +18,56 @@ YELLOW = '\033[33m'
 RED = '\033[31m'
 GREEN = '\033[32m'
 
-# Get user preferences
-variables = ConfigParser()
+# Initialize configparser
+variables_user = configparser.ConfigParser()
+variables_defaults = configparser.ConfigParser()
 
-# If user-specific config file has been created, load it
-# else, load defaults from preferences.ini
+# Load default configurations
+if os.path.isfile('defaults.ini'):
+    variables_defaults.read('defaults.ini')
+
+# Load user-specific configurations if available
 if os.path.isfile('user.ini'):
-    variables.read('user.ini')
-elif os.path.isfile('files/user.ini'):
-    variables.read('files/user.ini')
+    variables_user.read('user.ini')
 else:
-    variables.read('defaults.ini')
+    variables_user = variables_defaults
 
-try:
-    # General
-    input_folder = variables.get('general', 'INPUT_FOLDER')
-    output_folder = variables.get('general', 'OUTPUT_FOLDER')
-    keep_original = True if variables.get('general', 'KEEP_ORIGINAL').lower() == "true" else False
-    ini_temp_dir = variables.get('general', 'TEMP_DIR')
-    file_tag = variables.get('general', 'FILE_TAG')
-    remove_samples = True if variables.get('general', 'REMOVE_SAMPLES').lower() == "true" else False
-    movies_folder = variables.get('general', 'MOVIES_FOLDER')
-    movies_hdr_folder = variables.get('general', 'MOVIES_HDR_FOLDER')
-    tv_shows_folder = variables.get('general', 'TV_SHOWS_FOLDER')
-    tv_shows_hdr_folder = variables.get('general', 'TV_SHOWS_HDR_FOLDER')
-    others_folder = variables.get('general', 'OTHERS_FOLDER')
 
-    # Audio
-    pref_audio_langs = [item.strip() for item in variables.get('audio', 'PREFERRED_AUDIO_LANG').split(',')]
-    pref_audio_codec = variables.get('audio', 'PREFERRED_AUDIO_CODEC')
-    remove_commentary = True if variables.get('audio', 'REMOVE_COMMENTARY_TRACK').lower() == "true" else False
+def get_config(section, option, default_config):
+    """Get value from user.ini, fallback to defaults.ini and warn if using default."""
+    if variables_user.has_option(section, option):
+        return variables_user.get(section, option)
+    else:
+        # Print warning and use default if the user setting is missing
+        print(f"{YELLOW}WARNING{RESET}: {BLUE}{option}{RESET} is missing from 'user.ini'. Using defaults.")
+        return default_config.get(section, option)
 
-    # Subtitles
-    pref_subs_langs = [item.strip() for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
-    pref_subs_langs_short = [item.strip()[:-1] for item in variables.get('subtitles', 'PREFERRED_SUBS_LANG').split(',')]
-    always_enable_subs = True if variables.get('subtitles', 'ALWAYS_ENABLE_SUBS').lower() == "true" else False
-    always_remove_sdh = True if variables.get('subtitles', 'REMOVE_SDH').lower() == "true" else False
-    remove_music = True if variables.get('subtitles', 'REMOVE_MUSIC').lower() == "true" else False
-    resync_subtitles = True if variables.get('subtitles', 'RESYNC_SUBTITLES').lower() == "true" else False
-except configparser.NoOptionError:
-    print("Error: Some fields are missing from 'user.ini'. Check 'defaults.ini' for reference.\n")
-    exit(1)
+# General
+input_folder = get_config('general', 'INPUT_FOLDER', variables_defaults)
+output_folder = get_config('general', 'OUTPUT_FOLDER', variables_defaults)
+keep_original = True if get_config('general', 'KEEP_ORIGINAL', variables_defaults).lower() == "true" else False
+ini_temp_dir = get_config('general', 'TEMP_DIR', variables_defaults)
+file_tag = get_config('general', 'FILE_TAG', variables_defaults)
+remove_samples = True if get_config('general', 'REMOVE_SAMPLES', variables_defaults).lower() == "true" else False
+movies_folder = get_config('general', 'MOVIES_FOLDER', variables_defaults)
+movies_hdr_folder = get_config('general', 'MOVIES_HDR_FOLDER', variables_defaults)
+tv_shows_folder = get_config('general', 'TV_SHOWS_FOLDER', variables_defaults)
+tv_shows_hdr_folder = get_config('general', 'TV_SHOWS_HDR_FOLDER', variables_defaults)
+others_folder = get_config('general', 'OTHERS_FOLDER', variables_defaults)
+
+# Audio
+pref_audio_langs = [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')]
+pref_audio_codec = get_config('audio', 'PREFERRED_AUDIO_CODEC', variables_defaults)
+remove_commentary = True if get_config('audio', 'REMOVE_COMMENTARY_TRACK', variables_defaults).lower() == "true" else False
+
+# Subtitles
+pref_subs_langs = [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')]
+pref_subs_langs_short = [item.strip()[:-1] for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')]
+pref_subs_ext = [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_EXT', variables_defaults).split(',')]
+always_enable_subs = True if get_config('subtitles', 'ALWAYS_ENABLE_SUBS', variables_defaults).lower() == "true" else False
+always_remove_sdh = True if get_config('subtitles', 'REMOVE_SDH', variables_defaults).lower() == "true" else False
+remove_music = True if get_config('subtitles', 'REMOVE_MUSIC', variables_defaults).lower() == "true" else False
+resync_subtitles = True if get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true" else False
 
 
 def get_timestamp():
@@ -541,7 +550,7 @@ def mkv_auto(args):
                                              pref_subs_langs,
                                              ready_audio_extensions, ready_audio_langs, pref_audio_langs,
                                              ready_track_ids, ready_track_names, all_subs_track_ids,
-                                             all_subs_track_names, always_enable_subs)
+                                             all_subs_track_names, always_enable_subs, pref_subs_ext)
 
                     if needs_processing_subs:
                         remove_all_mkv_track_tags(debug, input_file)
