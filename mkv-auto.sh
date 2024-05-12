@@ -20,6 +20,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --build)
             build_flag=true
+            IMAGE_NAME="mkv-auto"
             shift  # Move to the next argument
             ;;
         *)  # Capture any other arguments
