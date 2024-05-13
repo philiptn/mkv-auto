@@ -154,17 +154,12 @@ def get_mkv_info(debug, filename, silent):
 
 
 def get_mkv_video_codec(filename):
-    done = False
     codec = None
-    while not done:
-        parsed_json, _ = get_mkv_info(False, filename, True)
-        if parsed_json:
-            for track in parsed_json['tracks']:
-                if track['type'] == 'video':
-                    codec = track['codec']
-                    done = True
-        else:
-            time.sleep(5)
+    parsed_json, _ = get_mkv_info(False, filename, True)
+    if parsed_json:
+        for track in parsed_json['tracks']:
+            if track['type'] == 'video':
+                codec = track['codec']
     return codec
 
 
