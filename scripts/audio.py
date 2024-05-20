@@ -336,9 +336,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     all_audio_track_langs = pref_audio_track_languages + audio_track_languages
     all_audio_track_names = pref_audio_track_names + audio_track_names
 
-    if len(all_audio_track_ids) != 0 and len(all_audio_track_ids) < total_audio_tracks:
-        needs_processing = True
-
     if not audio_track_codecs:
         audio_track_codecs = unmatched_audio_track_codecs
 
@@ -430,6 +427,11 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
         else:
             needs_processing = True
             break
+
+    # If the wanted audio track ids are smaller than the total amount of
+    # audio tracks, then it needs processing (track reduction)
+    if len(all_audio_track_ids) != 0 and len(all_audio_track_ids) < total_audio_tracks:
+        needs_processing = True
 
     # If no tracks have been selected for either conversion
     # or extraction, then no processing is needed.
