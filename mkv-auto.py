@@ -29,6 +29,8 @@ if os.path.isfile('defaults.ini'):
 # Load user-specific configurations if available
 if os.path.isfile('user.ini'):
     variables_user.read('user.ini')
+elif os.path.isfile('files/user.ini'):
+    variables_user.read('files/user.ini')
 else:
     variables_user = variables_defaults
 

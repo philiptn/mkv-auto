@@ -156,6 +156,11 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     unmatched_audio_track_names = []
     unmatched_audio_track_codecs = []
 
+    removed_audio_track_ids = []
+    removed_audio_track_languages = []
+    removed_audio_track_names = []
+    removed_audio_track_codecs = []
+
     pref_audio_track_ids = []
     pref_audio_track_languages = []
     pref_audio_track_names = []
@@ -182,6 +187,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     preferred_audio_codec = pref_audio_codec
     needs_processing = False
     first_audio_track_found = False
+    pref_codec_replaced_main = []
 
     # Check if there are any commentary tracks
     all_track_names = []
@@ -235,9 +241,21 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
             if track_language in pref_audio_langs:
                 if preferred_audio_codec in audio_codec.upper():
-                    if ((not remove_commentary and commentary_tracks_found)
-                            or (pref_audio_track_languages.count(track_language) == 0 and audio_track_languages.count(track_language) == 0))\
-                            or ("Original" in all_track_names[total_audio_tracks - 1]):
+                    if (not remove_commentary and commentary_tracks_found) or ("Original" in all_track_names[total_audio_tracks - 1])\
+                            or (pref_audio_track_languages.count(track_language) == 0):
+                        # If the previous selected audio track language (not in pref codec) is the same matched
+                        # language, then it should be removed, as a new replacement in the preferred codec has been found.
+                        if audio_track_languages[-1] == track_language:
+                            removed_audio_track_ids.append(audio_track_ids[-1])
+                            audio_track_ids.pop()
+                            removed_audio_track_languages.append(audio_track_languages[-1])
+                            audio_track_languages.pop()
+                            removed_audio_track_names.append(audio_track_names[-1])
+                            audio_track_names.pop()
+                            removed_audio_track_codecs.append(audio_track_codecs[-1])
+                            audio_track_codecs.pop()
+                            pref_codec_replaced_main.append(track_language)
+
                         pref_audio_track_ids.append(track["id"])
                         pref_audio_track_languages.append(track_language)
                         pref_audio_track_names.append(track_name)
@@ -247,13 +265,20 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                             pref_default_audio_track = track["id"]
                             default_audio_track_set = True
 
-                        if remove_commentary and "commentary" in track_name.lower() \
-                                and track_language in audio_track_languages:
+                        if remove_commentary and "commentary" in track_name.lower():
                             pref_audio_track_ids.remove(track["id"])
                             pref_audio_track_languages.remove(track_language)
                             pref_audio_track_names.remove(track_name)
                             audio_track_codecs.remove(audio_codec.upper())
-                            default_audio_track_set = False
+                            # If all the tracks have now been removed due
+                            # to if statement above, re-add it
+                            if not audio_track_codecs and removed_audio_track_codecs:
+                                audio_track_ids.append(removed_audio_track_ids[-1])
+                                audio_track_languages.append(removed_audio_track_languages[-1])
+                                audio_track_names.append(removed_audio_track_names[-1])
+                                audio_track_codecs.append(removed_audio_track_codecs[-1])
+                            else:
+                                default_audio_track_set = False
 
                 elif preferred_audio_codec not in audio_codec.upper():
                     if ((not remove_commentary and commentary_tracks_found)
@@ -356,20 +381,29 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                 other_tracks_names = unmatched_audio_track_names
             needs_processing = True
         else:
-            if (pref_audio_codec.lower() not in unmatched_audio_track_codecs[0].lower()) \
-                    and pref_audio_codec.lower() != 'false':
-                tracks_langs_to_be_converted = unmatched_audio_track_languages
-                tracks_ids_to_be_converted = unmatched_audio_track_ids
-                tracks_names_to_be_converted = unmatched_audio_track_names
+            for index, codec in enumerate(unmatched_audio_track_codecs):
+                if (pref_audio_codec.lower() not in codec.lower()) \
+                        and pref_audio_codec.lower() != 'false':
+                    if remove_commentary and "commentary" in unmatched_audio_track_names[index].lower():
+                        continue
+                    else:
+                        tracks_langs_to_be_converted.append(unmatched_audio_track_languages[index])
+                        tracks_ids_to_be_converted.append(unmatched_audio_track_ids[index])
+                        tracks_names_to_be_converted.append(unmatched_audio_track_names[index])
+                else:
+                    if remove_commentary and "commentary" in unmatched_audio_track_names[index].lower():
+                        continue
+                    else:
+                        other_tracks_langs.append(unmatched_audio_track_languages[index])
+                        other_tracks_ids.append(unmatched_audio_track_ids[index])
+                        other_tracks_names.append(unmatched_audio_track_names[index])
+            if tracks_langs_to_be_converted:
                 needs_processing = True
-            else:
-                other_tracks_langs = unmatched_audio_track_languages
-                other_tracks_ids = unmatched_audio_track_ids
-                other_tracks_names = unmatched_audio_track_names
 
     # If the first audio track in the media is not matched, add it,
-    # but place it last in the list
-    if first_audio_track_id not in all_audio_track_ids:
+    # but place it last in the list. Unless a preferred codec has replaced a track above it,
+    # then don't add the first audio track id
+    if first_audio_track_id not in all_audio_track_ids and not pref_codec_replaced_main:
         all_audio_track_ids.append(first_audio_track_id)
         all_audio_track_langs.append(first_audio_track_lang)
         all_audio_track_names.append(first_audio_track_name)
@@ -397,7 +431,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             break
 
     if debug:
-        print(f"{BLUE}preferred audio codec found{RESET}: {pref_audio_codec_found}")
+        print(f"{BLUE}preferred audio codec found in all tracks{RESET}: {pref_audio_codec_found}")
         print(f"{BLUE}needs processing{RESET}: {needs_processing}")
         print(f"\n{BLUE}all wanted audio track ids{RESET}: {all_audio_track_ids}")
         print(f"{BLUE}default audio track id{RESET}: {default_audio_track}")
