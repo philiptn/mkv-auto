@@ -344,7 +344,6 @@ def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_l
 
 
 def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
-    print(debug, file, language, name, subtitleedit_dir)
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
