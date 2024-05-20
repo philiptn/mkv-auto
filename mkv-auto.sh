@@ -36,6 +36,7 @@ $SUDO true
 # Building the image locally if "--build" is passed to the script
 if [ "$build_flag" = true ]; then
     echo "Building Docker image..."
+    $SUDO docker image rm -t mkv-auto > /dev/null 2>&1
     $SUDO docker build -t mkv-auto . > /dev/null 2>&1
     echo -e "\033[K\033[1A\033[K"
 fi
