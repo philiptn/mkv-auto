@@ -247,6 +247,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                         # language, then it should be removed, as a new replacement in the preferred codec has been found.
                         if audio_track_languages:
                             if audio_track_languages[-1] == track_language:
+                                pref_default_audio_track = track["id"]
+                                default_audio_track_set = True
                                 removed_audio_track_ids.append(audio_track_ids[-1])
                                 audio_track_ids.pop()
                                 removed_audio_track_languages.append(audio_track_languages[-1])
