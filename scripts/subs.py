@@ -467,6 +467,14 @@ def update_tesseract_lang_xml(new_language, settings_file):
     tree.write(settings_file)
 
 
+def get_priority(subs_langs, lang):
+    try:
+        return subs_langs.index(lang)
+    except ValueError:
+        return len(subs_langs)
+
+
+
 def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} get_wanted_subtitle_tracks:\n")
@@ -665,15 +673,13 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         sub_filetypes = forced_sub_filetypes
 
     if subs_track_ids:
-        # Function to get the priority of each language
-        def get_priority(lang):
-            try:
-                return pref_langs.index(lang)
-            except ValueError:
-                return len(pref_langs)
+        # If subs language prefs have not been set, set the list
+        # to the sub languages that have been matched as fallback
+        if not pref_subs_langs and subs_track_languages:
+            pref_subs_langs = subs_track_languages
 
         paired = zip(subs_track_languages, sub_filetypes, subs_track_ids, subs_track_names)
-        sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
+        sorted_paired = sorted(paired, key=lambda x: get_priority(pref_subs_langs, x[0]))
         sorted_subs_languages, sorted_subs_filetypes, sorted_subs_track_ids, sorted_subs_track_names = zip(*sorted_paired)
 
         subs_track_languages = list(sorted_subs_languages)
