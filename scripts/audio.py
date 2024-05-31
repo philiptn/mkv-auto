@@ -368,6 +368,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
         # If the language "und" (undefined) is in the unmatched languages,
         # assign it to be an english audio track. Else, keep the originals.
         if "und" in unmatched_audio_track_languages[0].lower():
+            all_audio_track_ids = unmatched_audio_track_ids
             if (pref_audio_codec.lower() not in unmatched_audio_track_codecs[0].lower()) \
                     and pref_audio_codec.lower() != 'false':
                 tracks_langs_to_be_converted = ['eng']
