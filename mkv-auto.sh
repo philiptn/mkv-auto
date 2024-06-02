@@ -37,7 +37,6 @@ $SUDO true
 if [ "$build_flag" = true ]; then
     echo "Building Docker image..."
     $SUDO docker image rm -t mkv-auto > /dev/null 2>&1
-    $SUDO docker image prune -f > /dev/null 2>&1
     $SUDO docker build -t mkv-auto . > /dev/null 2>&1
     echo -e "\033[K\033[1A\033[K"
 fi
