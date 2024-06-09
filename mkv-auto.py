@@ -3,6 +3,7 @@ import sys
 import traceback
 import argparse
 from configparser import ConfigParser
+from datetime import datetime, timezone
 from itertools import groupby
 
 from scripts.file_operations import *
@@ -74,7 +75,7 @@ resync_subtitles = True if get_config('subtitles', 'RESYNC_SUBTITLES', variables
 
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
-    current_time = datetime.utcnow()
+    current_time = datetime.now(timezone.utc)
     return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 

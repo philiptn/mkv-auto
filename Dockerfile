@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 COPY prerequisites.sh /mkv-auto/
 COPY requirements.txt /mkv-auto/

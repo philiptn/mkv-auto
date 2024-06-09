@@ -91,7 +91,7 @@ def find_and_replace(input_file, replacement_file):
                            f"{GREY}replaced{RESET}: '{GREEN}{after_snippet}{RESET}'")
 
         # Replace in data to keep it updated
-        data = pattern.sub(f'\g<1>{replace}\g<3>', data)
+        data = pattern.sub(r'\g<1>' + replace + r'\g<3>', data)
 
     # Write the modified content back to the file
     with open(input_file, 'w') as file:
@@ -114,12 +114,12 @@ def run_with_xvfb(command):
                 "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
 
     # Start Xvfb in the background
-    xvfb_process = subprocess.Popen(xvfb_cmd)
+    xvfb_process = subprocess.Popen(xvfb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(2)  # Allow time for Xvfb to start
 
     env = os.environ.copy()
     env['DISPLAY'] = f":{display_number}"
-    result = subprocess.run(command, env=env, capture_output=True, text=True)
+    result = subprocess.run(command, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
 
     xvfb_process.terminate()
     xvfb_process.wait()
