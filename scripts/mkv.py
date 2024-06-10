@@ -518,10 +518,9 @@ def repack_tracks_in_mkv(debug, filename, sub_filetypes, sub_languages, pref_sub
         if filetype == "sub":
             filetype = "idx"
         if not default_locked:
-            if filetype == "srt":
-                if always_enable_subs:
-                    default_track_str = "0:yes"
-                default_locked = True
+            if always_enable_subs:
+                default_track_str = "0:yes"
+            default_locked = True
         lang_str = f"0:{final_sub_languages[index]}"
         name_str = f"0:{final_sub_track_names[index]}"
         filelist_str = f"{base}.{final_sub_track_ids[index]}.{final_sub_languages[index][:-1]}.{filetype}"
