@@ -91,7 +91,7 @@ def find_and_replace(input_file, replacement_file):
                            f"{GREY}replaced{RESET}: '{GREEN}{after_snippet}{RESET}'")
 
         # Replace in data to keep it updated
-        data = pattern.sub(r'\g<1>' + replace + r'\g<3>', data)
+        data = pattern.sub(f'\g<1>{replace}\g<3>', data)
 
     # Write the modified content back to the file
     with open(input_file, 'w') as file:
@@ -114,12 +114,12 @@ def run_with_xvfb(command):
                 "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
 
     # Start Xvfb in the background
-    xvfb_process = subprocess.Popen(xvfb_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    xvfb_process = subprocess.Popen(xvfb_cmd)
     time.sleep(2)  # Allow time for Xvfb to start
 
     env = os.environ.copy()
     env['DISPLAY'] = f":{display_number}"
-    result = subprocess.run(command, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    result = subprocess.run(command, env=env, capture_output=True, text=True)
 
     xvfb_process.terminate()
     xvfb_process.wait()
@@ -217,7 +217,6 @@ def remove_sdh(debug, input_files, quiet, remove_music, track_names, external_su
 
 
 def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
-    print(subtitle_files, languages, names, main_audio_track_lang)
     print(f"{GREY}[UTC {get_timestamp()}] [ASS]{RESET} Converting ASS subtitles to SRT...")
     output_subtitles = []
     updated_subtitle_languages = []

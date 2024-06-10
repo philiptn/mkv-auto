@@ -21,8 +21,8 @@ $SUDO apt-get install tesseract-ocr -y
 # Install all OCR language packs excluding 'ocr-script' and 'old' packages
 $SUDO apt-cache search tesseract-ocr | grep -v 'ocr-script' | grep -v 'old' | awk '{print $1}' | xargs $SUDO apt install -y
 
-# Installing python3.12
-$SUDO apt-get install python3.12 -y
+# Installing python3.10
+$SUDO apt-get install python3.10 -y
 
 # Installing and updating python3-pip
 $SUDO apt-get install python3-pip -y
@@ -30,7 +30,7 @@ python3 -m pip install --user --upgrade pip
 
 # Installing python3 venv
 python3 -m pip install --user virtualenv
-$SUDO apt install python3.12-venv -y
+$SUDO apt install python3.10-venv -y
 
 # Installing MKVToolNix
 $SUDO apt-get install mkvtoolnix -y
@@ -42,7 +42,7 @@ $SUDO apt-get install unrar -y
 DEBIAN_FRONTEND=noninteractive apt-get install tzdata -y
 
 # Installing packages required for SubtitleEdit to work + other remaining packages
-$SUDO apt-get install mono-complete libhunspell-dev libmpv-dev \
+$SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr \
   vlc ffmpeg libgtk2.0-0 libsndfile1 libcanberra-gtk-module git xvfb -y
 
 # Create a Python virtual environment (venv) and activate it
