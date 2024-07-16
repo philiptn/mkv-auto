@@ -69,9 +69,11 @@ def encode_audio_track(file, index, debug, languages, track_names, output_codec,
     if codec_match:
         codec_info = codec_match.group(1)
         if '5.1(side)' in codec_info or '5.1' in codec_info:
-            channel_layout = ['-af', 'channelmap=channel_layout=5.1']
+            if not output_codec.lower() == 'aac':
+                channel_layout = ['-af', 'channelmap=channel_layout=5.1']
         elif '7.1' in codec_info:
-            channel_layout = ['-af', 'channelmap=channel_layout=7.1']
+            if not output_codec.lower() == 'aac':
+                channel_layout = ['-af', 'channelmap=channel_layout=7.1']
 
     command = (["ffmpeg", "-i", file] + channel_layout
                + custom_ffmpeg_options +
@@ -103,8 +105,7 @@ def encode_audio_tracks(debug, audio_files, languages, track_names, output_codec
 
     print(f"{GREY}[UTC {get_timestamp()}] [FFMPEG]{RESET} Generating {output_codec.upper()} audio {track_str}...")
 
-    custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-af', '"pan=stereo|c0=c0|c1=c0"'] \
-        if output_codec.lower() == 'aac' else []
+    custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-filter_complex', '[0:a]pan=stereo|c0=c0+c2|c1=c1+c2[out]', '-map', '[out]'] if output_codec.lower() == 'aac' else []
 
     if debug:
         print('')

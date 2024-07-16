@@ -177,6 +177,9 @@ def mkv_auto(args):
     if args.temp_dir:
         temp_dir = args.temp_dir
 
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+
     if not move_files:
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
