@@ -182,8 +182,7 @@ def rename_others_file_to_folder(input_dir, movie_folder, tv_folder, movie_hdr_f
     # Iterate through the input directory recursively
     for root, dirs, files in os.walk(input_dir):
         parent_folder_name = os.path.basename(root)
-        a, parent_folder_reformatted = reformat_filename(
-            parent_folder_name + '.mkv', movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder)
+        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder)
 
         # If the parent folder does not match any pattern, skip to next
         if parent_folder_reformatted.startswith(others_folder):
@@ -241,11 +240,16 @@ def reformat_filename(filename, movie_folder, tv_folder, movie_hdr_folder, tv_hd
         return os.path.join(folder, f"{showname} ({year})") if year else os.path.join(folder, showname), filename
     elif movie_match:
         # Movie
+        title = movie_match.group(1).replace('.', ' ')
+        title = title.replace(' -', '')
+        title = to_sentence_case(title)
+        year = movie_match.group(2) or movie_match.group(3)
         folder = movie_hdr_folder if is_hdr else movie_folder
-        return os.path.join(folder), filename
+        # Format the filename
+        return os.path.join(folder, f"{title} ({year})") if year else os.path.join(folder, title), filename
     else:
         # Unidentified file
-        return os.path.join(others_folder), filename
+        return os.path.join(others_folder, filename), 'None'
 
 
 def move_file_to_output(input_file_path, output_folder, movie_folder, tv_folder, movie_hdr_folder,
