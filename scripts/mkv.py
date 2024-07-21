@@ -172,7 +172,7 @@ def has_closed_captions(file_path):
     output = result.stdout.decode()
 
     # Search for "Closed Captions" in the video stream description
-    if "Stream #0:0: Video:" in output and "Closed Captions" in output:
+    if "Stream #0:0" in output and "Video:" in output and "Closed Captions" in output:
         return True
     else:
         return False
