@@ -212,6 +212,12 @@ def remove_sdh(debug, input_files, quiet, remove_music, track_names, external_su
         for replacement in all_replacements:
             print(replacement)
         print('')
+    if all_replacements and not debug:
+        if len(input_files) > 0:
+            track_str = "tracks"
+        else:
+            track_str = "track"
+        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Fixed {len(all_replacements)} words in subtitle {track_str}.")
 
     return cleaned_track_names
 
@@ -436,18 +442,21 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
             all_track_ids.append(track_id)
             all_track_names.append(name if name else '')
 
-    if debug:
+    if debug and all_replacements:
+        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
+        replacements_counter = Counter(all_replacements)
+        for replacement, count in replacements_counter.items():
+            if count > 1:
+                print(f"{replacement} {GREY}({count} times){RESET}")
+            else:
+                print(replacement)
         print('')
-
-        if all_replacements:
-            print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
-            replacements_counter = Counter(all_replacements)
-            for replacement, count in replacements_counter.items():
-                if count > 1:
-                    print(f"{replacement} {GREY}({count} times){RESET}")
-                else:
-                    print(replacement)
-            print('')
+    elif all_replacements and not debug:
+        if len(subtitle_files) > 0:
+            track_str = "tracks"
+        else:
+            track_str = "track"
+        print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Fixed {len(all_replacements)} OCR errors in subtitle {track_str}.")
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
 
