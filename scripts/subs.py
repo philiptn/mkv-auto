@@ -66,35 +66,27 @@ def clean_invalid_utf8(input_file, output_file):
         f.write(content)
 
 
-def find_and_replace(input_file, replacement_file):
-    with open(input_file, 'r') as file:
+def find_and_replace(input_file, replacement_file, output_file):
+    # Read the input file content
+    with open(input_file, 'r', encoding='utf-8') as file:
         data = file.read()
 
     changes = []  # List to hold before/after strings for each replacement
-    with open(replacement_file, 'r') as file:
+    with open(replacement_file, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
         replacements = list(reader)
 
     # Apply each replacement in the file data
     for find, replace in replacements:
-        # This regex will find the word with some context
-        pattern = re.compile(r'(\b.{0,30}\b)?(' + re.escape(find) + r')(\b.{0,30}\b)?')
-        for match in pattern.finditer(data):
-            before_context = match.group(1) or ''  # context before the match
-            matched_text = match.group(2)  # the actual text that will be replaced
-            after_context = match.group(3) or ''  # context after the match
+        start = 0
+        while (pos := data.find(find, start)) != -1:
+            changes.append(f"{GREY}found{RESET}: '{RED}{find}{RESET}', "
+                           f"{GREY}replaced with{RESET}: '{GREEN}{replace}{RESET}'")
+            data = data[:pos] + replace + data[pos + len(find):]
+            start = pos + len(replace)
 
-            before_snippet = f"{before_context}{matched_text}{after_context}"
-            after_snippet = f"{before_context}{replace}{after_context}"
-
-            changes.append(f"{GREY}found{RESET}: '{RED}{before_snippet}{RESET}', "
-                           f"{GREY}replaced{RESET}: '{GREEN}{after_snippet}{RESET}'")
-
-        # Replace in data to keep it updated
-        data = pattern.sub(f'\g<1>{replace}\g<3>', data)
-
-    # Write the modified content back to the file
-    with open(input_file, 'w') as file:
+    # Write the modified content to the output file
+    with open(output_file, 'w', encoding='utf-8') as file:
         file.write(data)
 
     return changes
@@ -131,6 +123,10 @@ def run_with_xvfb(command):
 
 
 def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
+    base_and_lang_with_id, _, original_extension = input_file.rpartition('.')
+    base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+    base, _, track_id = base_with_id.rpartition('.')
+
     command = ["mono", subtitleedit, "/convert", input_file,
                "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                f"/outputfilename:{input_file}_tmp.srt"]
@@ -174,7 +170,18 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
-        replacements = replacements + find_and_replace(input_file, 'scripts/replacements_srt_only.csv')
+        subtitle_tmp = f"{input_file}_tmp.srt"
+
+        if lang == 'en':
+            current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
+            replacements = replacements + current_replacements
+            current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', input_file)
+            os.remove(subtitle_tmp)
+            replacements = replacements + current_replacements
+        else:
+            current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_only.csv', subtitle_tmp)
+            os.rename(subtitle_tmp, input_file)
+            replacements = replacements + current_replacements
 
     return replacements
 
@@ -375,10 +382,19 @@ def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
             run_with_xvfb(command)
 
             output_subtitle = f"{base}.{track_id}.{lang}.srt"
+            subtitle_tmp = f"{base}.{track_id}.{lang}_tmp.srt"
 
-            if language == 'eng':
-                replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv')
-            replacements = replacements + find_and_replace(output_subtitle, 'scripts/replacements.csv')
+            if lang == 'en':
+                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
+                replacements = replacements + current_replacements
+                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', output_subtitle)
+                os.remove(subtitle_tmp)
+                replacements = replacements + current_replacements
+            else:
+                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_only.csv', subtitle_tmp)
+                os.rename(subtitle_tmp, output_subtitle)
+                replacements = replacements + current_replacements
+
         else:
             output_subtitle = ''
     finally:
