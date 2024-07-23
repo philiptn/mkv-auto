@@ -224,7 +224,11 @@ def remove_sdh(debug, input_files, quiet, remove_music, track_names, external_su
             track_str = "tracks"
         else:
             track_str = "track"
-        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Fixed {len(all_replacements)} words in subtitle {track_str}.")
+        if len(all_replacements) == 1:
+            word_str = "word"
+        else:
+            word_str = "words"
+        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Fixed {len(all_replacements)} {word_str} in subtitle {track_str}.")
 
     return cleaned_track_names
 
@@ -294,7 +298,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, quiet, max_retr
     base_nolang, _, _ = base.rpartition('.')
     temp_filename = f"{base_nolang}_tmp.srt"
 
-    command = ["ffs", input_file, "--vad", "webrtc", "-i", subtitle_filename, "-o", temp_filename]
+    command = ["ffs", input_file, "--vad", "webrtc", "--max-offset-seconds", "10", "-i", subtitle_filename, "-o", temp_filename]
 
     retries = 0
     while retries < max_retries:

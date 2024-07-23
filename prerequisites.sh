@@ -21,8 +21,8 @@ $SUDO apt-get install tesseract-ocr -y
 # Install all OCR language packs excluding 'ocr-script' and 'old' packages
 $SUDO apt-cache search tesseract-ocr | grep -v 'ocr-script' | grep -v 'old' | awk '{print $1}' | xargs $SUDO apt install -y
 
-# Installing python3.10
-$SUDO apt-get install python3.10 -y
+# Installing python3.10 and python3-dev (required for ffsubsync to install via pip)
+$SUDO apt-get install python3.10 python3-dev -y
 
 # Installing and updating python3-pip
 $SUDO apt-get install python3-pip -y
