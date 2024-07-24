@@ -478,10 +478,10 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
                 print(replacement)
         print('')
     elif all_replacements and not debug:
-        if len(subtitle_files) > 0:
-            track_str = "tracks"
-        else:
+        if subtitle_files_num == 1:
             track_str = "track"
+        else:
+            track_str = "tracks"
         print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Fixed {len(all_replacements)} OCR errors in subtitle {track_str}.")
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
