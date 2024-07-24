@@ -409,7 +409,13 @@ def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
 
 
 def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang):
-    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting picture-based subtitles to SRT...")
+    subtitle_files_num = sum(1 for file in subtitle_files if file.endswith(".sup") or file.endswith(".sub"))
+    if subtitle_files_num == 1:
+        sub_str = "subtitle"
+    else:
+        sub_str = "subtitles"
+
+    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting {subtitle_files_num} picture-based {sub_str} to SRT...")
 
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
@@ -463,7 +469,7 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
             all_track_names.append(name if name else '')
 
     if debug and all_replacements:
-        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
+        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
         replacements_counter = Counter(all_replacements)
         for replacement, count in replacements_counter.items():
             if count > 1:
