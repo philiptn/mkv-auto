@@ -20,20 +20,10 @@ import threading
 import tempfile
 from collections import Counter
 import concurrent.futures
-
-# ANSI color codes
-BLUE = '\033[34m'
-RESET = '\033[0m'  # Reset to default terminal color
-GREY = '\033[90m'
-YELLOW = '\033[33m'
-RED = '\033[31m'
-GREEN = '\033[32m'
-
-max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
+from scripts.misc import *
 
 # Define a global lock
 xml_file_lock = threading.Lock()
-
 
 def detect_language_of_subtitle(subtitle_path):
     try:
@@ -48,12 +38,6 @@ def detect_language_of_subtitle(subtitle_path):
         return "Language detection failed"
     except FileNotFoundError:
         return "File not found"
-
-
-def get_timestamp():
-    """Return the current UTC timestamp in the desired format."""
-    current_time = datetime.utcnow()
-    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
 
 def clean_invalid_utf8(input_file, output_file):
@@ -214,21 +198,18 @@ def remove_sdh(debug, input_files, quiet, remove_music, track_names, external_su
         print('')
 
     if all_replacements and debug:
-        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During processing, the following words were fixed:")
+        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During processing, the following words were replaced:")
         print('')
-        for replacement in all_replacements:
-            print(replacement)
+        replacements_counter = Counter(all_replacements)
+        for replacement, count in replacements_counter.items():
+            if count > 1:
+                print(f"{replacement} {GREY}({count} times){RESET}")
+            else:
+                print(replacement)
         print('')
     if all_replacements and not debug:
-        if len(input_files) > 0:
-            track_str = "tracks"
-        else:
-            track_str = "track"
-        if len(all_replacements) == 1:
-            word_str = "word"
-        else:
-            word_str = "words"
-        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Fixed {len(all_replacements)} {word_str} in subtitle {track_str}.")
+        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Replaced {len(all_replacements)} "
+              f"{print_multi_or_single(len(all_replacements), 'word')} in subtitle {print_multi_or_single(len(input_files), 'track')}.")
 
     return cleaned_track_names
 
@@ -410,12 +391,8 @@ def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
 
 def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang):
     subtitle_files_num = sum(1 for file in subtitle_files if file.endswith(".sup") or file.endswith(".sub"))
-    if subtitle_files_num == 1:
-        sub_str = "subtitle"
-    else:
-        sub_str = "subtitles"
 
-    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting {subtitle_files_num} picture-based {sub_str} to SRT...")
+    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting {subtitle_files_num} picture-based {print_multi_or_single(subtitle_files_num, 'subtitle')} to SRT...")
 
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
@@ -478,11 +455,7 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
                 print(replacement)
         print('')
     elif all_replacements and not debug:
-        if subtitle_files_num == 1:
-            track_str = "track"
-        else:
-            track_str = "tracks"
-        print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Fixed {len(all_replacements)} OCR errors in subtitle {track_str}.")
+        print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Fixed {len(all_replacements)} OCR errors in subtitle {print_multi_or_single(subtitle_files_num, 'track')}.")
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
 

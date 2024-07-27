@@ -3,22 +3,7 @@ import os
 import concurrent.futures
 import re
 from datetime import datetime
-
-
-# ANSI color codes
-BLUE = '\033[34m'
-RESET = '\033[0m'  # Reset to default terminal color
-GREY = '\033[90m'
-YELLOW = '\033[33m'
-
-# Calculate max_workers as 80% of the available logical cores
-max_workers = int(os.cpu_count() * 0.8)
-
-
-def get_timestamp():
-    """Return the current UTC timestamp in the desired format."""
-    current_time = datetime.utcnow()
-    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+from scripts.misc import *
 
 
 # Function to extract a single audio track
@@ -98,12 +83,7 @@ def encode_audio_tracks(debug, audio_files, languages, track_names, output_codec
     if not audio_files:
         return
 
-    if len(audio_files) > 1:
-        track_str = 'tracks'
-    else:
-        track_str = 'track'
-
-    print(f"{GREY}[UTC {get_timestamp()}] [FFMPEG]{RESET} Generating {output_codec.upper()} audio {track_str}...")
+    print(f"{GREY}[UTC {get_timestamp()}] [FFMPEG]{RESET} Generating {output_codec.upper()} audio {print_multi_or_single(len(audio_files), 'track')}...")
 
     custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-filter_complex', '[0:a]pan=stereo|c0=c0+c2|c1=c1+c2[out]', '-map', '[out]'] if output_codec.lower() == 'aac' else []
 

@@ -9,14 +9,8 @@ from scripts.file_operations import *
 from scripts.mkv import *
 from scripts.subs import *
 from scripts.audio import *
+from scripts.misc import *
 
-# ANSI color codes
-BLUE = '\033[34m'
-RESET = '\033[0m'  # Reset to default terminal color
-GREY = '\033[90m'
-YELLOW = '\033[33m'
-RED = '\033[31m'
-GREEN = '\033[32m'
 
 # Initialize configparser
 variables_user = configparser.ConfigParser()
@@ -107,26 +101,14 @@ def format_time(seconds):
 
     parts = []
     if hours:
-        if hours == 1:
-            parts.append(f"{hours} hour,")
-        else:
-            parts.append(f"{hours} hours,")
+        parts.append(f"{hours} {print_multi_or_single(hours, 'hour')}")
     if minutes:
-        if minutes == 1:
-            parts.append(f"{minutes} minute")
-        else:
-            parts.append(f"{minutes} minutes")
+        parts.append(f"{minutes} {print_multi_or_single(minutes, 'minute')}")
     if seconds or not parts:  # If it's 0 seconds, we want to include it.
-        if seconds == 1:
-            parts.append(f"and {seconds} second")
-        else:
-            parts.append(f"and {seconds} seconds")
+        parts.append(f"{seconds} {print_multi_or_single(seconds, 'second')}")
 
     if seconds and (not hours and not minutes):
-        if seconds == 1:
-            return f"{seconds} second"
-        else:
-            return f"{seconds} seconds"
+        return f"{seconds} {print_multi_or_single(seconds, 'second')}"
     else:
         return " ".join(parts)
 
@@ -230,6 +212,7 @@ def mkv_auto(args):
 
     fix_episodes_naming(input_dir)
     remove_ds_store(input_dir)
+    remove_wsl_identifiers(input_dir)
 
     total_files = get_total_mkv_files(input_dir)
     file_index = 1
@@ -630,13 +613,8 @@ def mkv_auto(args):
             shutil.rmtree(temp_dir)
 
     else:
-        if len(errored_file_names) > 1:
-            error_str = 'errors'
-            files_str = 'files'
-        else:
-            error_str = 'error'
-            files_str = 'file'
-        print(f"{GREY}[INFO]{RESET} During processing {len(errored_file_names)} {error_str} occurred in {files_str}:")
+        print(f"{GREY}[INFO]{RESET} During processing {len(errored_file_names)} {print_multi_or_single(len(errored_file_names), 'error')}"
+              f" occurred in {print_multi_or_single(len(errored_file_names), 'file')}:")
         for file in errored_file_names:
             print(f"'{file}'")
         print('')

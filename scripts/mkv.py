@@ -7,21 +7,7 @@ from datetime import datetime
 import shutil
 import time
 import pycountry
-
-# ANSI color codes
-BLUE = '\033[34m'
-RESET = '\033[0m'  # Reset to default terminal color
-GREY = '\033[90m'
-YELLOW = '\033[33m'
-
-# Calculate max_workers as 80% of the available logical cores
-max_workers = int(os.cpu_count() * 0.8)
-
-
-def get_timestamp():
-    """Return the current UTC timestamp in the desired format."""
-    current_time = datetime.utcnow()
-    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+from scripts.misc import *
 
 
 def convert_video_to_mkv(debug, video_file, output_file):

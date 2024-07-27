@@ -5,21 +5,7 @@ import rarfile
 import zipfile
 from datetime import datetime
 import concurrent.futures
-
-
-# ANSI color codes
-BLUE = '\033[34m'
-RESET = '\033[0m'  # Reset to default terminal color
-GREY = '\033[90m'
-YELLOW = '\033[33m'
-
-max_workers = int(os.cpu_count() * 0.8)  # Use 80% of the CPU cores
-
-
-def get_timestamp():
-    """Return the current UTC timestamp in the desired format."""
-    current_time = datetime.utcnow()
-    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+from scripts.misc import *
 
 
 def copy_file(src, dst):
@@ -35,7 +21,6 @@ def move_file(src, dst):
 
 
 def extract_archives(input_folder):
-
     for root, dirs, files in os.walk(input_folder):
         # Filter for .rar and .zip files
         archive_files = [f for f in files if f.endswith('.rar') or f.endswith('.zip')]
@@ -389,3 +374,11 @@ def remove_ds_store(root_dir):
             except OSError as e:
                 print(f"Error: {e.strerror}")
 
+
+def remove_wsl_identifiers(root_dir):
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        if ".Identifier" in filenames:
+            try:
+                os.remove(os.path.join(dirpath, ".Identifier"))
+            except OSError as e:
+                print(f"Error: {e.strerror}")
