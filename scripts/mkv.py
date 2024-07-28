@@ -7,7 +7,11 @@ from datetime import datetime
 import shutil
 import time
 import pycountry
+import concurrent.futures
+
 from scripts.misc import *
+from scripts.audio import *
+from scripts.subs import *
 
 
 def convert_video_to_mkv(debug, video_file, output_file):
@@ -295,6 +299,178 @@ def remove_cc_hidden_in_file(debug, filename):
         shutil.move(temp_filename, filename)
 
 
+def trim_audio_and_subtitles_in_mkv_files(debug, max_worker_threads, input_files, dirpath):
+    total_files = len(input_files)
+    mkv_files_need_processing_audio = []
+
+    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
+        hide_cursor()
+        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} Filtering audio and subtitle tracks")
+
+        # Use ThreadPoolExecutor to handle multithreading
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
+            futures = {executor.submit(trim_audio_and_subtitles_in_mkv_files_worker, debug, input_file, dirpath): input_file for input_file in input_files}
+
+            for future in concurrent.futures.as_completed(futures):
+                # Update the progress bar when a file is processed
+                pbar.update(1)
+                try:
+                    needs_processing_audio = future.result()
+                    if needs_processing_audio is not None:
+                        mkv_files_need_processing_audio.append(needs_processing_audio)
+                except Exception as e:
+                    print(e)
+
+    show_cursor()
+    return mkv_files_need_processing_audio
+
+
+def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
+
+    input_file = os.path.join(dirpath, input_file)
+
+    # Get file info using mkvinfo
+    file_info, pretty_file_info = get_mkv_info(debug, input_file, False)
+
+    pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
+    pref_audio_codec = check_config(config, 'audio', 'pref_audio_codec')
+    remove_commentary = check_config(config, 'audio', 'remove_commentary')
+    pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
+    always_enable_subs = check_config(config, 'subtitles', 'always_enable_subs')
+
+    (wanted_audio_tracks, default_audio_track, needs_processing_audio,
+     pref_audio_codec_found, track_ids_to_be_converted,
+     track_langs_to_be_converted, other_track_ids, other_track_langs,
+     track_names_to_be_converted, other_track_names) = get_wanted_audio_tracks(
+        debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+
+    (wanted_subs_tracks, default_subs_track,
+     needs_sdh_removal, needs_convert, sub_filetypes,
+     subs_track_languages, subs_track_names, needs_processing_subs) = get_wanted_subtitle_tracks(
+        debug, file_info, pref_subs_langs)
+
+    if needs_processing_audio:
+        strip_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track,
+                            wanted_subs_tracks, default_subs_track, always_enable_subs)
+        return True
+    else:
+        return
+
+
+def generate_audio_tracks_in_mkv_files(debug, max_worker_threads, input_files, dirpath):
+    total_files = len(input_files)
+    all_ready_tracks = []
+    pref_audio_codec = check_config(config, 'audio', 'pref_audio_codec')
+
+    # Calculate number of workers and internal threads
+    num_workers = min(total_files, max_worker_threads)
+    internal_threads = max(1, max_worker_threads // num_workers)
+
+    hide_cursor()
+
+    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
+
+        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} Generate missing "
+                             f"{pref_audio_codec} audio {print_multi_or_single(len(input_files), 'track')}")
+
+        # Use ThreadPoolExecutor to handle multithreading
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(generate_audio_tracks_in_mkv_files_worker, debug, input_file, dirpath, internal_threads): input_file for input_file in input_files}
+
+            for future in concurrent.futures.as_completed(futures):
+                # Update the progress bar when a file is processed
+                pbar.update(1)
+                try:
+                    ready_tracks = future.result()
+                    if ready_tracks is not None:
+                        all_ready_tracks.append(ready_tracks)
+                except Exception as e:
+                    print(e)
+
+    show_cursor()
+    return all_ready_tracks
+
+
+def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, internal_threads):
+
+    input_file = os.path.join(dirpath, input_file)
+
+    extracted_other_audio_files = []
+    extracted_other_audio_langs = []
+    extracted_other_audio_names = []
+    extracted_audio_extensions = []
+    ready_audio_extensions = []
+    ready_audio_langs = []
+    ready_track_ids = []
+    ready_track_names = []
+    keep_original_audio = True
+
+    pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
+    pref_audio_codec = check_config(config, 'audio', 'pref_audio_codec')
+    remove_commentary = check_config(config, 'audio', 'remove_commentary')
+
+    # If the preferred audio codec is set to AAC or OPUS, the purpose is probably to save on storage space.
+    # Force-enabling the encoding regardless of the audio track already found, as well as removing
+    # the original audio track.
+    if pref_audio_codec.lower() == 'aac' or pref_audio_codec.lower() == 'opus':
+        keep_original_audio = False
+
+    # Get updated file info after mkv tracks reduction
+    file_info, pretty_file_info = get_mkv_info(False, input_file, True)
+
+    (wanted_audio_tracks, default_audio_track, needs_processing_audio,
+     pref_audio_codec_found, track_ids_to_be_converted,
+     track_langs_to_be_converted, other_track_ids, other_track_langs,
+     track_names_to_be_converted, other_track_names) = get_wanted_audio_tracks(
+        debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+
+    # Generating audio tracks if preferred codec not found in all audio tracks
+    if needs_processing_audio:
+
+        if debug:
+            print('')
+
+        if other_track_ids:
+            (extracted_other_audio_files, extracted_other_audio_langs,
+             extracted_other_audio_names,
+             extracted_audio_extensions) = extract_audio_tracks_in_mkv(internal_threads, debug, input_file,
+                                                                       other_track_ids,
+                                                                       other_track_langs,
+                                                                       other_track_names)
+
+        if track_langs_to_be_converted:
+            (extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
+             extracted_for_convert_audio_names,
+             extracted_audio_extensions) = extract_audio_tracks_in_mkv(internal_threads, debug, input_file,
+                                                                       track_ids_to_be_converted,
+                                                                       track_langs_to_be_converted,
+                                                                       track_names_to_be_converted)
+            if debug:
+                print('')
+
+            (ready_audio_extensions, ready_audio_langs,
+             ready_track_names, ready_track_ids) = encode_audio_tracks(
+                internal_threads, debug, extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
+                extracted_for_convert_audio_names, pref_audio_codec, extracted_other_audio_files,
+                extracted_other_audio_langs, extracted_other_audio_names,
+                keep_original_audio, other_track_ids)
+        else:
+            ready_audio_extensions = extracted_audio_extensions
+            ready_audio_langs = extracted_other_audio_langs
+            ready_track_ids = other_track_ids
+            ready_track_names = other_track_names
+
+            if debug:
+                print('')
+    return {
+        'audio_extensions': ready_audio_extensions,
+        'audio_langs': ready_audio_langs,
+        'track_ids': ready_track_ids,
+        'track_names': ready_track_names
+    }
+
+
+
 def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
                         sub_tracks, default_subs_track, always_enable_subs):
     if debug:
@@ -304,8 +480,6 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
         print(f"{BLUE}subtitle tracks to keep{RESET}: {sub_tracks}")
         print(f"{BLUE}default audio track{RESET}: {default_audio_track}")
         print(f"{BLUE}default subtitle track{RESET}: {default_subs_track}\n")
-
-    print(f"{GREY}[UTC {get_timestamp()}] [MKVMERGE]{RESET} Filtering audio and subtitle tracks...")
 
     subtitle_tracks = ''
     subs_default_track = ''

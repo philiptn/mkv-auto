@@ -20,24 +20,12 @@ import threading
 import tempfile
 from collections import Counter
 import concurrent.futures
+from tqdm import tqdm
+
 from scripts.misc import *
 
 # Define a global lock
 xml_file_lock = threading.Lock()
-
-def detect_language_of_subtitle(subtitle_path):
-    try:
-        with open(subtitle_path, 'r', encoding='utf-8') as file:
-            subtitle_content = file.read()
-            # Detect language of the subtitle content
-            language_code = detect(subtitle_content)
-            # Get the full language name
-            language = pycountry.languages.get(alpha_2=language_code)
-            return language_code, language.name if language else "Unknown language"
-    except LangDetectException:
-        return "Language detection failed"
-    except FileNotFoundError:
-        return "File not found"
 
 
 def clean_invalid_utf8(input_file, output_file):
@@ -106,6 +94,97 @@ def run_with_xvfb(command):
     return result
 
 
+def detect_language_of_subtitle(subtitle_path):
+    try:
+        with open(subtitle_path, 'r', encoding='utf-8') as file:
+            subtitle_content = file.read()
+            # Detect language of the subtitle content
+            language_code = detect(subtitle_content)
+            # Get the full language name
+            language = pycountry.languages.get(alpha_2=language_code)
+            return language_code, language.name if language else "Unknown language"
+    except LangDetectException:
+        return "Language detection failed"
+    except FileNotFoundError:
+        return "File not found"
+
+def process_external_subs(debug, max_worker_threads, dirpath, dirnames, input_files, output_dir, all_dirnames):
+
+    # Ignore files that are not subtitles
+    input_files = [f for f in input_files if not f.endswith('.srt')]
+
+    total_files = len(input_files)
+
+    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
+        hide_cursor()
+        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SRT_EXT]{RESET} Processing external subtitles")
+        total_external_subs = []
+
+        # Use ThreadPoolExecutor to handle multithreading
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
+            futures = {executor.submit(process_external_subs_worker, debug, input_file, dirpath, output_dir, all_dirnames): input_file for input_file in input_files}
+
+            for future in concurrent.futures.as_completed(futures):
+                # Update the progress bar when a file is processed
+                pbar.update(1)
+                try:
+                    result = future.result()
+                    if result is not None:
+                        total_external_subs.append(result)
+                except Exception as e:
+                    print(e)
+    show_cursor()
+
+
+def process_external_subs_worker(debug, input_file, dirpath, output_dir, all_dirnames):
+    input_file = os.path.join(dirpath, input_file)
+    mkv_base, _, mkv_extension = input_file.rpartition('.')
+    base_path, mkv_base_name = os.path.split(mkv_base)
+    srt_pattern = re.compile(f"{re.escape(mkv_base_name)}(\\.[a-zA-Z]{{2,3}})?\\.srt$")
+    no_country_code_pattern = re.compile(f"{re.escape(mkv_base_name)}\\.srt$")
+    standalone_srt_file = False
+
+    always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
+    remove_music = check_config(config, 'subtitles', 'remove_music')
+    resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
+    file_tag = check_config(config, 'general', 'file_tag')
+
+    # Find all SRT files matching the patterns
+    srt_files = []
+    for file in os.listdir(dirpath):
+        full_path = os.path.join(dirpath, file)
+        if srt_pattern.match(file):
+            srt_files.append(full_path)
+
+    # Process each matching SRT file
+    if srt_files:
+        external_sub = True
+        for srt_file in srt_files:
+            file_name = os.path.basename(srt_file)
+            if no_country_code_pattern.match(file_name) or standalone_srt_file:
+                lang_code, full_language = detect_language_of_subtitle(srt_file)
+                new_srt_file_name = os.path.join(base_path, f"{mkv_base_name}.{lang_code}.srt")
+                os.rename(srt_file, new_srt_file_name)
+                srt_file = new_srt_file_name
+
+            if always_remove_sdh or remove_music:
+                remove_sdh(debug, [srt_file], remove_music, [], external_sub)
+
+            if resync_subtitles:
+                resync_srt_subs(debug, input_file, [srt_file], external_sub)
+
+            if file_tag != "default":
+                updated_filename = replace_tags_in_file(srt_file, file_tag)
+                file_name = updated_filename
+
+                srt_file = os.path.join(dirpath, file_name)
+
+            move_file_to_output(srt_file, output_dir, all_dirnames)
+            return srt_file
+    else:
+        return
+
+
 def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     base_and_lang_with_id, _, original_extension = input_file.rpartition('.')
     base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
@@ -170,14 +249,11 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     return replacements
 
 
-def remove_sdh(debug, input_files, quiet, remove_music, track_names, external_sub):
+def remove_sdh(debug, input_files, remove_music, track_names, external_sub):
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
     all_replacements = []
     cleaned_track_names = []
     subs_print = "[SRT_EXT]" if external_sub else "[SUBTITLES]"
-
-    if not quiet:
-        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Removing SDH in SRT subtitles...")
 
     if debug:
         print('')
@@ -251,18 +327,15 @@ def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
 
 
-def resync_srt_subs(debug, input_file, subtitle_files, quiet, external_sub):
+def resync_srt_subs(debug, input_file, subtitle_files, external_sub):
     sync_print = "[SRT_EXT]" if external_sub else "[FFSUBSYNC]"
-
-    if not quiet:
-        print(f"{GREY}[UTC {get_timestamp()}] {sync_print}{RESET} Synchronizing subtitles to audio track...")
 
     if debug:
         print('')
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Create a list of tasks for each subtitle file
-        tasks = [executor.submit(resync_srt_subs_worker, debug, input_file, subfile, quiet, max_retries=3, retry_delay=2)
+        tasks = [executor.submit(resync_srt_subs_worker, debug, input_file, subfile, max_retries=3, retry_delay=2)
                  for subfile in subtitle_files]
         # Wait for all tasks to complete
         for task in concurrent.futures.as_completed(tasks):
@@ -274,7 +347,7 @@ def resync_srt_subs(debug, input_file, subtitle_files, quiet, external_sub):
         print('')
 
 
-def resync_srt_subs_worker(debug, input_file, subtitle_filename, quiet, max_retries, retry_delay):
+def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, retry_delay):
     base, _, _ = subtitle_filename.rpartition('.')
     base_nolang, _, _ = base.rpartition('.')
     temp_filename = f"{base_nolang}_tmp.srt"
@@ -283,7 +356,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, quiet, max_retr
 
     retries = 0
     while retries < max_retries:
-        if debug and not quiet:
+        if debug:
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
         result = subprocess.run(command, capture_output=True, text=True)

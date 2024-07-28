@@ -156,92 +156,11 @@ def copy_directory_contents(source_directory, destination_directory, pbar, file_
         concurrent.futures.wait(futures)
 
 
-def to_sentence_case(s):
-    if s == s.lower():
-        return ' '.join(word.capitalize() for word in s.split(' '))
-    else:
-        return s
-
-
-def rename_others_file_to_folder(input_dir, movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder):
-    # Iterate through the input directory recursively
-    for root, dirs, files in os.walk(input_dir):
-        parent_folder_name = os.path.basename(root)
-        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder)
-
-        # If the parent folder does not match any pattern, skip to next
-        if parent_folder_reformatted.startswith(others_folder):
-            continue
-
-        # Check if the file should be categorized as others
-        for filename in files:
-            if not filename.endswith('.mkv'):
-                continue  # Skip non-mkv files
-            
-            a, new_filename = reformat_filename(
-                filename, movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder)
-            if new_filename.startswith(others_folder):
-                # Rename the file to match its parent folder
-                new_file_path = os.path.join(root, f"{parent_folder_name}.{filename.split('.')[-1]}")
-                old_file_path = os.path.join(root, filename)
-                shutil.move(old_file_path, new_file_path)
-
-
-def reformat_filename(filename, movie_folder, tv_folder, movie_hdr_folder, tv_hdr_folder, others_folder):
-    # Regular expression to match TV shows with season and episode, with or without year
-    tv_show_pattern1 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})e(\d{2})", re.IGNORECASE)
-    # Regular expression to match TV shows with season range, with or without year
-    tv_show_pattern2 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})-s(\d{2})", re.IGNORECASE)
-    # Regular expression to match movies
-    movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.(mkv|srt))$", re.IGNORECASE)
-
-    # Regular expression to detect 2160p without h264 or x264
-    hdr_pattern = re.compile(r"2160p", re.IGNORECASE)
-    non_hdr_pattern = re.compile(r"h264|x264", re.IGNORECASE)
-
-    is_hdr = hdr_pattern.search(filename) and not non_hdr_pattern.search(filename)
-
-    tv_match1 = tv_show_pattern1.match(filename)
-    tv_match2 = tv_show_pattern2.match(filename)
-    movie_match = movie_pattern.match(filename)
-
-    if tv_match1:
-        # TV show with season and episode
-        showname = tv_match1.group(1).replace('.', ' ')
-        showname = showname.replace(' -', '')
-        showname = to_sentence_case(showname) # Transform to sentence case
-        year = tv_match1.group(3)
-        folder = tv_hdr_folder if is_hdr else tv_folder
-        # Format the filename
-        return os.path.join(folder, f"{showname} ({year})") if year else os.path.join(folder, showname), filename
-    elif tv_match2:
-        # TV show with season range
-        showname = tv_match2.group(1).replace('.', ' ')
-        showname = showname.replace(' -', '')
-        showname = to_sentence_case(showname) # Transform to sentence case
-        year = tv_match2.group(3)
-        folder = tv_hdr_folder if is_hdr else tv_folder
-        # Format the filename
-        return os.path.join(folder, f"{showname} ({year})") if year else os.path.join(folder, showname), filename
-    elif movie_match:
-        # Movie
-        title = movie_match.group(1).replace('.', ' ')
-        title = title.replace(' -', '')
-        title = to_sentence_case(title)
-        year = movie_match.group(2) or movie_match.group(3)
-        folder = movie_hdr_folder if is_hdr else movie_folder
-        # Format the filename
-        return os.path.join(folder, f"{title} ({year})") if year else os.path.join(folder, title), filename
-    else:
-        # Unidentified file
-        return os.path.join(others_folder, filename), 'None'
-
-
-def move_file_to_output(input_file_path, output_folder, movie_folder, tv_folder, movie_hdr_folder,
-                        tv_hdr_folder, others_folder, folder_structure, flatten_directories):
+def move_file_to_output(input_file_path, output_folder, folder_structure):
     filename = os.path.basename(input_file_path)
-    new_folders, new_filename = reformat_filename(filename, movie_folder, tv_folder,
-                                                  movie_hdr_folder, tv_hdr_folder, others_folder)
+    flatten_directories = True
+
+    new_folders, new_filename = reformat_filename(filename, False)
     if flatten_directories:
         output_path = os.path.join(output_folder, new_folders, new_filename)
     else:
