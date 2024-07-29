@@ -559,7 +559,7 @@ def mkv_auto(args):
 
                     (wanted_subs_tracks, default_subs_track,
                      needs_sdh_removal, needs_convert, sub_filetypes,
-                     subs_track_languages, subs_track_names, needs_processing_subs) = get_wanted_subtitle_tracks(
+                     subs_track_languages, subs_track_names, needs_processing_subs, a) = get_wanted_subtitle_tracks(
                         debug, file_info, pref_subs_langs)
 
                     updated_subtitle_languages = subs_track_languages
@@ -642,7 +642,7 @@ def mkv_auto(args):
                         # Get updated file info after mkv tracks reduction
                         file_info, pretty_file_info = get_mkv_info(False, input_file, args.silent)
                         wanted_subs_tracks, a, b, needs_convert, \
-                            sub_filetypes, subs_track_languages, subs_track_names, e = get_wanted_subtitle_tracks(debug, file_info,
+                            sub_filetypes, subs_track_languages, subs_track_names, e, f = get_wanted_subtitle_tracks(debug, file_info,
                                                                                                 pref_subs_langs)
 
                         updated_subtitle_languages = subs_track_languages

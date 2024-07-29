@@ -14,9 +14,6 @@ YELLOW = '\033[33m'
 RED = '\033[31m'
 GREEN = '\033[32m'
 
-# Calculate max_workers as 80% of the available logical cores
-max_workers = int(os.cpu_count() * 0.8 * 2)
-
 
 def print_multi_or_single(amount, string):
     if amount == 1:
@@ -221,8 +218,6 @@ def print_media_info(filenames):
         else:
             uncategorized.append(file_info["media_name"])
 
-    #print(f"{GREY}[UTC {get_timestamp()}]{RESET}")
-    print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Found {total_files} media files.\n")
     if tv_shows:
         print(f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show, seasons in tv_shows.items():
@@ -239,6 +234,7 @@ def print_media_info(filenames):
         uncategorized = compact_names_list(uncategorized)
         for uncategorized_item in uncategorized:
             print(f"  {BLUE}{uncategorized_item}{RESET}")
+    print(f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
     print('')
 
 
@@ -271,7 +267,8 @@ config = {
         'movies_hdr_folder': get_config('general', 'MOVIES_HDR_FOLDER', variables_defaults),
         'tv_shows_folder': get_config('general', 'TV_SHOWS_FOLDER', variables_defaults),
         'tv_shows_hdr_folder': get_config('general', 'TV_SHOWS_HDR_FOLDER', variables_defaults),
-        'others_folder': get_config('general', 'OTHERS_FOLDER', variables_defaults)
+        'others_folder': get_config('general', 'OTHERS_FOLDER', variables_defaults),
+        'max_cpu_usage': get_config('general', 'MAX_CPU_USAGE', variables_defaults)
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
@@ -288,3 +285,7 @@ config = {
         'resync_subtitles': get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true"
     }
 }
+
+# Calculate max_workers as 80% of the available logical cores
+max_cpu_usage = check_config(config, 'general', 'max_cpu_usage')
+max_workers = int(os.cpu_count() * int(max_cpu_usage) / 100)

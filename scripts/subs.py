@@ -249,7 +249,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     return replacements
 
 
-def remove_sdh(debug, input_files, remove_music, track_names, external_sub):
+def remove_sdh(max_threads, debug, input_files, remove_music, track_names, external_sub):
     subtitleedit = 'utilities/SubtitleEdit/SubtitleEdit.exe'
     all_replacements = []
     cleaned_track_names = []
@@ -258,7 +258,7 @@ def remove_sdh(debug, input_files, remove_music, track_names, external_sub):
     if debug:
         print('')
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         tasks = [executor.submit(remove_sdh_worker, debug, input_file, remove_music, subtitleedit)
                  for i, input_file in enumerate(input_files)]
         concurrent.futures.wait(tasks)  # Wait for all tasks to complete
@@ -283,20 +283,17 @@ def remove_sdh(debug, input_files, remove_music, track_names, external_sub):
             else:
                 print(replacement)
         print('')
-    if all_replacements and not debug:
-        print(f"{GREY}[UTC {get_timestamp()}] {subs_print}{RESET} Replaced {len(all_replacements)} "
-              f"{print_multi_or_single(len(all_replacements), 'word')} in subtitle {print_multi_or_single(len(input_files), 'track')}.")
 
     return cleaned_track_names
 
 
-def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
-    print(f"{GREY}[UTC {get_timestamp()}] [ASS]{RESET} Converting ASS subtitles to SRT...")
+def convert_ass_to_srt(subtitle_files, languages, names, forced, main_audio_track_lang):
     output_subtitles = []
     updated_subtitle_languages = []
     updated_sub_filetypes = []
     all_track_ids = []
     all_track_names = []
+    all_track_forced = []
 
     for index, file in enumerate(subtitle_files):
         base_and_lang_with_id, _, original_extension = file.rpartition('.')
@@ -313,8 +310,10 @@ def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
             if 'forced' in names[index].lower():
                 all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
                                    names[index] if names[index] else '']
+                all_track_forced = all_track_names + [0, 1]
             else:
                 all_track_names = all_track_names + ['', names[index] if names[index] else '']
+                all_track_forced = all_track_forced + all_track_forced
             updated_subtitle_languages = updated_subtitle_languages + [languages[index], languages[index]]
             output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
         else:
@@ -323,17 +322,17 @@ def convert_ass_to_srt(subtitle_files, languages, names, main_audio_track_lang):
             updated_subtitle_languages.append(languages[index])
             all_track_ids.append(track_id)
             all_track_names.append(names[index] if names[index] else "Original")
+            all_track_forced.append(forced)
 
-    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
 
 
-def resync_srt_subs(debug, input_file, subtitle_files, external_sub):
-    sync_print = "[SRT_EXT]" if external_sub else "[FFSUBSYNC]"
+def resync_srt_subs(max_threads, debug, input_file, subtitle_files, external_sub):
 
     if debug:
         print('')
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Create a list of tasks for each subtitle file
         tasks = [executor.submit(resync_srt_subs_worker, debug, input_file, subfile, max_retries=3, retry_delay=2)
                  for subfile in subtitle_files]
@@ -389,13 +388,12 @@ def extract_subtitle(debug, filename, track, output_filetype, language):
     return subtitle_filename
 
 
-def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_languages):
-    print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Extracting subtitles...")
+def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_filetypes, subs_languages):
     if debug:
         print('')
 
     results = [None] * len(track_numbers)  # Pre-allocate a list for the results in order
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Create a dictionary to store futures with their respective indices
         future_to_index = {
             executor.submit(extract_subtitle, debug, filename, track, filetype, language): i
@@ -413,7 +411,18 @@ def extract_subs_in_mkv(debug, filename, track_numbers, output_filetypes, subs_l
     return results
 
 
-def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
+def get_output_subtitle_string(filename, track_numbers, output_filetypes, subs_languages):
+    subtitle_filenames = []
+
+    for index, output_filetype in enumerate(output_filetypes):
+        base, _, _ = filename.rpartition('.')
+        subtitle_filename = f"{base}.{track_numbers[index]}.{subs_languages[index][:-1]}.{output_filetype}"
+        subtitle_filenames.append(subtitle_filename)
+
+    return subtitle_filenames
+
+
+def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
@@ -459,14 +468,10 @@ def ocr_subtitle_worker(debug, file, language, name, subtitleedit_dir):
         # Clean up the temporary directory
         shutil.rmtree(temp_dir)
 
-    return file, output_subtitle, language, track_id, name, replacements, original_extension
+    return file, output_subtitle, language, track_id, name, forced, replacements, original_extension
 
 
-def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang):
-    subtitle_files_num = sum(1 for file in subtitle_files if file.endswith(".sup") or file.endswith(".sub"))
-
-    print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Converting {subtitle_files_num} picture-based {print_multi_or_single(subtitle_files_num, 'subtitle')} to SRT...")
-
+def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, main_audio_track_lang):
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
 
@@ -476,11 +481,11 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
     # Prepare to track the results in the order they were submitted
     results = [None] * len(subtitle_files)  # Placeholder list for results
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Submit all tasks and store futures in a dictionary with their index
         future_to_index = {
             executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], languages[i], names[i],
-                            subtitleedit_dir): i
+                            forced[i], subtitleedit_dir): i
             for i in range(len(subtitle_files))
         }
 
@@ -494,10 +499,11 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
     updated_subtitle_languages = []
     all_track_ids = []
     all_track_names = []
+    all_track_forced = []
     updated_sub_filetypes = []
 
     # Process each result and organize the outputs
-    for original_file, output_subtitle, language, track_id, name, replacements, original_extension in results:
+    for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
         all_replacements = replacements + all_replacements
         if output_subtitle:
             updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
@@ -509,14 +515,18 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
             if 'forced' in name.lower():
                 all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
                                                      name if name else "Original"]
+                # Enable forced only for the generated file, not original
+                all_track_forced = all_track_forced + [0, 1]
             else:
                 all_track_names = all_track_names + ['', name if name else "Original"]
+                all_track_forced = all_track_forced + [forced, forced]
         else:
             updated_sub_filetypes.append(original_extension)
             output_subtitles.append(original_file)
             updated_subtitle_languages.append(language)
             all_track_ids.append(track_id)
             all_track_names.append(name if name else '')
+            all_track_forced.append(forced)
 
     if debug and all_replacements:
         print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
@@ -527,10 +537,8 @@ def ocr_subtitles(debug, subtitle_files, languages, names, main_audio_track_lang
             else:
                 print(replacement)
         print('')
-    elif all_replacements and not debug:
-        print(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} Fixed {len(all_replacements)} OCR errors in subtitle {print_multi_or_single(subtitle_files_num, 'track')}.")
 
-    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, updated_sub_filetypes
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
 
 
 def update_tesseract_lang_xml(new_language, settings_file):
@@ -566,6 +574,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     subs_track_ids = []
     subs_track_languages = []
     subs_track_names = []
+    subs_track_forced = []
 
     unmatched_subs_track_languages = []
 
@@ -573,6 +582,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     forced_track_languages = []
     forced_track_names = []
     forced_sub_filetypes = []
+    forced_sub_bool = []
 
     default_subs_track = ''
     all_sub_filetypes = []
@@ -623,7 +633,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             total_subs_tracks += 1
             track_language = ''
             track_name = ''
-            forced_track_val = ''
+            forced_track_val = 0
 
             for key, value in track["properties"].items():
                 if key == 'language':
@@ -635,6 +645,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
 
             if forced_track_val or "forced" in track_name.lower():
                 forced_track = True
+                forced_track_val = 1
             else:
                 forced_track = False
 
@@ -648,15 +659,19 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                     if track["codec"] == "HDMV PGS":
                         forced_track_names.append(track_name)
                         forced_sub_filetypes.append('sup')
+                        forced_sub_bool.append(forced_track_val)
                     elif track["codec"] == "VobSub":
                         forced_track_names.append(track_name)
                         forced_sub_filetypes.append('sub')
+                        forced_sub_bool.append(forced_track_val)
                     elif track["codec"] == "SubRip/SRT":
                         forced_track_names.append(f'non-{main_audio_track_lang} dialogue')
+                        forced_sub_bool.append(forced_track_val)
                         forced_sub_filetypes.append('srt')
                     elif track["codec"] == "SubStationAlpha":
                         forced_track_names.append(track_name)
                         forced_sub_filetypes.append('ass')
+                        forced_sub_bool.append(forced_track_val)
 
                 # If the track language is "und" (undefined), assume english subtitles
                 if track_language.lower() == "und":
@@ -668,6 +683,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         subs_track_ids.append(track["id"])
                         subs_track_languages.append(track_language)
                         subs_track_names.append(track_name)
+                        subs_track_forced.append(forced_track_val)
                         sub_filetypes.append('sup')
                         needs_convert = True
                         needs_processing = True
@@ -678,6 +694,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
                             subs_track_names.append(track_name)
+                            subs_track_forced.append(forced_track_val)
                             sub_filetypes.append('sub')
                             needs_convert = True
                             needs_processing = True
@@ -685,12 +702,14 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         subs_track_ids.append(track["id"])
                         subs_track_languages.append(track_language)
                         subs_track_names.append(track_name)
+                        subs_track_forced.append(forced_track_val)
                         sub_filetypes.append('srt')
                         srt_track_ids.append(track["id"])
                     elif track["codec"] == "SubStationAlpha":
                         subs_track_ids.append(track["id"])
                         subs_track_languages.append(track_language)
                         subs_track_names.append(track_name)
+                        subs_track_forced.append(forced_track_val)
                         sub_filetypes.append('ass')
                         ass_track_ids.append(track["id"])
                         needs_convert = True
@@ -704,22 +723,26 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             sub_filetypes.remove('srt')
                             subs_track_languages.remove(track_language)
                             subs_track_names.pop()
+                            subs_track_forced.pop()
                             srt_ass_track_removed.append(track_language)
 
                         if 'ass' in sub_filetypes:
                             sub_filetypes.remove('ass')
                             subs_track_languages.remove(track_language)
                             subs_track_names.pop()
+                            subs_track_forced.pop()
                             srt_ass_track_removed.append(track_language)
 
                         if track["codec"] == "HDMV PGS":
                             if sub_filetypes:
                                 if sub_filetypes[-1] != 'sup':
+                                    subs_track_forced.append(forced_track_val)
                                     sub_filetypes.append('sup')
                                     subs_track_ids.append(track["id"])
                                     subs_track_languages.append(track_language)
                                     subs_track_names.append(track_name)
                             elif not sub_filetypes:
+                                subs_track_forced.append(forced_track_val)
                                 sub_filetypes.append('sup')
                                 subs_track_ids.append(track["id"])
                                 subs_track_languages.append(track_language)
@@ -728,6 +751,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             needs_processing = True
 
                         elif track["codec"] == "VobSub":
+                            subs_track_forced.append(forced_track_val)
                             sub_filetypes.append('sub')
                             subs_track_ids.append(track["id"])
                             subs_track_languages.append(track_language)
@@ -744,6 +768,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     subs_track_languages = subs_track_languages + forced_track_languages
     subs_track_names = subs_track_names + forced_track_names
     sub_filetypes = sub_filetypes + forced_sub_filetypes
+    subs_track_forced = subs_track_forced + forced_sub_bool
 
     # If none of the subtitles matched, add the forced tracks as a last effort
     if len(subs_track_ids) == 0:
@@ -751,6 +776,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         subs_track_languages = forced_track_languages
         subs_track_names = forced_track_names
         sub_filetypes = forced_sub_filetypes
+        subs_track_forced = forced_sub_bool
 
     if subs_track_ids:
         # If subs language prefs have not been set, set the list
@@ -758,12 +784,13 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         if not pref_subs_langs and subs_track_languages:
             pref_subs_langs = subs_track_languages
 
-        paired = zip(subs_track_languages, sub_filetypes, subs_track_ids, subs_track_names)
+        paired = zip(subs_track_languages, sub_filetypes, subs_track_forced, subs_track_ids, subs_track_names)
         sorted_paired = sorted(paired, key=lambda x: get_priority(pref_subs_langs, x[0]))
-        sorted_subs_languages, sorted_subs_filetypes, sorted_subs_track_ids, sorted_subs_track_names = zip(*sorted_paired)
+        sorted_subs_languages, sorted_subs_filetypes, sorted_subs_track_forced, sorted_subs_track_ids, sorted_subs_track_names = zip(*sorted_paired)
 
         subs_track_languages = list(sorted_subs_languages)
         sub_filetypes = list(sorted_subs_filetypes)
+        subs_track_forced = list(sorted_subs_track_forced)
         subs_track_ids = list(sorted_subs_track_ids)
         subs_track_names = list(sorted_subs_track_names)
 
@@ -790,4 +817,4 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
               f"{BLUE}langs{RESET}: {subs_track_languages}, {BLUE}names{RESET}: {subs_track_names}\n")
 
     return subs_track_ids, default_subs_track, needs_sdh_removal, needs_convert, \
-        sub_filetypes, subs_track_languages, subs_track_names, needs_processing
+        sub_filetypes, subs_track_languages, subs_track_names, needs_processing, subs_track_forced

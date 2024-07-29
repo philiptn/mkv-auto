@@ -64,20 +64,12 @@ def count_bytes(directory):
 
 
 def move_file_with_progress(src_file, dst_file, pbar, file_counter, total_files):
-    chunk_size = 1024 * 1024  # e.g., move in 1 MB chunks
-    with open(src_file, 'rb') as fsrc, open(dst_file, 'wb') as fdst:
-        while True:
-            chunk = fsrc.read(chunk_size)
-            if not chunk:
-                break
-            fdst.write(chunk)
-            pbar.update(len(chunk))
-
-    os.remove(src_file)  # Remove the source file after copying
+    shutil.move(src_file, dst_file)
+    pbar.update(1)
     pbar.set_description(f"{GREY}[INFO]{RESET} Moving file {file_counter[0]} of {total_files}")
 
 
-def move_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0, max_workers=4):
+def move_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
@@ -99,7 +91,7 @@ def move_directory_contents(source_directory, destination_directory, pbar, file_
                 pbar.set_postfix_str(f"Moving file {file_counter[0]} of {total_files}...")
             move_file_with_progress(s, d, pbar, file_counter, total_files)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
         futures = []
         for item in os.listdir(source_directory):
             if item.startswith('.'):  # Skip files or folders starting with a dot

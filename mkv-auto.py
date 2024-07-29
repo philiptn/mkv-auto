@@ -2,7 +2,6 @@ import configparser
 import sys
 import traceback
 import argparse
-
 from itertools import groupby
 
 from scripts.file_operations import *
@@ -188,17 +187,12 @@ def mt_mkv_auto(args):
     remove_wsl_identifiers(input_dir)
 
     total_files = get_total_mkv_files(input_dir)
-    file_index = 1
     if total_files == 0:
         if not args.silent:
             print(f"No mkv files found in input directory.\n")
         exit(0)
 
-    errored_file_names = []
     dirpaths = []
-    total_processing_time = 0
-    mkv_files_list = []
-    flatten_directories = True
     print('')
 
     for dirpath, dirnames, filenames in os.walk(input_dir):
@@ -211,7 +205,8 @@ def mt_mkv_auto(args):
         if not dirpath == 'input/':
             dirpaths.append(dirpath)
 
-        input_file = ''
+        audio_tracks_to_be_merged = []
+        subtitle_tracks_to_be_merged = []
 
         # Ignore files that start with a dot
         filenames = [f for f in filenames if not f.startswith('.')]
@@ -227,23 +222,37 @@ def mt_mkv_auto(args):
 
         # Remove all filenames that are not mkv or srt
         filenames = [f for f in filenames if f.endswith('.mkv') or f.endswith('.srt')]
+        # Remove all filenames that are not mkv
+        filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
 
         print_media_info(filenames)
-        print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Using {max_workers} CPU threads for processing.")
 
+        print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Using {max_workers} CPU threads for processing.")
         start_time = time.time()
 
-        # Check for any external subs
-        if any(file.endswith('.srt') for file in filenames):
-            process_external_subs(debug, max_workers, dirpath, dirnames, filenames, output_dir, all_dirnames)
+        need_processing_audio, need_processing_subs = trim_audio_and_subtitles_in_mkv_files(debug, max_workers, filenames_mkv_only, dirpath)
+        audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(debug, max_workers, filenames_mkv_only, dirpath)
 
-        # Remove all filenames that are not mkv
-        filenames = [f for f in filenames if f.endswith('.mkv')]
+        if any(need_processing_subs):
+            check_needed_processing_subs(debug, max_workers, filenames_mkv_only, dirpath)
 
-        generate_audio_tracks = trim_audio_and_subtitles_in_mkv_files(debug, max_workers, filenames, dirpath)
+            subtitle_tracks_to_be_merged, subtitle_files_to_process = convert_picture_based_to_srt(debug, max_workers, filenames_mkv_only, dirpath)
 
-        if generate_audio_tracks:
-            generate_audio_tracks_in_mkv_files(debug, max_workers, filenames, dirpath)
+            if subtitle_files_to_process:
+                remove_sdh_process(debug, max_workers, subtitle_files_to_process)
+                resync_sub_process(debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
+
+        if any(need_processing_audio) or any(need_processing_subs):
+            print(filenames_mkv_only)
+            print(audio_tracks_to_be_merged)
+            print(subtitle_tracks_to_be_merged)
+            exit(0)
+            repack_mkv_tracks_process(debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
+
+        move_files_to_output_process(debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+
+        #if any(file.endswith('.srt') for file in filenames):
+        #    process_external_subs(debug, max_workers, dirpath, dirnames, filenames, output_dir, all_dirnames)
 
         end_time = time.time()
         processing_time = end_time - start_time
