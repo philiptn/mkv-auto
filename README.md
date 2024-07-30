@@ -207,6 +207,9 @@ https://github.com/Mimino666/langdetect
 Christian Theune and Nate Schimoller for pycountry (converting ISO two-letter language codes to country names)  
 https://github.com/pycountry/pycountry  
 
+Diaoul and ratoaq2 for subliminal (automatic downloading of subtitles)  
+https://github.com/Diaoul/subliminal
+
 ## Donations
 This utility is completely free to use, but if you want to support me and my work you can buy me a coffee using the link below:  
 

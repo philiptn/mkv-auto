@@ -560,7 +560,7 @@ def mkv_auto(args):
                     (wanted_subs_tracks, default_subs_track,
                      needs_sdh_removal, needs_convert, sub_filetypes,
                      subs_track_languages, subs_track_names, needs_processing_subs, a) = get_wanted_subtitle_tracks(
-                        debug, file_info, pref_subs_langs)
+                        debug, file_info, pref_subs_langs, b)
 
                     updated_subtitle_languages = subs_track_languages
                     all_subs_track_ids = wanted_subs_tracks

@@ -139,7 +139,7 @@ def get_mkv_info(debug, filename, silent):
     colored_text = colorize(compact_json)
 
     if debug:
-        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} MKV file structure:\n")
+        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} MKV file structure:\n")
         print(colored_text)
     return parsed_json, pretty_json
 
@@ -315,8 +315,9 @@ def remove_cc_hidden_in_file(debug, filename):
 
 def trim_audio_and_subtitles_in_mkv_files(debug, max_worker_threads, input_files, dirpath):
     total_files = len(input_files)
-    mkv_files_need_processing_audio = []
-    mkv_files_need_processing_subs = []
+    mkv_files_need_processing_audio = [None] * total_files
+    mkv_files_need_processing_subs = [None] * total_files
+    all_missing_subs_langs = [None] * total_files
 
     hide_cursor()
     with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
@@ -325,21 +326,26 @@ def trim_audio_and_subtitles_in_mkv_files(debug, max_worker_threads, input_files
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
-            futures = {executor.submit(trim_audio_and_subtitles_in_mkv_files_worker, debug, input_file, dirpath): input_file for input_file in input_files}
+            futures = {executor.submit(trim_audio_and_subtitles_in_mkv_files_worker, debug, input_file, dirpath): index for index, input_file in enumerate(input_files)}
 
             for future in concurrent.futures.as_completed(futures):
                 # Update the progress bar when a file is processed
                 pbar.update(1)
                 try:
-                    needs_processing_audio, needs_processing_subs = future.result()
+                    index = futures[future]
+                    needs_processing_audio, needs_processing_subs, missing_subs_langs = future.result()
                     if needs_processing_audio is not None:
-                        mkv_files_need_processing_audio.append(needs_processing_audio)
+                        mkv_files_need_processing_audio[index] = needs_processing_audio
                     if needs_processing_subs is not None:
-                        mkv_files_need_processing_subs.append(needs_processing_subs)
+                        mkv_files_need_processing_subs[index] = needs_processing_subs
+                    if missing_subs_langs is not None:
+                        all_missing_subs_langs[index] = missing_subs_langs
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
-    return mkv_files_need_processing_audio, mkv_files_need_processing_subs
+    return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
 
 
 def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
@@ -363,14 +369,15 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
 
     (wanted_subs_tracks, default_subs_track,
      needs_sdh_removal, needs_convert, sub_filetypes,
-     subs_track_languages, subs_track_names, needs_processing_subs, a) = get_wanted_subtitle_tracks(
+     subs_track_languages, subs_track_names, needs_processing_subs,
+     a, missing_subs_langs) = get_wanted_subtitle_tracks(
         debug, file_info, pref_subs_langs)
 
     if needs_processing_audio:
         strip_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track,
                             wanted_subs_tracks, default_subs_track, always_enable_subs)
 
-    return needs_processing_audio, needs_processing_subs
+    return needs_processing_audio, needs_processing_subs, missing_subs_langs
 
 
 def generate_audio_tracks_in_mkv_files(debug, max_worker_threads, input_files, dirpath):
@@ -408,7 +415,9 @@ def generate_audio_tracks_in_mkv_files(debug, max_worker_threads, input_files, d
                     if ready_subtitle_tracks is not None:
                         all_ready_subtitle_tracks.append(ready_subtitle_tracks)
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
     return all_ready_audio_tracks, all_ready_subtitle_tracks
 
@@ -501,53 +510,60 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
     }
 
 
-def check_needed_processing_subs(debug, max_worker_threads, input_files, dirpath):
+def extract_subs_in_mkv_process(debug, max_worker_threads, input_files, dirpath):
     total_files = len(input_files)
-
-    all_files_need_convert = []
+    all_subtitle_files = [None] * total_files
 
     # Calculate number of workers and internal threads
     num_workers = min(total_files, max_worker_threads)
+    internal_threads = max(1, max_worker_threads // num_workers)
 
     hide_cursor()
-    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file', disable=True) as pbar:
+    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
+        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Extract "
+                             f"{print_multi_or_single(len(input_files), 'subtitle')}")
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(check_needed_processing_subs_worker, debug, input_file, dirpath): input_file for input_file in input_files}
+            futures = {executor.submit(extract_subs_in_mkv_process_worker, debug, input_file, dirpath, internal_threads): index for index, input_file in enumerate(input_files)}
 
             for future in concurrent.futures.as_completed(futures):
                 # Update the progress bar when a file is processed
                 pbar.update(1)
                 try:
-                    file_needs_convert = future.result()
-                    if file_needs_convert is not None:
-                        all_files_need_convert.append(file_needs_convert)
+                    index = futures[future]
+                    subtitle_files = future.result()
+                    if subtitle_files is not None:
+                        all_subtitle_files[index] = subtitle_files
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
-    return all_files_need_convert
+    return all_subtitle_files
 
 
-def check_needed_processing_subs_worker(debug, input_file, dirpath):
-    file_needs_convert = None
+def extract_subs_in_mkv_process_worker(debug, input_file, dirpath, internal_threads):
     input_file_with_path = os.path.join(dirpath, input_file)
-
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
+    # Get updated file info after mkv tracks reduction
     file_info, pretty_file_info = get_mkv_info(False, input_file_with_path, True)
-    a, b, c, needs_convert, d, e, f, g, h = get_wanted_subtitle_tracks(debug, file_info, pref_subs_langs)
 
-    if needs_convert:
-        file_needs_convert = input_file
+    (wanted_subs_tracks, a, b, needs_convert,
+     sub_filetypes, subs_track_languages,
+     subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(False, file_info, pref_subs_langs)
 
-    return file_needs_convert
+    subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
+                                         sub_filetypes, subs_track_languages)
+
+    return subtitle_files
 
 
-def convert_picture_based_to_srt(debug, max_worker_threads, input_files, dirpath):
+def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subtitle_files_list):
     total_files = len(input_files)
-    all_ready_subtitle_tracks = []
-    subtitle_tracks_to_be_processed = []
+    all_ready_subtitle_tracks = [None] * total_files
+    subtitle_tracks_to_be_processed = [None] * total_files
 
     # Calculate number of workers and internal threads, use half + 1, as
     # the OCR process uses multiple Tesseract processes internally.
@@ -558,30 +574,33 @@ def convert_picture_based_to_srt(debug, max_worker_threads, input_files, dirpath
     hide_cursor()
     with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
 
-        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [OCR]{RESET} "
-                             f"Convert any picture-based subtitles to SRT")
+        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SUBTITLE]{RESET} "
+                             f"Convert subtitles to SRT")
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(convert_picture_based_to_srt_worker, debug, input_file, dirpath, internal_threads): input_file for input_file in input_files}
-
+            futures = {executor.submit(convert_to_srt_process_worker, debug, input_file, dirpath, internal_threads, subtitle_files_list[index]): index for index, input_file in enumerate(input_files)}
             for future in concurrent.futures.as_completed(futures):
                 # Update the progress bar when a file is processed
                 pbar.update(1)
                 try:
+                    index = futures[future]
                     ready_tracks, output_subtitles = future.result()
                     if ready_tracks is not None:
-                        all_ready_subtitle_tracks.append(ready_tracks)
+                        all_ready_subtitle_tracks[index] = ready_tracks
                     if output_subtitles is not None:
-                        subtitle_tracks_to_be_processed.append(output_subtitles)
+                        subtitle_tracks_to_be_processed[index] = output_subtitles
 
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
     return all_ready_subtitle_tracks, subtitle_tracks_to_be_processed
 
 
-def convert_picture_based_to_srt_worker(debug, input_file, dirpath, internal_threads):
+
+def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files):
     input_file_with_path = os.path.join(dirpath, input_file)
 
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
@@ -593,42 +612,13 @@ def convert_picture_based_to_srt_worker(debug, input_file, dirpath, internal_thr
 
     (wanted_subs_tracks, a, b, needs_convert,
      sub_filetypes, subs_track_languages,
-     subs_track_names, e, subs_track_forced) = get_wanted_subtitle_tracks(debug, file_info, pref_subs_langs)
+     subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(debug, file_info, pref_subs_langs)
 
-    updated_subtitle_languages = subs_track_languages
-    all_subs_track_ids = wanted_subs_tracks
-    all_subs_track_names = subs_track_names
-    all_subs_track_forced = subs_track_forced
-    updated_sub_filetypes = sub_filetypes
-
-    if "sub" in sub_filetypes:
-        subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
-                                             sub_filetypes, subs_track_languages)
-
-        (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
-         all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = ocr_subtitles(
-            internal_threads, debug, subtitle_files, subs_track_languages, subs_track_names, subs_track_forced, main_audio_track_lang)
-
-    elif "sup" in sub_filetypes:
-        subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
-                                             sub_filetypes, subs_track_languages)
-
-        (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
-         all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = ocr_subtitles(
-            internal_threads, debug, subtitle_files, subs_track_languages, subs_track_names, subs_track_forced, main_audio_track_lang)
-
-    elif "ass" in sub_filetypes:
-        subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
-                                             sub_filetypes, subs_track_languages)
-
+    if "ass" in sub_filetypes:
         (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
          all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = convert_ass_to_srt(
             subtitle_files, subs_track_languages, subs_track_names, subs_track_forced, main_audio_track_lang)
-
     else:
-        # Extract and get output subtitles string even when not performing OCR
-        subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
-                            sub_filetypes, subs_track_languages)
         (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
          all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = ocr_subtitles(
             internal_threads, debug, subtitle_files, subs_track_languages, subs_track_names, subs_track_forced,
@@ -673,7 +663,9 @@ def remove_sdh_process(debug, max_worker_threads, subtitle_files_to_process_list
                 try:
                     result = future.result()
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
     return result
 
@@ -684,6 +676,103 @@ def remove_sdh_process_worker(debug, input_subtitles, internal_threads):
 
     if always_remove_sdh:
         remove_sdh(internal_threads, debug, input_subtitles, remove_music, [], False)
+
+
+def fetch_missing_subtitles_process(debug, max_worker_threads, input_files, dirpath, total_external_subs, all_missing_subs_langs):
+    total_files = len(input_files)
+
+    all_truly_missing_subs_langs = []
+
+    for index, input_file in enumerate(input_files):
+        input_file_with_path = os.path.join(dirpath, input_file)
+        mkv_base, _, mkv_extension = input_file_with_path.rpartition('.')
+        base_path, mkv_base_name = os.path.split(mkv_base)
+
+        truly_missing_subs_langs = []
+        for lang in all_missing_subs_langs[index]:
+            if lang != 'none':
+                if total_external_subs:
+                    for index1, sub_file in enumerate(total_external_subs):
+                        if input_files[index] in total_external_subs:
+                            if lang[:-1] not in total_external_subs[index1]:
+                                truly_missing_subs_langs.append(lang[:-1])
+                else:
+                    truly_missing_subs_langs.append(lang[:-1])
+
+        all_truly_missing_subs_langs.append(truly_missing_subs_langs)
+
+    all_downloaded_subs = [None] * max(total_files, len(total_external_subs), len(all_missing_subs_langs))
+    all_failed_downloads = [None] * max(total_files, len(total_external_subs), len(all_missing_subs_langs))
+
+    num_workers = min(total_files, max_worker_threads)
+
+    hide_cursor()
+    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
+
+        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} "
+                             f"Download missing subtitles")
+
+        # Use ThreadPoolExecutor to handle multithreading
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, input_file, dirpath, all_truly_missing_subs_langs[index]): index for index, input_file in enumerate(input_files)}
+
+            for future in concurrent.futures.as_completed(futures):
+                # Update the progress bar when a file is processed
+                pbar.update(1)
+                try:
+                    index = futures[future]
+                    downloaded_subs, failed_downloads = future.result()
+                    if downloaded_subs is not None:
+                        all_downloaded_subs[index] = downloaded_subs
+                    if failed_downloads is not None:
+                        all_failed_downloads[index] = failed_downloads
+                except Exception as e:
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
+    show_cursor()
+
+    if all_downloaded_subs:
+        print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} "
+         f"Successfully downloaded {len(all_downloaded_subs)} missing "
+              f"{print_multi_or_single(len(all_downloaded_subs), 'subtitle')}. {len(all_failed_downloads)}"
+              f" {print_multi_or_single(len(all_failed_downloads), 'subtitle')} failed to download.")
+
+    return all_downloaded_subs
+
+
+def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_subs_langs):
+    mkv_base, _, mkv_extension = input_file.rpartition('.')
+
+    downloaded_subs = []
+    failed_downloads = []
+
+    if debug:
+        print('\n')
+
+    for lang in missing_subs_langs:
+        command = [
+            'subliminal', 'download', '-l', lang, input_file
+        ]
+
+        if debug:
+            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
+            print(f"{RESET}")
+
+        # Sleep for random 2-4 seconds to not overwhelm the subliminal service providers
+        time.sleep(random.uniform(2, 4))
+
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        return_code = process.returncode
+
+        if os.path.exists(f"{mkv_base}.{lang}.srt"):
+            shutil.move(f"{mkv_base}.{lang}.srt", os.path.join(dirpath, f"{mkv_base}.{lang}.srt"))
+            downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"))
+        else:
+            failed_downloads.append(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"))
+
+    return downloaded_subs, failed_downloads
 
 
 def resync_sub_process(debug, max_worker_threads, input_files, dirpath, subtitle_files_to_process_list):
@@ -714,7 +803,9 @@ def resync_sub_process(debug, max_worker_threads, input_files, dirpath, subtitle
                 try:
                     result = future.result()
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
     return result
 
@@ -748,7 +839,9 @@ def repack_mkv_tracks_process(debug, max_worker_threads, input_files, dirpath, a
                 try:
                     result = future.result()
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
 
 
@@ -762,7 +855,6 @@ def move_files_to_output_process(debug, max_worker_threads, input_files, dirpath
     total_files = len(input_files)
 
     num_workers = min(total_files, max_worker_threads)
-    internal_threads = max(1, max_worker_threads // num_workers)
 
     hide_cursor()
 
@@ -781,7 +873,9 @@ def move_files_to_output_process(debug, max_worker_threads, input_files, dirpath
                 try:
                     result = future.result()
                 except Exception as e:
-                    print(e)
+                    print(f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback.print_tb(e.__traceback__)
+                    raise
     show_cursor()
 
 
@@ -974,7 +1068,7 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         final_sub_track_forced = list(sorted_sub_track_forced)
 
     if debug:
-        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} repack_tracks_in_mkv:\n")
+        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} repack_tracks_in_mkv:\n")
         print(f"{BLUE}preferred audio languages{RESET}: {pref_audio_langs}")
         print(f"{BLUE}preferred subtitle languages{RESET}: {pref_subs_langs}")
         print(f"{BLUE}preferred subtitle extensions{RESET}: {pref_subs_ext}\n")
@@ -987,7 +1081,8 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
               f"\n  {BLUE}filetypes{RESET}: {final_sub_filetypes}"
               f"\n  {BLUE}langs{RESET}: {final_sub_languages}"
               f"\n  {BLUE}ids{RESET}: {final_sub_track_ids}"
-              f"\n  {BLUE}names{RESET}: {final_sub_track_names}\n")
+              f"\n  {BLUE}names{RESET}: {final_sub_track_names}"
+              f"\n  {BLUE}forced{RESET}: {final_sub_track_forced}")
 
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"

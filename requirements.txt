@@ -37,3 +37,7 @@ langdetect==1.0.9
 # For converting ISO 639-1 two-letter language codes to full country names
 # https://pypi.org/project/pycountry/
 pycountry==23.12.11
+
+# For downloading external subtitles
+# https://pypi.org/project/subliminal/
+subliminal==2.2.1

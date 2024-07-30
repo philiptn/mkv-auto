@@ -4,6 +4,7 @@ from datetime import datetime
 from backports import configparser
 import re
 from collections import defaultdict
+import traceback
 
 
 # ANSI color codes
