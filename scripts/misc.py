@@ -25,10 +25,76 @@ def print_multi_or_single(amount, string):
         return string
 
 
+def debug_pause():
+    print(f"{GREY}[DEBUG]{RESET} Press Enter to continue or 'q' to quit: ")
+    if os.name == 'nt':  # Windows
+        import msvcrt
+        key = msvcrt.getch()
+        if key.lower() == b'q':
+            exit()
+    else:  # Unix/Linux/MacOS
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            key = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+        if key.lower() == 'q':
+            exit()
+    print('')
+
+
+def get_main_audio_track_language(file_info):
+    main_audio_track_lang = None
+    # Get the main audio language
+    for track in file_info['tracks']:
+        if track['type'] == 'audio':
+            for key, value in track["properties"].items():
+                if key == 'language':
+                    language = pycountry.languages.get(alpha_3=value)
+                    if language:
+                        main_audio_track_lang = language.name
+                    return main_audio_track_lang
+
+
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
     current_time = datetime.utcnow()
     return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+
+def format_time(seconds):
+    """Return a formatted string for the given duration in seconds."""
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    parts = []
+    if hours:
+        if hours == 1:
+            parts.append(f"{hours} hour,")
+        else:
+            parts.append(f"{hours} hours,")
+    if minutes:
+        if minutes == 1:
+            parts.append(f"{minutes} minute")
+        else:
+            parts.append(f"{minutes} minutes")
+    if seconds or not parts:  # If it's 0 seconds, we want to include it.
+        if seconds == 1:
+            parts.append(f"and {seconds} second")
+        else:
+            parts.append(f"and {seconds} seconds")
+
+    if seconds and (not hours and not minutes):
+        if seconds == 1:
+            return f"{seconds} second"
+        else:
+            return f"{seconds} seconds"
+    else:
+        return " ".join(parts)
 
 
 def get_config(section, option, default_config):
@@ -283,7 +349,8 @@ config = {
         'always_enable_subs': get_config('subtitles', 'ALWAYS_ENABLE_SUBS', variables_defaults).lower() == "true",
         'always_remove_sdh': get_config('subtitles', 'REMOVE_SDH', variables_defaults).lower() == "true",
         'remove_music': get_config('subtitles', 'REMOVE_MUSIC', variables_defaults).lower() == "true",
-        'resync_subtitles': get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true"
+        'resync_subtitles': get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true",
+        'download_missing_subs': get_config('subtitles', 'DOWNLOAD_MISSING_SUBS', variables_defaults).lower() == "true"
     }
 }
 

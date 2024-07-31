@@ -10,97 +10,13 @@ from scripts.subs import *
 from scripts.audio import *
 from scripts.misc import *
 
-# General
-input_folder = get_config('general', 'INPUT_FOLDER', variables_defaults)
-output_folder = get_config('general', 'OUTPUT_FOLDER', variables_defaults)
-keep_original = True if get_config('general', 'KEEP_ORIGINAL', variables_defaults).lower() == "true" else False
-ini_temp_dir = get_config('general', 'TEMP_DIR', variables_defaults)
-file_tag = get_config('general', 'FILE_TAG', variables_defaults)
-remove_samples = True if get_config('general', 'REMOVE_SAMPLES', variables_defaults).lower() == "true" else False
-movies_folder = get_config('general', 'MOVIES_FOLDER', variables_defaults)
-movies_hdr_folder = get_config('general', 'MOVIES_HDR_FOLDER', variables_defaults)
-tv_shows_folder = get_config('general', 'TV_SHOWS_FOLDER', variables_defaults)
-tv_shows_hdr_folder = get_config('general', 'TV_SHOWS_HDR_FOLDER', variables_defaults)
-others_folder = get_config('general', 'OTHERS_FOLDER', variables_defaults)
-
-# Audio
-pref_audio_langs = [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')]
-pref_audio_codec = get_config('audio', 'PREFERRED_AUDIO_CODEC', variables_defaults)
-remove_commentary = True if get_config('audio', 'REMOVE_COMMENTARY_TRACK', variables_defaults).lower() == "true" else False
-
-# Subtitles
-pref_subs_langs = [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')]
-pref_subs_langs_short = [item.strip()[:-1] for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')]
-pref_subs_ext = [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_EXT', variables_defaults).split(',')]
-always_enable_subs = True if get_config('subtitles', 'ALWAYS_ENABLE_SUBS', variables_defaults).lower() == "true" else False
-always_remove_sdh = True if get_config('subtitles', 'REMOVE_SDH', variables_defaults).lower() == "true" else False
-remove_music = True if get_config('subtitles', 'REMOVE_MUSIC', variables_defaults).lower() == "true" else False
-resync_subtitles = True if get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true" else False
-
-
-def get_timestamp():
-    """Return the current UTC timestamp in the desired format."""
-    current_time = datetime.utcnow()
-    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-
-
-def debug_pause():
-    print(f"{GREY}[DEBUG]{RESET} Press Enter to continue or 'q' to quit: ")
-    if os.name == 'nt':  # Windows
-        import msvcrt
-        key = msvcrt.getch()
-        if key.lower() == b'q':
-            exit()
-    else:  # Unix/Linux/MacOS
-        import sys, tty, termios
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(sys.stdin.fileno())
-            key = sys.stdin.read(1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-        if key.lower() == 'q':
-            exit()
-    print('')
-
-
-def format_time(seconds):
-    """Return a formatted string for the given duration in seconds."""
-    hours, remainder = divmod(seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    parts = []
-    if hours:
-        parts.append(f"{hours} {print_multi_or_single(hours, 'hour')}")
-    if minutes:
-        parts.append(f"{minutes} {print_multi_or_single(minutes, 'minute')}")
-    if seconds or not parts:  # If it's 0 seconds, we want to include it.
-        parts.append(f"{seconds} {print_multi_or_single(seconds, 'second')}")
-
-    if seconds and (not hours and not minutes):
-        return f"{seconds} {print_multi_or_single(seconds, 'second')}"
-    else:
-        return " ".join(parts)
-
-
-def get_main_audio_track_language(file_info):
-    main_audio_track_lang = None
-    # Get the main audio language
-    for track in file_info['tracks']:
-        if track['type'] == 'audio':
-            for key, value in track["properties"].items():
-                if key == 'language':
-                    language = pycountry.languages.get(alpha_3=value)
-                    if language:
-                        main_audio_track_lang = language.name
-                    return main_audio_track_lang
-
 
 def mt_mkv_auto(args):
     input_dir = check_config(config, 'general', 'input_folder')
     output_dir = check_config(config, 'general', 'output_folder')
+    keep_original = check_config(config, 'general', 'keep_original')
+    ini_temp_dir = check_config(config, 'general', 'ini_temp_dir')
+    remove_samples = check_config(config, 'general', 'remove_samples')
 
     if keep_original:
         move_files = False
@@ -205,59 +121,68 @@ def mt_mkv_auto(args):
         if not dirpath == 'input/':
             dirpaths.append(dirpath)
 
-        # Ignore files that start with a dot
-        filenames = [f for f in filenames if not f.startswith('.')]
-
-        # Extract the directory path relative to the input directory
-        relative_dir_path = os.path.relpath(dirpath, input_dir)
-        # Split the relative path into individual directories
-        all_dirnames = relative_dir_path.split(os.sep)
-
         """
         Main loop
         """
 
+        # Ignore files that start with a dot
+        filenames = [f for f in filenames if not f.startswith('.')]
+        # Extract the directory path relative to the input directory
+        relative_dir_path = os.path.relpath(dirpath, input_dir)
+        # Split the relative path into individual directories
+        all_dirnames = relative_dir_path.split(os.sep)
         total_external_subs = []
-
         # Remove all filenames that are not mkv or srt
         filenames = [f for f in filenames if f.endswith('.mkv') or f.endswith('.srt')]
         # Remove all filenames that are not mkv
         filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
+        download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
 
         print_media_info(filenames)
 
         print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Using {max_workers} CPU threads for processing.")
         start_time = time.time()
 
-        need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(debug, max_workers, filenames_mkv_only, dirpath)
-        audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(debug, max_workers, filenames_mkv_only, dirpath)
+        try:
+            filenames_mkv_only = remove_clutter_process(debug, max_workers, filenames_mkv_only, dirpath)
 
-        if any(need_processing_subs):
-            all_subtitle_files = extract_subs_in_mkv_process(debug, max_workers, filenames_mkv_only, dirpath)
+            need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(debug, max_workers, filenames_mkv_only, dirpath)
+            audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(debug, max_workers, filenames_mkv_only, dirpath)
 
-            subtitle_tracks_to_be_merged, subtitle_files_to_process = convert_to_srt_process(debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
+            if any(need_processing_subs):
+                all_subtitle_files = extract_subs_in_mkv_process(debug, max_workers, filenames_mkv_only, dirpath)
 
-            if subtitle_files_to_process:
-                remove_sdh_process(debug, max_workers, subtitle_files_to_process)
-                resync_sub_process(debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
+                if any(file.endswith('.srt') for file in filenames):
+                    total_external_subs = process_external_subs(debug, max_workers, dirpath, filenames_mkv_only)
 
-        if any(file.endswith('.srt') for file in filenames):
-            total_external_subs = process_external_subs(debug, max_workers, dirpath, filenames_mkv_only)
+                if not all(sub == 'none' for sub in all_missing_subs_langs) and download_missing_subs:
+                    all_downloaded_subs = fetch_missing_subtitles_process(debug, max_workers, filenames_mkv_only, dirpath, total_external_subs,
+                                                    all_missing_subs_langs)
+                    all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, all_downloaded_subs)]
 
-        if not all(sub == 'none' for sub in all_missing_subs_langs):
-            fetch_missing_subtitles_process(debug, max_workers, filenames_mkv_only, dirpath, total_external_subs, all_missing_subs_langs)
+                subtitle_tracks_to_be_merged, subtitle_files_to_process = convert_to_srt_process(debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
 
-        if any(audio_tracks_to_be_merged) or any(subtitle_tracks_to_be_merged):
-            repack_mkv_tracks_process(debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
+                if subtitle_files_to_process:
+                    remove_sdh_process(debug, max_workers, subtitle_files_to_process)
+                    resync_sub_process(debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
 
-        #move_files_to_output_process(debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+            if any(audio_tracks_to_be_merged) or any(subtitle_tracks_to_be_merged):
+                repack_mkv_tracks_process(debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
 
-        end_time = time.time()
-        processing_time = end_time - start_time
+            move_files_to_output_process(debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
 
-        print(f"\n{GREY}[INFO]{RESET} All files successfully processed.")
-        print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
+            end_time = time.time()
+            processing_time = end_time - start_time
 
+            print(f"\n{GREY}[INFO]{RESET} All files successfully processed.")
+            print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
+        except Exception as e:
+            # If anything were to fail, move files to output folder
+            print(f"\n{RED}[ERROR]{RESET} An unknown error occured. Moving "
+                  f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
+            traceback.print_tb(e.__traceback__)
+            print('')
+            move_files_to_output_process(debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
     exit(0)
 
 

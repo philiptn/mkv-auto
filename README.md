@@ -6,6 +6,7 @@ removing and/or converting any audio or subtitle tracks from the source video.
 
 ### Features
 - Removes any audio or subtitle tracks from video that does not match user preferences
+- Automatically downloads any missing subtitles languages using subliminal
 - Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (ffmpeg)
 - Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and Tesseract OCR
 - Converts Advanced SubStation Alpha (ASS/SSA) and MP4 (tx3g) subtitles to SRT using Python libraries and ffmpeg
@@ -119,9 +120,9 @@ docker run --rm -it -v ${PWD}:/mkv-auto/files philiptn/mkv-auto --docker --move
 
 ## To-do
 - [ ] Clean up functions and use more sensible data-types such as classes, structs etc.
-- [ ] Process multiple files at once - full multithreading support
+- [x] Process multiple files at once - full multithreading support
 - [ ] Add support for video encoding workers - Handbrake/NVEncc/ffmpeg
-- [ ] (maybe) add support for automatically fetching missing subtitles
+- [x] (maybe) add support for automatically fetching missing subtitles
 
 ## CLI
 ### mkv-auto

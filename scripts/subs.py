@@ -171,7 +171,7 @@ def process_external_subs_worker(debug, input_file, dirpath, internal_threads):
             file_name = os.path.basename(srt_file)
             if no_country_code_pattern.match(file_name) or standalone_srt_file:
                 lang_code, full_language = detect_language_of_subtitle(srt_file)
-                new_srt_file_name = os.path.join(base_path, f"{mkv_base_name}.{lang_code}.srt")
+                new_srt_file_name = os.path.join(base_path, f"{mkv_base_name}.1.{lang_code}.srt")
                 os.rename(srt_file, new_srt_file_name)
                 srt_file = new_srt_file_name
 
@@ -424,61 +424,31 @@ def get_output_subtitle_string(filename, track_numbers, output_filetypes, subs_l
     return subtitle_filenames
 
 
-def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):
-    replacements = []
-    # Create a temporary directory for this thread's SubtitleEdit instance
-    temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
-    try:
-        # Copy the SubtitleEdit directory to the temporary directory
-        local_subtitleedit_dir = os.path.join(temp_dir, 'SubtitleEdit')
-        shutil.copytree(subtitleedit_dir, local_subtitleedit_dir)
-
-        subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
-        subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
-
-        base_and_lang_with_id, _, original_extension = file.rpartition('.')
-        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-        base, _, track_id = base_with_id.rpartition('.')
-
-        if "sup" in file or "sub" in file:
-            update_tesseract_lang_xml(language, subtitleedit_settings)
-
-            command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
-
-            if debug:
-                print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
-
-            run_with_xvfb(command)
-
-            output_subtitle = f"{base}.{track_id}.{lang}.srt"
-            subtitle_tmp = f"{base}.{track_id}.{lang}_tmp.srt"
-
-            if lang == 'en':
-                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
-                replacements = replacements + current_replacements
-                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', output_subtitle)
-                os.remove(subtitle_tmp)
-                replacements = replacements + current_replacements
-            else:
-                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_only.csv', subtitle_tmp)
-                os.rename(subtitle_tmp, output_subtitle)
-                replacements = replacements + current_replacements
-
-        else:
-            output_subtitle = ''
-    finally:
-        # Clean up the temporary directory
-        shutil.rmtree(temp_dir)
-
-    return file, output_subtitle, language, track_id, name, forced, replacements, original_extension
-
-
 def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, main_audio_track_lang):
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
 
+    all_languages = languages
+    all_names = names
+    all_forced = forced
+
+    # If a downloaded or extracted SRT is passed, fill out
+    # the subtitle metadata variables
+    if any(sub_file.endswith('.srt') for sub_file in subtitle_files):
+        for sub_file in subtitle_files:
+            base_and_lang_with_id, _, original_extension = sub_file.rpartition('.')
+            base_with_id, _, language = base_and_lang_with_id.rpartition('.')
+            base, _, track_id = base_with_id.rpartition('.')
+            # Convert to 3-letter code instead of 2-letter code
+            language = pycountry.languages.get(alpha_2=language).alpha_3
+
+            if language not in languages:
+                all_languages.append(language)
+                all_names.append('')
+                all_forced.append(0)
+
     if debug:
-        print('')
+        print('\n')
 
     # Prepare to track the results in the order they were submitted
     results = [None] * len(subtitle_files)  # Placeholder list for results
@@ -486,8 +456,8 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Submit all tasks and store futures in a dictionary with their index
         future_to_index = {
-            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], languages[i], names[i],
-                            forced[i], subtitleedit_dir): i
+            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], all_languages[i], all_names[i],
+                            all_forced[i], subtitleedit_dir): i
             for i in range(len(subtitle_files))
         }
 
@@ -541,6 +511,54 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
         print('')
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
+
+
+def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):
+    replacements = []
+    # Create a temporary directory for this thread's SubtitleEdit instance
+    temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
+    try:
+        # Copy the SubtitleEdit directory to the temporary directory
+        local_subtitleedit_dir = os.path.join(temp_dir, 'SubtitleEdit')
+        shutil.copytree(subtitleedit_dir, local_subtitleedit_dir)
+
+        subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
+        subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
+
+        base_and_lang_with_id, _, original_extension = file.rpartition('.')
+        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+        base, _, track_id = base_with_id.rpartition('.')
+
+        if "sup" in file or "sub" in file:
+            update_tesseract_lang_xml(language, subtitleedit_settings)
+
+            command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
+
+            if debug:
+                print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+
+            run_with_xvfb(command)
+
+            output_subtitle = f"{base}.{track_id}.{lang}.srt"
+            subtitle_tmp = f"{base}.{track_id}.{lang}_tmp.srt"
+
+            if lang == 'en':
+                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
+                replacements = replacements + current_replacements
+                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', output_subtitle)
+                os.remove(subtitle_tmp)
+                replacements = replacements + current_replacements
+            else:
+                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_only.csv', subtitle_tmp)
+                os.rename(subtitle_tmp, output_subtitle)
+                replacements = replacements + current_replacements
+        else:
+            output_subtitle = ''
+    finally:
+        # Clean up the temporary directory
+        shutil.rmtree(temp_dir)
+
+    return file, output_subtitle, language, track_id, name, forced, replacements, original_extension
 
 
 def update_tesseract_lang_xml(new_language, settings_file):
@@ -645,6 +663,8 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     # If no sub langs are missing, set to "none", as a value is needed
     if not missing_subs_langs:
         missing_subs_langs = ['none']
+    else:
+        needs_processing = True
 
     # If none of the subs track matches the language preference,
     # set the preferred sub languages to the ones found, and run the detection
@@ -848,7 +868,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         print(f"{BLUE}needs SDH removal{RESET}: {needs_sdh_removal}")
         print(f"{BLUE}needs to be converted{RESET}: {needs_convert}")
         print(f"\n{BLUE}all wanted subtitle track ids{RESET}: {subs_track_ids}")
-        print(f"{BLUE}all wanted, but missing subtitle langs{RESET}: {missing_subs_langs}")
+        print(f"{BLUE}missing subtitle langs{RESET}: {missing_subs_langs}")
         print(f"{BLUE}default subtitle track id{RESET}: {default_subs_track}")
         print(f"{BLUE}subtitle tracks to be extracted{RESET}:\n  {BLUE}filetypes{RESET}: {sub_filetypes}, "
               f"{BLUE}langs{RESET}: {subs_track_languages}, {BLUE}names{RESET}: {subs_track_names}, "

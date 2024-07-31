@@ -205,8 +205,6 @@ def replace_tags_in_file(file_path, replacement):
             base = tag_regex.sub(replacement + (match.group(2) or ""), base)
         elif ext == ".mkv":
             base += replacement
-        shutil.move(os.path.join(dirpath, filename), os.path.join(dirpath, base + ext))
-
     return base + ext
 
 
