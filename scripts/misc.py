@@ -5,6 +5,7 @@ from backports import configparser
 import re
 from collections import defaultdict
 import traceback
+import shutil
 
 
 # ANSI color codes
@@ -64,6 +65,21 @@ def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
     current_time = datetime.utcnow()
     return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+
+def flatten_directories(directory):
+    # Walk through the directory
+    for root, dirs, files in os.walk(directory, topdown=False):
+        for name in files:
+            # Move each file to the root directory
+            source = os.path.join(root, name)
+            destination = os.path.join(directory, name)
+            if source != destination:  # Avoid moving if source and destination are the same
+                shutil.move(source, destination)
+
+        for name in dirs:
+            # Remove the empty subdirectories
+            os.rmdir(os.path.join(root, name))
 
 
 def format_time(seconds):

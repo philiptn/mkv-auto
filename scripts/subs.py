@@ -510,7 +510,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
                 print(replacement)
         print('')
 
-    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes, all_replacements
 
 
 def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):

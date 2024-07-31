@@ -208,32 +208,6 @@ def replace_tags_in_file(file_path, replacement):
     return base + ext
 
 
-def flatten_dirs(root_dir):
-    # Get a list of all first level directories
-    level_1_dirs = [d.path for d in os.scandir(root_dir) if d.is_dir() and not d.name.startswith(".")]
-
-    # Move files from subdirectories to level 1 directories
-    for level_1_dir in level_1_dirs:
-        for dirpath, dirnames, filenames in os.walk(level_1_dir):
-            # Exclude directories starting with "."
-            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-
-            for filename in filenames:
-                if filename.endswith(('.mkv', '.srt')):
-                    new_path = os.path.join(level_1_dir, filename)
-                    if not os.path.exists(new_path):
-                        shutil.move(os.path.join(dirpath, filename), new_path)
-
-    # Remove subdirectories
-    for level_1_dir in level_1_dirs:
-        for dirpath, dirnames, filenames in os.walk(level_1_dir, topdown=False):
-            # Exclude directories starting with "."
-            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-
-            for dirname in dirnames:
-                shutil.rmtree(os.path.join(dirpath, dirname))
-
-
 def remove_sample_files_and_dirs(root_dir):
     for dirpath, dirnames, filenames in os.walk(root_dir, topdown=False):
         # Exclude directories starting with a dot

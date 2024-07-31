@@ -85,6 +85,8 @@ def mt_mkv_auto(args):
     if not args.silent:
         show_cursor()
 
+    flatten_directories(input_dir)
+
     convert_all_videos_to_mkv(debug, input_dir, args.silent)
     rename_others_file_to_folder(input_dir)
 

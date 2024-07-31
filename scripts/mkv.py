@@ -576,6 +576,7 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
     total_files = len(input_files)
     all_ready_subtitle_tracks = [None] * total_files
     subtitle_tracks_to_be_processed = [None] * total_files
+    all_replacements_list = [None] * total_files
 
     # Calculate number of workers and internal threads, use half + 2, as
     # the OCR process uses multiple Tesseract processes internally.
@@ -597,16 +598,23 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
                 pbar.update(1)
                 try:
                     index = futures[future]
-                    ready_tracks, output_subtitles = future.result()
+                    ready_tracks, output_subtitles, all_replacements = future.result()
                     if ready_tracks is not None:
                         all_ready_subtitle_tracks[index] = ready_tracks
                     if output_subtitles is not None:
                         subtitle_tracks_to_be_processed[index] = output_subtitles
+                    if all_replacements is not None:
+                        all_replacements_list[index] = all_replacements
 
                 except Exception as e:
                     print(f"\n{RED}[ERROR]{RESET} {e}")
                     traceback.print_tb(e.__traceback__)
                     raise
+
+    all_replacements_list_count = len([item for list in all_replacements_list for item in list])
+    if all_replacements_list_count:
+        print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Fixed "
+              f"{all_replacements_list_count} OCR errors in subtitle tracks.")
     show_cursor()
     return all_ready_subtitle_tracks, subtitle_tracks_to_be_processed
 
@@ -614,6 +622,7 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
 
 def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files):
     input_file_with_path = os.path.join(dirpath, input_file)
+    all_replacements = []
 
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
@@ -632,7 +641,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
             subtitle_files, subs_track_languages, subs_track_names, subs_track_forced, main_audio_track_lang)
     else:
         (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
-         all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = ocr_subtitles(
+         all_subs_track_names, all_subs_track_forced, updated_sub_filetypes, all_replacements) = ocr_subtitles(
             internal_threads, debug, subtitle_files, subs_track_languages, subs_track_names, subs_track_forced,
             main_audio_track_lang)
 
@@ -644,7 +653,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
         'sub_ids': all_subs_track_ids,
         'sub_names': all_subs_track_names,
         'sub_forced': all_subs_track_forced
-    }, output_subtitles
+    }, output_subtitles, all_replacements
 
 
 def remove_sdh_process(debug, max_worker_threads, subtitle_files_to_process_list):
