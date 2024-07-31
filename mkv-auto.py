@@ -156,6 +156,7 @@ def mt_mkv_auto(args):
 
                 if any(file.endswith('.srt') for file in filenames):
                     total_external_subs = process_external_subs(debug, max_workers, dirpath, filenames_mkv_only)
+                    all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, total_external_subs)]
 
                 if not all(sub == 'none' for sub in all_missing_subs_langs) and download_missing_subs:
                     all_downloaded_subs = fetch_missing_subtitles_process(debug, max_workers, filenames_mkv_only, dirpath, total_external_subs,
@@ -180,10 +181,9 @@ def mt_mkv_auto(args):
             print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
         except Exception as e:
             # If anything were to fail, move files to output folder
-            print(f"\n{RED}[ERROR]{RESET} An unknown error occured. Moving "
+            print(f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
                   f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
             traceback.print_tb(e.__traceback__)
-            print('')
             move_files_to_output_process(debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
     exit(0)
 

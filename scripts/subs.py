@@ -111,11 +111,9 @@ def detect_language_of_subtitle(subtitle_path):
 def process_external_subs(debug, max_worker_threads, dirpath, input_files):
 
     total_files = len(input_files)
-    all_ready_subtitle_tracks = [None] * total_files
     subtitle_tracks_to_be_processed = [None] * total_files
 
     num_workers = min(total_files, max_worker_threads)
-    internal_threads = max(1, max_worker_threads // num_workers)
 
     hide_cursor()
     with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
@@ -125,15 +123,13 @@ def process_external_subs(debug, max_worker_threads, dirpath, input_files):
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(process_external_subs_worker, debug, input_file, dirpath, internal_threads): index for index, input_file in enumerate(input_files)}
+            futures = {executor.submit(process_external_subs_worker, debug, input_file, dirpath): index for index, input_file in enumerate(input_files)}
             for future in concurrent.futures.as_completed(futures):
                 # Update the progress bar when a file is processed
                 pbar.update(1)
                 try:
                     index = futures[future]
-                    ready_tracks, output_subtitles = future.result()
-                    if ready_tracks is not None:
-                        all_ready_subtitle_tracks[index] = ready_tracks
+                    output_subtitles = future.result()
                     if output_subtitles is not None:
                         subtitle_tracks_to_be_processed[index] = output_subtitles
 
@@ -142,20 +138,17 @@ def process_external_subs(debug, max_worker_threads, dirpath, input_files):
                     traceback.print_tb(e.__traceback__)
                     raise
     show_cursor()
-    return all_ready_subtitle_tracks, subtitle_tracks_to_be_processed
+    return subtitle_tracks_to_be_processed
 
 
-def process_external_subs_worker(debug, input_file, dirpath, internal_threads):
-    input_file = os.path.join(dirpath, input_file)
+def process_external_subs_worker(debug, input_file, dirpath):
     mkv_base, _, mkv_extension = input_file.rpartition('.')
     base_path, mkv_base_name = os.path.split(mkv_base)
     srt_pattern = re.compile(f"{re.escape(mkv_base_name)}(\\.[a-zA-Z]{{2,3}})?\\.srt$")
     no_country_code_pattern = re.compile(f"{re.escape(mkv_base_name)}\\.srt$")
     standalone_srt_file = False
 
-    always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
-    remove_music = check_config(config, 'subtitles', 'remove_music')
-    resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
+    all_srt_files = []
 
     # Find all SRT files matching the patterns
     srt_files = []
@@ -166,22 +159,21 @@ def process_external_subs_worker(debug, input_file, dirpath, internal_threads):
 
     # Process each matching SRT file
     if srt_files:
-        external_sub = True
         for srt_file in srt_files:
             file_name = os.path.basename(srt_file)
             if no_country_code_pattern.match(file_name) or standalone_srt_file:
                 lang_code, full_language = detect_language_of_subtitle(srt_file)
                 new_srt_file_name = os.path.join(base_path, f"{mkv_base_name}.1.{lang_code}.srt")
-                os.rename(srt_file, new_srt_file_name)
+                shutil.move(srt_file, new_srt_file_name)
                 srt_file = new_srt_file_name
-
-            if always_remove_sdh or remove_music:
-                remove_sdh(internal_threads, debug, [srt_file], remove_music, [], external_sub)
-
-            if resync_subtitles:
-                resync_srt_subs(internal_threads, debug, input_file, [srt_file], external_sub)
-
-            return srt_file
+                all_srt_files.append(srt_file)
+            else:
+                base_and_lang, _, original_extension = srt_file.rpartition('.')
+                base, _, lang = base_and_lang.rpartition('.')
+                new_srt_file_name = f"{base}.1.{lang[:-1]}.srt"
+                shutil.move(srt_file, new_srt_file_name)
+                all_srt_files.append(new_srt_file_name)
+        return all_srt_files
     else:
         return
 

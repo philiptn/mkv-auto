@@ -453,13 +453,13 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
      pref_audio_codec_found, track_ids_to_be_converted,
      track_langs_to_be_converted, other_track_ids, other_track_langs,
      track_names_to_be_converted, other_track_names) = get_wanted_audio_tracks(
-        debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
+        False, file_info, pref_audio_langs, remove_commentary, pref_audio_codec)
 
     # Generating audio tracks if preferred codec not found in all audio tracks
     if needs_processing_audio:
 
         if debug:
-            print('')
+            print('\n')
 
         if other_track_ids:
             (extracted_other_audio_files, extracted_other_audio_langs,
@@ -476,8 +476,6 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
                                                                        track_ids_to_be_converted,
                                                                        track_langs_to_be_converted,
                                                                        track_names_to_be_converted)
-            if debug:
-                print('')
 
             (ready_audio_extensions, ready_audio_langs,
              ready_track_names, ready_track_ids) = encode_audio_tracks(
@@ -719,15 +717,12 @@ def fetch_missing_subtitles_process(debug, max_worker_threads, input_files, dirp
         for lang in all_missing_subs_langs[index]:
             if lang != 'none':
                 if total_external_subs:
-                    for index1, sub_file in enumerate(total_external_subs):
-                        if input_files[index] in total_external_subs:
-                            if lang[:-1] not in total_external_subs[index1]:
-                                truly_missing_subs_langs.append(lang[:-1])
-                            elif lang[:-1] in total_external_subs[index1]:
-                                all_downloaded_subs[index] = total_external_subs[index1]
+                    input_file_base = re.sub(r'^[^/]+/', '', input_files[index]).replace(".mkv", "")
+                    if any(input_file_base in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in total_external_subs for sub in sublist):
+                        if not any(lang[:-1] in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in total_external_subs for sub in sublist):
+                            truly_missing_subs_langs.append(lang[:-1])
                 else:
                     truly_missing_subs_langs.append(lang[:-1])
-
         all_truly_missing_subs_langs.append(truly_missing_subs_langs)
 
     num_workers = min(total_files, max_worker_threads)
@@ -761,11 +756,13 @@ def fetch_missing_subtitles_process(debug, max_worker_threads, input_files, dirp
     failed_len = 0
     for failed in all_failed_downloads:
         if failed:
-            failed_len += 1
+            for item in failed:
+                failed_len += 1
     success_len = 0
     for success in all_downloaded_subs:
         if success:
-            success_len += 1
+            for item in success:
+                success_len += 1
 
     unique_vals_print = ", ".join(set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist))
     print(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
