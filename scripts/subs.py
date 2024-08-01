@@ -24,8 +24,10 @@ from tqdm import tqdm
 
 from scripts.misc import *
 
-# Define a global lock
+# Define a XML lock
 xml_file_lock = threading.Lock()
+# Create an X11 server lock
+x11_lock = threading.Lock()
 
 
 def clean_invalid_utf8(input_file, output_file):
@@ -66,10 +68,12 @@ def find_and_replace(input_file, replacement_file, output_file):
 
 def find_available_display():
     while True:
-        display_number = random.randint(100, 1000)  # Adjust the range as necessary
-        lock_file = f"/tmp/.X11-unix/X{display_number}"
-        if not os.path.exists(lock_file):
-            return display_number
+        # Acquire the lock before entering the critical section
+        with x11_lock:
+            display_number = random.randint(100, 1000)  # Adjust the range as necessary
+            lock_file = f"/tmp/.X11-unix/X{display_number}"
+            if not os.path.exists(lock_file):
+                return display_number
 
 
 def run_with_xvfb(command):

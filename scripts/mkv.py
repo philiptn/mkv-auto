@@ -576,10 +576,10 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
 
-    # Calculate number of workers and internal threads, divide by 1.5 as
+    # Calculate number of workers and internal threads, floor divide by 1.2 as
     # the OCR process uses multiple Tesseract processes internally.
     # Reduced threads to not overwhelm the system.
-    num_workers = min(total_files, max_worker_threads // 1.5)
+    num_workers = min(total_files, max_worker_threads // 1.2)
     internal_threads = max(1, max_worker_threads // num_workers)
 
     hide_cursor()
