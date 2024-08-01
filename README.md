@@ -7,13 +7,13 @@ removing and/or converting any audio or subtitle tracks from the source video.
 ### Features
 - Removes any audio or subtitle tracks from video that does not match user preferences
 - Automatically downloads any missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal)
-- Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (ffmpeg)
+- Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (FFmpeg)
 - Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and Tesseract OCR
-- Converts Advanced SubStation Alpha (ASS/SSA) and MP4 (tx3g) subtitles to SRT using Python libraries and ffmpeg
+- Converts Advanced SubStation Alpha (ASS) and MP4 (tx3g) subtitles to SRT using Python libraries and FFmpeg
 - Removes SDH (such as `[MAN COUGHING]` or `[DISTANT CHATTER]`) from SRT subtitles (default enabled)
 - Resynchronizes subtitles to match the audio track of the video using ffsubsync (best effort)
 - Unpacks any `.rar` or `.zip` archives and converts `.mp4` or `.avi` files to MKV before processing the media
-- Remove any hidden Closed Captions (CC) from the video stream using ffmpeg 
+- Remove any hidden Closed Captions (CC) from the video stream using FFmpeg 
 - Automatically categorize the media content type (TV Show/Movie, SDR/HDR) based on info in filename
 
 ### Processing example
@@ -122,7 +122,7 @@ docker run --rm -it -v ${PWD}:/mkv-auto/files philiptn/mkv-auto --docker --move
 ## To-do
 - [ ] Clean up functions and use more sensible data-types such as classes, structs etc.
 - [x] Process multiple files at once - full multithreading support
-- [ ] Add support for video encoding workers - Handbrake/NVEncc/ffmpeg
+- [ ] Add support for video encoding workers - Handbrake/NVEncc/FFmpeg
 - [x] (maybe) add support for automatically fetching missing subtitles
 
 ## CLI
@@ -175,7 +175,7 @@ options:
 
 #### This project would not be possible without the following third-party tools/packages: 
 
-ffmpeg (for converting audio/subtitle streams and general handling of video containers)  
+FFmpeg (for converting audio/subtitle streams and general handling of video containers)  
 https://ffmpeg.org/
 
 MKVToolNix (for managing MKV files, extracting, merging, file info, etc.)  
