@@ -3,9 +3,10 @@
 # subtitle-filter==1.4.6
 subtitle-filter==1.4.9
 
-# For progress bars with support for logging
-# https://pypi.org/project/tqdm-loggable/
-tqdm-loggable==0.2
+# For progress bar support
+# https://pypi.org/project/tqdm/
+# tqdm==4.65.0
+tqdm==4.66.2
 
 # For parsing .ini files
 # https://pypi.org/project/configparser/
