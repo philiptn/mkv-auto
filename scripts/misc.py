@@ -281,6 +281,22 @@ def compact_names_list(names):
     return names
 
 
+def compact_episode_list(episodes):
+    episodes = sorted(episodes)
+    ranges = []
+    range_start = range_end = episodes[0]
+
+    for episode in episodes[1:]:
+        if episode == range_end + 1:
+            range_end = episode
+        else:
+            ranges.append((range_start, range_end))
+            range_start = range_end = episode
+    ranges.append((range_start, range_end))
+
+    return ", ".join(f"{start}" if start == end else f"{start}-{end}" for start, end in ranges)
+
+
 def print_media_info(filenames):
     # Remove SRT subtitles from count list
     filenames = [f for f in filenames if not f.endswith('.srt')]
@@ -294,8 +310,9 @@ def print_media_info(filenames):
         file_info = reformat_filename(filename, True)
         if 'tv_show' in file_info["media_type"]:
             season, episode = extract_season_episode(filename)
-            show_name = file_info["media_name"]
-            tv_shows[show_name][season].add(episode)
+            if season and episode:
+                show_name = file_info["media_name"]
+                tv_shows[show_name][season].add(episode)
         elif 'movie' in file_info["media_type"]:
             movies.append(file_info["media_name"])
         else:
@@ -304,9 +321,9 @@ def print_media_info(filenames):
     if tv_shows:
         print(f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show, seasons in tv_shows.items():
-            episode_count = sum(len(episodes) for episodes in seasons.values())
-            print(f"  {BLUE}{show}{RESET} ({len(seasons)} {print_multi_or_single(len(seasons), 'season')}, "
-                  f"{episode_count} {print_multi_or_single(episode_count, 'episode')})")
+            for season, episodes in sorted(seasons.items()):
+                episode_list = compact_episode_list(episodes)
+                print(f"  {BLUE}{show}{RESET} (season {season}, episode {episode_list})")
     if movies:
         print(f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         movies = compact_names_list(movies)

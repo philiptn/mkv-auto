@@ -154,6 +154,16 @@ def get_mkv_video_codec(filename):
     return codec
 
 
+def check_if_subs_in_mkv(filename):
+    parsed_json, _ = get_mkv_info(False, filename, True)
+    if parsed_json:
+        for track in parsed_json['tracks']:
+            if track['type'] == 'subtitles':
+                return True
+        else:
+            return False
+
+
 def has_closed_captions(file_path):
     # Command to get ffprobe output
     command = ['ffprobe', file_path]
@@ -513,17 +523,8 @@ def extract_subs_in_mkv_process(debug, max_worker_threads, input_files, dirpath)
     all_subtitle_files = [None] * total_files
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
-    all_wanted_subs_tracks = []
-    for input_file in input_files:
-        input_file_with_path = os.path.join(dirpath, input_file)
-        file_info, pretty_file_info = get_mkv_info(False, input_file_with_path, True)
-        wanted_subs_tracks = get_wanted_subtitle_tracks(False, file_info, pref_subs_langs)
-        all_wanted_subs_tracks.append(wanted_subs_tracks)
-
-    if all_wanted_subs_tracks:
-        disable_tqdm = False
-    else:
-        disable_tqdm = True
+    # Disable tqdm if there are no subtitle tracks to extract
+    disable_tqdm = True if all(check_if_subs_in_mkv(os.path.join(dirpath, file)) == False for file in input_files) else False
 
     # Calculate number of workers and internal threads
     num_workers = min(total_files, max_worker_threads)
@@ -576,6 +577,9 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
 
+    # Disable tqdm if there are no subtitle tracks to process
+    disable_tqdm = True if not all(sub for sub in subtitle_files_list) else False
+
     # Calculate number of workers and internal threads, floor divide by 1.2 as
     # the OCR process uses multiple Tesseract processes internally.
     # Reduced threads to not overwhelm the system.
@@ -583,7 +587,7 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
     internal_threads = max(1, max_worker_threads // num_workers)
 
     hide_cursor()
-    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
+    with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file', disable=disable_tqdm) as pbar:
 
         pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} "
                              f"Convert subtitles to SRT")

@@ -165,7 +165,7 @@ def mt_mkv_auto(args):
 
                 subtitle_tracks_to_be_merged, subtitle_files_to_process = convert_to_srt_process(debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
 
-                if subtitle_files_to_process:
+                if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
                     remove_sdh_process(debug, max_workers, subtitle_files_to_process)
                     resync_sub_process(debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
 
