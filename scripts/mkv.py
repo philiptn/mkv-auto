@@ -386,7 +386,7 @@ def generate_audio_tracks_in_mkv_files(debug, max_worker_threads, input_files, d
     pref_audio_codec = check_config(config, 'audio', 'pref_audio_codec')
 
     # Calculate number of workers and internal threads
-    num_workers = min(total_files, max_worker_threads // 2)
+    num_workers = min(total_files, max_worker_threads)
     # Half it due to OCR process internally using multiple threads, to not overwhelm the system
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -576,10 +576,10 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
 
-    # Calculate number of workers and internal threads, use half + 2, as
+    # Calculate number of workers and internal threads, divide by 1.5 as
     # the OCR process uses multiple Tesseract processes internally.
     # Reduced threads to not overwhelm the system.
-    num_workers = min(total_files, max_worker_threads // 2 + 2)
+    num_workers = min(total_files, max_worker_threads // 1.5)
     internal_threads = max(1, max_worker_threads // num_workers)
 
     hide_cursor()
@@ -763,10 +763,15 @@ def fetch_missing_subtitles_process(debug, max_worker_threads, input_files, dirp
         if success:
             for item in success:
                 success_len += 1
+    truly_missing_subs_count = 0
+    for sub in all_missing_subs_langs:
+        if sub:
+            for item in sub:
+                truly_missing_subs_count += 1
 
     unique_vals_print = ", ".join(set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist))
     print(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
-          f"Requested {print_multi_or_single(len(all_truly_missing_subs_langs), 'language')}: {unique_vals_print}")
+          f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
     print(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
           f"Success: {success_len}, Unavailable: {failed_len}")
 
