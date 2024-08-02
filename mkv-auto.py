@@ -180,9 +180,9 @@ def mt_mkv_auto(args):
             end_time = time.time()
             processing_time = end_time - start_time
 
-            print(f"\n{GREY}[UTC {get_timestamp()}] [INFO]{RESET} All {len(filenames_mkv_only)} "
+            print(f"\n{GREY}[INFO]{RESET} All {len(filenames_mkv_only)} "
                   f"{print_multi_or_single(len(filenames_mkv_only), 'file')} successfully processed.")
-            print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
+            print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
         except Exception as e:
             # If anything were to fail, move files to output folder
             print(f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
