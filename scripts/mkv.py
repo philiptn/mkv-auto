@@ -469,7 +469,7 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
     if needs_processing_audio:
 
         if debug:
-            print('\n')
+            print('')
 
         if other_track_ids:
             (extracted_other_audio_files, extracted_other_audio_langs,
@@ -578,7 +578,7 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
     all_replacements_list = [None] * total_files
 
     # Disable tqdm if there are no subtitle tracks to process
-    disable_tqdm = True if not all(sub for sub in subtitle_files_list) else False
+    disable_tqdm = True if not any(sub for sub in subtitle_files_list) else False
 
     # Calculate number of workers and internal threads, floor divide by 1.2 as
     # the OCR process uses multiple Tesseract processes internally.
@@ -791,7 +791,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     if debug:
         print('\n')
 
-    for lang in missing_subs_langs:
+    for index, lang in enumerate(missing_subs_langs):
         command = [
             'subliminal', '--debug', 'download', '-l', lang, input_file
         ]
@@ -811,10 +811,10 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
             print(f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}{RESET}")
 
         if os.path.exists(os.path.join(dirpath, f"{mkv_base}.{lang}.srt")):
-            shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"), os.path.join(dirpath, f"{mkv_base}.1.{lang}.srt"))
-            downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}.1.{lang}.srt"))
+            shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"), os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
+            downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
         else:
-            failed_downloads.append(os.path.join(dirpath, f"{mkv_base}.1.{lang}.srt"))
+            failed_downloads.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
 
     return downloaded_subs, failed_downloads
 

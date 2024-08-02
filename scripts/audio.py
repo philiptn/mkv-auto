@@ -96,9 +96,6 @@ def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_n
                    for index, file in enumerate(audio_files)]
         results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
-    if debug:
-        print('')
-
     output_audio_files_extensions, output_audio_langs, output_audio_names, all_track_ids = zip(*results)
 
     if keep_original_audio:

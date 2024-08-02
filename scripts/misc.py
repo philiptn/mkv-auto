@@ -9,12 +9,12 @@ import shutil
 
 
 # ANSI color codes
-BLUE = '\033[34m'
+BLUE = '\033[94m'
 RESET = '\033[0m'  # Reset to default terminal color
-GREY = '\033[90m'
-YELLOW = '\033[33m'
-RED = '\033[31m'
-GREEN = '\033[32m'
+GREY = '\033[37m'
+YELLOW = '\033[93m'
+RED = '\033[91m'
+GREEN = '\033[92m'
 
 
 def print_multi_or_single(amount, string):
@@ -323,7 +323,7 @@ def print_media_info(filenames):
         for show, seasons in tv_shows.items():
             for season, episodes in sorted(seasons.items()):
                 episode_list = compact_episode_list(episodes)
-                print(f"  {BLUE}{show}{RESET} (season {season}, episode {episode_list})")
+                print(f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
     if movies:
         print(f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         movies = compact_names_list(movies)

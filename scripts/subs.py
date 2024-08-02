@@ -252,7 +252,7 @@ def remove_sdh(max_threads, debug, input_files, remove_music, track_names, exter
     cleaned_track_names = []
 
     if debug:
-        print('\n')
+        print('')
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         tasks = [executor.submit(remove_sdh_worker, debug, input_file, remove_music, subtitleedit)
@@ -326,7 +326,7 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
 def resync_srt_subs(max_threads, debug, input_file, subtitle_files, external_sub):
 
     if debug:
-        print('\n')
+        print('')
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Create a list of tasks for each subtitle file
@@ -346,10 +346,11 @@ def resync_srt_subs(max_threads, debug, input_file, subtitle_files, external_sub
 
 def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, retry_delay):
     base, _, _ = subtitle_filename.rpartition('.')
-    base_nolang, _, _ = base.rpartition('.')
-    temp_filename = f"{base_nolang}_tmp.srt"
+    base_nolang, _, lang = base.rpartition('.')
+    temp_filename = f"{base_nolang}.{lang}_tmp.srt"
 
-    command = ["ffs", input_file, "--vad", "webrtc", "--max-offset-seconds", "10", "-i", subtitle_filename, "-o", temp_filename]
+    command = ["ffs", input_file, "--vad", "webrtc", "--max-offset-seconds", "10", "--no-fix-framerate",
+               "-i", subtitle_filename, "-o", temp_filename]
 
     retries = 0
     while retries < max_retries:
