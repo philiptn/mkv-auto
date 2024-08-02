@@ -11,7 +11,7 @@ import shutil
 # ANSI color codes
 BLUE = '\033[94m'
 RESET = '\033[0m'  # Reset to default terminal color
-GREY = '\033[37m'
+GREY = '\033[90m'
 YELLOW = '\033[93m'
 RED = '\033[91m'
 GREEN = '\033[92m'
