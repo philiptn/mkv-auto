@@ -70,7 +70,7 @@ def find_available_display():
     while True:
         # Acquire the lock before entering the critical section
         with x11_lock:
-            display_number = random.randint(100, 1000)  # Adjust the range as necessary
+            display_number = random.randint(50, 9000)  # Adjust the range as necessary
             lock_file = f"/tmp/.X11-unix/X{display_number}"
             if not os.path.exists(lock_file):
                 return display_number
