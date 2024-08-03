@@ -576,9 +576,11 @@ def convert_to_srt_process(debug, max_worker_threads, input_files, dirpath, subt
     all_ready_subtitle_tracks = [None] * total_files
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
+    disable_tqdm = False
 
-    # Disable tqdm if there are no subtitle tracks to process
-    disable_tqdm = True if not any(sub for sub in subtitle_files_list) else False
+    # Disable tqdm if all the subtitles to be processed are SRT (therefore no OCR is needed)
+    for subs in subtitle_files_list:
+        disable_tqdm = True if all(sub.endswith('.srt') for sub in subs) else False
 
     # Calculate number of workers and internal threads, floor divide by 1.2 as
     # the OCR process uses multiple Tesseract processes internally.
