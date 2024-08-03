@@ -1051,11 +1051,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 updated_missing_subs_langs.append(lang)
         if not updated_missing_subs_langs:
             updated_missing_subs_langs.append('none')
-
-        return all_srt_files, updated_missing_subs_langs
-    else:
-        return
-
+    return all_srt_files, updated_missing_subs_langs
 
 def move_files_to_output_process(debug, max_worker_threads, input_files, dirpath, all_dirnames, output_dir):
     total_files = len(input_files)
