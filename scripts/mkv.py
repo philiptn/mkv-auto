@@ -1046,6 +1046,8 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
         for lang in missing_subs_langs:
             if not lang in all_langs_found:
                 updated_missing_subs_langs.append(lang)
+        if not updated_missing_subs_langs:
+            updated_missing_subs_langs.append('none')
 
         return all_srt_files, updated_missing_subs_langs
     else:
