@@ -736,8 +736,8 @@ def fetch_missing_subtitles_process(debug, max_worker_threads, input_files, dirp
     hide_cursor()
     with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
 
-        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
-                             f"Download missing subtitles")
+        pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} "
+                             f"Process missing {print_multi_or_single(len(all_truly_missing_subs_langs), 'subtitle')}")
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -776,10 +776,11 @@ def fetch_missing_subtitles_process(debug, max_worker_threads, input_files, dirp
                 truly_missing_subs_count += 1
 
     unique_vals_print = ", ".join(set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist))
-    print(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
-          f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
-    print(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
-          f"Success: {success_len}, Unavailable: {failed_len}")
+    if success_len or failed_len:
+        print(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
+              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
+        print(f"{GREY}[UTC {get_timestamp()}] [SUBLIMINAL]{RESET} "
+              f"Success: {success_len}, Unavailable: {failed_len}")
 
     return all_downloaded_subs
 
