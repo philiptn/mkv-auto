@@ -282,7 +282,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
     base_nolang, _, lang = base.rpartition('.')
     temp_filename = f"{base_nolang}.{lang}_tmp.srt"
 
-    command = ["ffs", input_file, "--vad", "webrtc", "--max-offset-seconds", "10", "--no-fix-framerate",
+    command = ["ffs", input_file, "--vad", "webrtc", "--max-offset-seconds", "10",
                "-i", subtitle_filename, "-o", temp_filename]
 
     retries = 0
@@ -290,8 +290,14 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
         if debug:
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
-        result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode == 0:
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        return_code = process.returncode
+
+        if debug:
+            print(f"\n{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stderr.decode('utf-8')}{RESET}")
+
+        if return_code == 0:
             # Success, move the file and exit the loop
             os.remove(subtitle_filename)
             shutil.move(temp_filename, subtitle_filename)
@@ -300,7 +306,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
             retries += 1
             if retries >= max_retries:
                 # Exceeded the maximum number of retries, raise an exception
-                raise Exception(f"Error executing FFsubsync command: {result.stderr}")
+                raise Exception(f"Error executing FFsubsync command: {stderr}")
             time.sleep(retry_delay)  # Wait before retrying
 
 
