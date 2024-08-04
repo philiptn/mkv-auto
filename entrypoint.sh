@@ -2,7 +2,7 @@
 
 execute_command() {
     . venv/bin/activate
-    python3 -u mkv-auto.py "$@"
+    python3 mkv-auto.py "$@"
 }
 
 # Pipe the output through sed to remove ANSI codes before writing to the log file
