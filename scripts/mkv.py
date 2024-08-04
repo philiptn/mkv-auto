@@ -676,7 +676,7 @@ def remove_sdh_process(debug, max_worker_threads, subtitle_files_to_process_list
     with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file', disable=disable_tqdm) as pbar:
 
         pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} "
-                             f"Remove SDH from subtitles")
+                             f"Remove SDH from {print_multi_or_single(total_files, 'subtitle')}")
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -838,7 +838,7 @@ def resync_sub_process(debug, max_worker_threads, input_files, dirpath, subtitle
     with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file', disable=disable_tqdm) as pbar:
 
         pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [FFSUBSYNC]{RESET} "
-                             f"Synchronize subtitles")
+                             f"Synchronize {print_multi_or_single(total_files, 'subtitle')}")
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
