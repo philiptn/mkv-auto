@@ -27,20 +27,34 @@ def extract_archives(input_folder):
 
         for archive_file in archive_files:
             archive_path = os.path.join(root, archive_file)
+            temp_extract_path = os.path.join(root, "temp_extracted")
 
             try:
+                os.makedirs(temp_extract_path, exist_ok=True)
                 if archive_file.endswith('.rar'):
                     print(f"{GREY}[UTC {get_timestamp()}] [RAR]{RESET} Extracting '{archive_file}'...")
                     # Extract RAR file
                     with rarfile.RarFile(archive_path) as rf:
-                        rf.extractall(root)
+                        rf.extractall(temp_extract_path)
                 elif archive_file.endswith('.zip'):
                     print(f"{GREY}[UTC {get_timestamp()}] [ZIP]{RESET} Extracting '{archive_file}'...")
                     # Extract ZIP file
                     with zipfile.ZipFile(archive_path, 'r') as zf:
-                        zf.extractall(root)
+                        zf.extractall(temp_extract_path)
+
+                # Move extracted files to root of input_folder
+                for extracted_root, extracted_dirs, extracted_files in os.walk(temp_extract_path):
+                    for file in extracted_files:
+                        shutil.move(os.path.join(extracted_root, file), input_folder)
+                    for dir in extracted_dirs:
+                        shutil.move(os.path.join(extracted_root, dir), input_folder)
+
+                # Remove temporary extraction directory
+                shutil.rmtree(temp_extract_path)
+
             except Exception as e:
                 print(f"{GREY}[UTC {get_timestamp()}] [ERROR]{RESET} Failed to extract {archive_file}: {e}")
+
 
 
 def count_files(directory):

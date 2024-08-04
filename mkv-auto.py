@@ -85,6 +85,7 @@ def mt_mkv_auto(args):
     if not args.silent:
         show_cursor()
 
+    extract_archives(input_dir)
     flatten_directories(input_dir)
 
     convert_all_videos_to_mkv(debug, input_dir, args.silent)
@@ -94,8 +95,6 @@ def mt_mkv_auto(args):
         # Show the cursor
         sys.stdout.write('\033[?25h')
         sys.stdout.flush()
-
-    extract_archives(input_dir)
 
     if remove_samples:
         remove_sample_files_and_dirs(input_dir)
@@ -141,6 +140,9 @@ def mt_mkv_auto(args):
         filenames_before_retag = filenames_mkv_only
         download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
 
+        if not filenames:
+            exit(0)
+
         print_media_info(filenames)
 
         print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Using {max_workers} CPU threads for processing.")
@@ -180,7 +182,7 @@ def mt_mkv_auto(args):
             end_time = time.time()
             processing_time = end_time - start_time
 
-            print(f"\n{GREY}[INFO]{RESET} All {len(filenames_mkv_only)} "
+            print(f"\n{GREY}[INFO]{RESET} {len(filenames_mkv_only)} "
                   f"{print_multi_or_single(len(filenames_mkv_only), 'file')} successfully processed.")
             print(f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
         except Exception as e:
