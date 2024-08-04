@@ -70,6 +70,14 @@ def get_timestamp():
 def flatten_directories(directory):
     # Walk through the directory
     for root, dirs, files in os.walk(directory, topdown=False):
+        # Skip directories starting with a dot
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+        # Skip files starting with a dot
+        files = [f for f in files if not f.startswith('.')]
+
+        if any(part.startswith('.') for part in root.split(os.sep)):
+            continue
+
         for name in files:
             # Move each file to the root directory
             source = os.path.join(root, name)

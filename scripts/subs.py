@@ -163,18 +163,17 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
-        subtitle_tmp = f"{input_file}_tmp.srt"
-
-        if lang == 'en':
-            current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
-            replacements = replacements + current_replacements
-            current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', input_file)
-            os.remove(subtitle_tmp)
-            replacements = replacements + current_replacements
-        else:
-            current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_only.csv', subtitle_tmp)
-            os.rename(subtitle_tmp, input_file)
-            replacements = replacements + current_replacements
+    subtitle_tmp = f"{input_file}_tmp.srt"
+    if lang == 'en':
+        current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
+        replacements = replacements + current_replacements
+        current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', input_file)
+        os.remove(subtitle_tmp)
+        replacements = replacements + current_replacements
+    else:
+        current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_only.csv', subtitle_tmp)
+        os.rename(subtitle_tmp, input_file)
+        replacements = replacements + current_replacements
 
     return replacements
 
@@ -479,13 +478,13 @@ def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):
             subtitle_tmp = f"{base}.{track_id}.{lang}_tmp.srt"
 
             if lang == 'en':
-                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
+                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
                 replacements = replacements + current_replacements
-                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', output_subtitle)
+                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', output_subtitle)
                 os.remove(subtitle_tmp)
                 replacements = replacements + current_replacements
             else:
-                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_srt_only.csv', subtitle_tmp)
+                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements.csv', subtitle_tmp)
                 os.rename(subtitle_tmp, output_subtitle)
                 replacements = replacements + current_replacements
         else:
@@ -702,11 +701,14 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             and track_language not in srt_ass_track_removed):
 
                         if 'srt' in sub_filetypes:
-                            sub_filetypes.remove('srt')
-                            subs_track_languages.remove(track_language)
-                            subs_track_names.pop()
-                            subs_track_forced.pop()
-                            srt_ass_track_removed.append(track_language)
+                            for index, lang in enumerate(subs_track_languages):
+                                if lang == track_language:
+                                    sub_filetypes.pop(index)
+                                    subs_track_languages.pop(index)
+                                    subs_track_ids.pop(index)
+                                    subs_track_names.pop(index)
+                                    subs_track_forced.pop(index)
+                                    srt_ass_track_removed.append(track_language)
 
                         if track["codec"] == "HDMV PGS":
                             if sub_filetypes:
@@ -750,10 +752,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             subs_track_names.append(track_name)
                             needs_convert = True
                             needs_processing = True
-
-                        subs_tracks_ids_no_srt = [x for x in subs_track_ids if x not in srt_track_ids]
-                        subs_tracks_ids_no_ass = [x for x in subs_tracks_ids_no_srt if x not in ass_track_ids]
-                        subs_track_ids = subs_tracks_ids_no_ass
 
     # Add the forced subtitle tracks
     subs_track_ids = subs_track_ids + forced_track_ids

@@ -559,11 +559,11 @@ def extract_subs_in_mkv_process_worker(debug, input_file, dirpath, internal_thre
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
     # Get updated file info after mkv tracks reduction
-    file_info, pretty_file_info = get_mkv_info(False, input_file_with_path, True)
+    file_info, pretty_file_info = get_mkv_info(debug, input_file_with_path, True)
 
     (wanted_subs_tracks, a, b, needs_convert,
      sub_filetypes, subs_track_languages,
-     subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(False, file_info, pref_subs_langs)
+     subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(debug, file_info, pref_subs_langs)
 
     subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
                                          sub_filetypes, subs_track_languages)
