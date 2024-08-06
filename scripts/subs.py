@@ -419,20 +419,23 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
             # Repeat language and track ID for both original and generated files
             updated_subtitle_languages = updated_subtitle_languages + [language, language]
             all_track_ids = all_track_ids + [track_id, track_id]
-            if 'forced' in name.lower():
+            if 'forced' in name.lower() or forced:
                 all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
                                                      name if name else "Original"]
                 # Enable forced only for the generated file, not original
-                all_track_forced = all_track_forced + [0, 1]
+                all_track_forced = all_track_forced + [1, 0]
             else:
                 all_track_names = all_track_names + ['', name if name else "Original"]
                 all_track_forced = all_track_forced + [forced, forced]
         else:
+            if 'forced' in name.lower() or forced:
+                all_track_names.append(f'non-{main_audio_track_lang} dialogue')
+            else:
+                all_track_names.append(name if name else '')
             updated_sub_filetypes.append(original_extension)
             output_subtitles.append(original_file)
             updated_subtitle_languages.append(language)
             all_track_ids.append(track_id)
-            all_track_names.append(name if name else '')
             all_track_forced.append(forced)
 
     if debug and all_replacements:

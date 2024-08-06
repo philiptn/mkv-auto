@@ -1303,7 +1303,10 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             default_track_str = "0:no"
         lang_str = f"0:{final_audio_languages[index]}"
         name_str = f"0:{final_audio_track_names[index]}"
-        final_audio_language = pycountry.languages.get(alpha_3=final_audio_languages[index]).alpha_2
+        try:
+            final_audio_language = pycountry.languages.get(alpha_3=final_audio_languages[index]).alpha_2
+        except:
+            final_audio_language = final_audio_languages[index][:-1]
         filelist_str = f"{base}.{final_audio_track_ids[index]}.{final_audio_language}.{filetype}"
         audio_files_list += ('--default-track', default_track_str,
                              '--language', lang_str,
@@ -1324,7 +1327,10 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         lang_str = f"0:{final_sub_languages[index]}"
         name_str = f"0:{final_sub_track_names[index]}"
         forced_str = f"0:{final_sub_track_forced[index]}"
-        final_sub_language = pycountry.languages.get(alpha_3=final_sub_languages[index]).alpha_2
+        try:
+            final_sub_language = pycountry.languages.get(alpha_3=final_sub_languages[index]).alpha_2
+        except:
+            final_sub_language = final_sub_languages[index][:-1]
         filelist_str = f"{base}.{final_sub_track_ids[index]}.{final_sub_language}.{filetype}"
         sub_files_list += ('--default-track', default_track_str,
                            '--language', lang_str,
@@ -1352,7 +1358,10 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
 
     if audio_filetypes:
         for index, filetype in enumerate(final_audio_filetypes):
-            final_audio_language = pycountry.languages.get(alpha_3=final_audio_languages[index]).alpha_2
+            try:
+                final_audio_language = pycountry.languages.get(alpha_3=final_audio_languages[index]).alpha_2
+            except:
+                final_audio_language = final_audio_languages[index][:-1]
             os.remove(f"{base}.{final_audio_track_ids[index]}.{final_audio_language}.{filetype}")
     if sub_filetypes:
         # Need to add the .idx file as well to filetypes list for final deletion
@@ -1364,5 +1373,8 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
                 final_sub_track_names.append(final_sub_track_names[index])
 
         for index, filetype in enumerate(final_sub_filetypes):
-            final_sub_language = pycountry.languages.get(alpha_3=final_sub_languages[index]).alpha_2
+            try:
+                final_sub_language = pycountry.languages.get(alpha_3=final_sub_languages[index]).alpha_2
+            except:
+                final_sub_language = final_sub_languages[index][:-1]
             os.remove(f"{base}.{final_sub_track_ids[index]}.{final_sub_language}.{filetype}")
