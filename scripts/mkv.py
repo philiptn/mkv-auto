@@ -662,6 +662,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
 
 def remove_sdh_process(debug, max_worker_threads, subtitle_files_to_process_list):
     total_files = len(subtitle_files_to_process_list)
+    all_replacements_list = [None] * total_files
 
     always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
     if not always_remove_sdh:
@@ -680,27 +681,36 @@ def remove_sdh_process(debug, max_worker_threads, subtitle_files_to_process_list
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = {executor.submit(remove_sdh_process_worker, debug, list, internal_threads): list for list in subtitle_files_to_process_list}
+            futures = {executor.submit(remove_sdh_process_worker, debug, list, internal_threads): index for index, list in enumerate(subtitle_files_to_process_list)}
 
             for future in concurrent.futures.as_completed(futures):
                 # Update the progress bar when a file is processed
                 pbar.update(1)
                 try:
-                    result = future.result()
+                    index = futures[future]
+                    all_replacements = future.result()
+                    if all_replacements is not None:
+                        all_replacements_list[index] = all_replacements
                 except Exception as e:
                     print(f"\n{RED}[ERROR]{RESET} {e}")
                     traceback.print_tb(e.__traceback__)
                     raise
+    all_replacements_list_count = len([item for list in all_replacements_list for item in list])
+    if all_replacements_list_count:
+        print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Fixed "
+              f"{all_replacements_list_count} errors in subtitle tracks.")
     show_cursor()
-    return result
+    return all_replacements_list_count
 
 
 def remove_sdh_process_worker(debug, input_subtitles, internal_threads):
+    all_replacements = []
     remove_music = check_config(config, 'subtitles', 'remove_music')
     always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
 
     if always_remove_sdh:
-        remove_sdh(internal_threads, debug, input_subtitles, remove_music, [], False)
+        a, all_replacements = remove_sdh(internal_threads, debug, input_subtitles, remove_music, [], False)
+    return all_replacements
 
 
 def fetch_missing_subtitles_process(debug, max_worker_threads, input_files, dirpath, total_external_subs, all_missing_subs_langs):
