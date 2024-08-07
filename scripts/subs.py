@@ -281,7 +281,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
     base_nolang, _, lang = base.rpartition('.')
     temp_filename = f"{base_nolang}.{lang}_tmp.srt"
 
-    command = ["ffs", input_file, "--vad", "webrtc", "--max-offset-seconds", "10",
+    command = ["ffs", input_file, "--max-offset-seconds", "10",
                "-i", subtitle_filename, "-o", temp_filename]
 
     retries = 0
