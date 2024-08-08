@@ -121,7 +121,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     base, _, track_id = base_with_id.rpartition('.')
 
     command = ["mono", subtitleedit, "/convert", input_file,
-               "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI", "/RedoCasing",
+               "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                f"/outputfilename:{input_file}_tmp.srt"]
 
     replacements = []
