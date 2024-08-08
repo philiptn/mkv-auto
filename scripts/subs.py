@@ -120,9 +120,16 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
     base, _, track_id = base_with_id.rpartition('.')
 
-    command = ["mono", subtitleedit, "/convert", input_file,
-               "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
-               f"/outputfilename:{input_file}_tmp.srt"]
+    redo_casing = check_config(config, 'subtitles', 'redo_casing')
+
+    if redo_casing:
+        command = ["mono", subtitleedit, "/convert", input_file,
+                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI", "/RedoCasing",
+                   f"/outputfilename:{input_file}_tmp.srt"]
+    else:
+        command = ["mono", subtitleedit, "/convert", input_file,
+                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
+                   f"/outputfilename:{input_file}_tmp.srt"]
 
     replacements = []
 
