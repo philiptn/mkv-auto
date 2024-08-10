@@ -973,7 +973,7 @@ def process_external_subs(debug, max_worker_threads, dirpath, input_files, all_m
     with tqdm(total=total_files, bar_format='\r{desc}({n_fmt}/{total_fmt} Done) ', unit='file') as pbar:
 
         pbar.set_description(f"{GREY}[UTC {get_timestamp()}] [SUBTITLE]{RESET} "
-                             f"Process external subtitle")
+                             f"Process external subtitles")
 
         # Use ThreadPoolExecutor to handle multithreading
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
