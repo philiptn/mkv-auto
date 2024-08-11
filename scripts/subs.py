@@ -29,6 +29,8 @@ xml_file_lock = threading.Lock()
 # Create an X11 server lock
 x11_lock = threading.Lock()
 
+reserved_displays = set()
+
 
 def clean_invalid_utf8(input_file, output_file):
     # Read the file, replacing invalid characters with '�'
@@ -68,34 +70,48 @@ def find_and_replace(input_file, replacement_file, output_file):
 
 def find_available_display():
     while True:
-        # Acquire the lock before entering the critical section
         with x11_lock:
-            display_number = random.randint(50, 9000)  # Adjust the range as necessary
+            # Generate a display number
+            display_number = random.randint(50, 9000)
+
+            # Check if the display number is already reserved or locked by another process
             lock_file = f"/tmp/.X11-unix/X{display_number}"
-            if not os.path.exists(lock_file):
+            if display_number not in reserved_displays and not os.path.exists(lock_file):
+                # Reserve the display number in memory
+                reserved_displays.add(display_number)
+
                 return display_number
+
+
+def release_display(display_number):
+    with x11_lock:
+        # Remove the display number from the reserved set
+        reserved_displays.remove(display_number)
 
 
 def run_with_xvfb(command):
     display_number = find_available_display()
-    xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24"
-                "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
+    try:
+        xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24"
+                    "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
 
-    # Start Xvfb in the background
-    xvfb_process = subprocess.Popen(xvfb_cmd)
-    time.sleep(2)  # Allow time for Xvfb to start
+        # Start Xvfb in the background
+        xvfb_process = subprocess.Popen(xvfb_cmd)
+        #time.sleep(2)  # Allow time for Xvfb to start
 
-    env = os.environ.copy()
-    env['DISPLAY'] = f":{display_number}"
-    result = subprocess.run(command, env=env, capture_output=True, text=True)
+        env = os.environ.copy()
+        env['DISPLAY'] = f":{display_number}"
+        result = subprocess.run(command, env=env, capture_output=True, text=True)
 
-    xvfb_process.terminate()
-    xvfb_process.wait()
+        xvfb_process.terminate()
+        xvfb_process.wait()
 
-    if result.returncode != 0:
-        raise Exception(f"Error executing command: {result.stderr}")
+        if result.returncode != 0:
+            raise Exception(f"Error executing command: {result.stderr}")
 
-    return result
+        return result
+    finally:
+        release_display(display_number)
 
 
 def detect_language_of_subtitle(subtitle_path):
