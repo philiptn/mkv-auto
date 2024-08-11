@@ -67,27 +67,38 @@ def find_and_replace(input_file, replacement_file, output_file):
     return changes
 
 
+def get_active_xvfb_displays():
+    active_displays = set()
+
+    try:
+        # Run ps aux and grep for Xvfb processes
+        ps_output = subprocess.run(["ps", "aux"], stdout=subprocess.PIPE, text=True).stdout
+        for line in ps_output.splitlines():
+            if "Xvfb" in line:
+                parts = line.split()
+                for part in parts:
+                    if part.startswith(":"):
+                        try:
+                            display_number = int(part[1:])
+                            active_displays.add(display_number)
+                        except ValueError:
+                            continue
+    except Exception as e:
+        print(f"Error while checking active Xvfb displays: {e}")
+
+    return active_displays
+
 def find_available_display():
     while True:
         with x11_lock:
-            # Generate a display number
-            display_number = random.randint(50, 9000)
+            # Get currently active Xvfb displays
+            active_displays = get_active_xvfb_displays()
 
-            # Check if the display number is already reserved or locked by another process
-            if display_number not in reserved_displays:
-                # Use xdpyinfo to check if the display is available
-                try:
-                    result = subprocess.run(
-                        ["xdpyinfo", f"-display", f":{display_number}"],
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
-                    if result.returncode != 0:  # xdpyinfo returns non-zero if display is not in use
-                        # Reserve the display number in memory
-                        reserved_displays.add(display_number)
-                        return display_number
-                except Exception as e:
-                    # If xdpyinfo fails, continue searching
-                    continue
+            # Generate a random display number and check if it's available
+            display_number = random.randint(50, 9000)
+            if display_number not in reserved_displays and display_number not in active_displays:
+                reserved_displays.add(display_number)
+                return display_number
 
 def release_display(display_number):
     with x11_lock:
