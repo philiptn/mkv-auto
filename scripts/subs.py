@@ -28,7 +28,6 @@ from scripts.misc import *
 xml_file_lock = threading.Lock()
 # Create an X11 server lock
 x11_lock = threading.Lock()
-
 reserved_displays = set()
 
 
@@ -75,29 +74,34 @@ def find_available_display():
             display_number = random.randint(50, 9000)
 
             # Check if the display number is already reserved or locked by another process
-            lock_file = f"/tmp/.X11-unix/X{display_number}"
-            if display_number not in reserved_displays and not os.path.exists(lock_file):
-                # Reserve the display number in memory
-                reserved_displays.add(display_number)
-
-                return display_number
-
+            if display_number not in reserved_displays:
+                # Use xdpyinfo to check if the display is available
+                try:
+                    result = subprocess.run(
+                        ["xdpyinfo", f"-display", f":{display_number}"],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                    )
+                    if result.returncode != 0:  # xdpyinfo returns non-zero if display is not in use
+                        # Reserve the display number in memory
+                        reserved_displays.add(display_number)
+                        return display_number
+                except Exception as e:
+                    # If xdpyinfo fails, continue searching
+                    continue
 
 def release_display(display_number):
     with x11_lock:
         # Remove the display number from the reserved set
         reserved_displays.remove(display_number)
 
-
 def run_with_xvfb(command):
     display_number = find_available_display()
     try:
-        xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24"
+        xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24",
                     "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
 
         # Start Xvfb in the background
         xvfb_process = subprocess.Popen(xvfb_cmd)
-        #time.sleep(2)  # Allow time for Xvfb to start
 
         env = os.environ.copy()
         env['DISPLAY'] = f":{display_number}"
