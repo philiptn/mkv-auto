@@ -5,14 +5,14 @@ removing and/or converting any audio or subtitle tracks from the source video.
 ***Note***: If you are running Windows and just want to try the program, go [here](https://github.com/philiptn/mkv-auto?tab=readme-ov-file#windows).
 
 ### Features
-- Removes any audio or subtitle tracks from video that does not match user preferences
-- Automatically downloads any missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal)
-- Generates audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (FFmpeg)
-- Converts any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and Tesseract OCR
-- Converts Advanced SubStation Alpha (ASS) and MP4 (tx3g) subtitles to SRT using Python libraries and FFmpeg
-- Removes SDH (such as `[MAN COUGHING]` or `[DISTANT CHATTER]`) from SRT subtitles (default enabled)
-- Resynchronizes subtitles to match the audio track of the video using ffsubsync (best effort)
-- Unpacks any `.rar` or `.zip` archives and converts `.mp4` or `.avi` files to MKV before processing the media
+- Remove any audio or subtitle tracks from video that does not match user preferences
+- Option to automatically download missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal)
+- Generate audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (FFmpeg)
+- Convert any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and Tesseract OCR
+- Convert Advanced SubStation Alpha (ASS) and MP4 (tx3g) subtitles to SRT using Python libraries and FFmpeg
+- Remove SDH (such as `[MAN COUGHING]` or `[DISTANT CHATTER]`) from SRT subtitles (default enabled)
+- Resynchronize subtitles to match the audio track of the video using ffsubsync (best effort)
+- Unpack any `.rar` or `.zip` archives and converts `.mp4` or `.avi` files to MKV before processing the media
 - Remove any hidden Closed Captions (CC) from the video stream using FFmpeg 
 - Automatically categorize the media content type (TV Show/Movie, SDR/HDR) based on info in filename
 
