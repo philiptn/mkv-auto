@@ -722,7 +722,7 @@ def remove_sdh_process(debug, max_worker_threads, subtitle_files_to_process_list
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
     if all_replacements_list_count:
         print(f"{GREY}[UTC {get_timestamp()}] [SUBTITLES]{RESET} Fixed "
-              f"{all_replacements_list_count} errors in subtitle tracks.")
+              f"{all_replacements_list_count} {print_multi_or_single(all_replacements_list_count, 'word')} in subtitle tracks.")
     show_cursor()
     return all_replacements_list_count
 
