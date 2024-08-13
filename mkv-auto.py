@@ -145,6 +145,12 @@ def mt_mkv_auto(args):
 
         print_media_info(filenames)
 
+        for file in filenames_mkv_only:
+            if not mkv_contains_video(file, dirpath):
+                print(f"{GREY}[UTC {get_timestamp()}]{RESET} {RED}[ERROR]{RESET} File '{file}' does not contain a video stream.\n"
+                      f"{GREY}[UTC {get_timestamp()}]{RESET} {RED}[ERROR]{RESET} Remove this file from the input folder and try again.")
+                exit(1)
+
         print(f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Using {max_workers} CPU threads for processing.")
         start_time = time.time()
 

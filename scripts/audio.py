@@ -81,11 +81,15 @@ def encode_audio_track(file, index, debug, languages, track_names, output_codec,
 
 def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_names, output_codec,
                         other_files, other_langs, other_names, keep_original_audio, other_track_ids):
-
     if not audio_files:
         return
 
-    custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-filter_complex', '[0:a]pan=stereo|c0=c0+c2|c1=c1+c2[out]', '-map', '[out]'] if output_codec.lower() == 'aac' else []
+    # Old version without center channel boost
+    #custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-filter_complex', '[0:a]pan=stereo|c0=c0+c2|c1=c1+c2[out]', '-map', '[out]'] if output_codec.lower() == 'aac' else []
+    custom_ffmpeg_options = ['-aq', '6', '-ac', '2',
+                             '-filter_complex',
+                             '[0:a]dynaudnorm,pan=stereo|FL<0.2FL+0.8FC+0.1BL|FR<0.2FR+0.8FC+0.1BR'] \
+        if output_codec.lower() == 'aac' else []
 
     if debug:
         print('')
@@ -219,7 +223,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
             if track_language in pref_audio_langs:
                 if preferred_audio_codec in audio_codec.upper():
-                    if (not remove_commentary and commentary_tracks_found) or ("Original" in all_track_names[total_audio_tracks - 1])\
+                    if (not remove_commentary and commentary_tracks_found) or (
+                            "Original" in all_track_names[total_audio_tracks - 1]) \
                             or (pref_audio_track_languages.count(track_language) == 0):
                         # If the previous selected audio track language (not in pref codec) is the same matched
                         # language, then it should be removed, as a new replacement in the preferred codec has been found.
@@ -263,7 +268,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
                 elif preferred_audio_codec not in audio_codec.upper():
                     if ((not remove_commentary and commentary_tracks_found)
-                            or (audio_track_languages.count(track_language) == 0 and pref_audio_track_languages.count(track_language) == 0))\
+                        or (audio_track_languages.count(track_language) == 0 and pref_audio_track_languages.count(
+                                track_language) == 0)) \
                             or ("Original" in all_track_names[total_audio_tracks - 1]):
 
                         # If the next audio track is an original audio track that has previously been

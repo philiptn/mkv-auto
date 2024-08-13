@@ -293,6 +293,30 @@ def convert_mp4_to_mkv_with_subtitles(debug, mp4_file):
     return True
 
 
+def mkv_contains_video(file_path, dirpath):
+    input_file = os.path.join(dirpath, file_path)
+    try:
+        # Run ffprobe command to get stream information
+        command = [
+            'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+            '-show_entries', 'stream=index', '-of', 'json', input_file
+        ]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Parse the output
+        probe_data = json.loads(result.stdout)
+
+        # Check if the 'streams' key exists and contains at least one video stream
+        if 'streams' in probe_data and len(probe_data['streams']) > 0:
+            return True
+        else:
+            return False
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+
+
 def remove_cc_hidden_in_file(debug, filename):
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
@@ -453,8 +477,8 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
     # If the preferred audio codec is set to AAC or OPUS, the purpose is probably to save on storage space.
     # Force-enabling the encoding regardless of the audio track already found, as well as removing
     # the original audio track.
-    if pref_audio_codec.lower() == 'aac' or pref_audio_codec.lower() == 'opus':
-        keep_original_audio = False
+    #if pref_audio_codec.lower() == 'aac' or pref_audio_codec.lower() == 'opus':
+    #    keep_original_audio = False
 
     # Get updated file info after mkv tracks reduction
     file_info, pretty_file_info = get_mkv_info(False, input_file, True)
