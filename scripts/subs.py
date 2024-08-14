@@ -558,11 +558,12 @@ def get_priority(subs_langs, lang):
         return len(subs_langs)
 
 
-
 def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     if debug:
         print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} get_wanted_subtitle_tracks:\n")
         print(f"{BLUE}preferred subtitle languages{RESET}: {pref_langs}")
+
+    remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
 
     total_subs_tracks = 0
     pref_subs_langs = pref_langs
@@ -580,7 +581,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     forced_sub_filetypes = []
     forced_sub_bool = []
 
-    default_subs_track = ''
+    default_subs_track = -1
     all_sub_filetypes = []
     sub_filetypes = []
     srt_track_ids = []
@@ -840,6 +841,16 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
 
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True
+
+    if remove_all_subtitles:
+        needs_processing = True
+        subs_track_ids = []
+        default_subs_track = -1
+        sub_filetypes = []
+        subs_track_languages = []
+        subs_track_names = []
+        subs_track_forced = []
+        missing_subs_langs = ['none']
 
     if debug:
         print(f"{BLUE}needs processing{RESET}: {needs_processing}")

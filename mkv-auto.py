@@ -138,7 +138,9 @@ def mt_mkv_auto(args):
         # Remove all filenames that are not mkv
         filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
         filenames_before_retag = filenames_mkv_only
+
         download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
+        remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
 
         if not filenames:
             exit(0)
@@ -180,7 +182,7 @@ def mt_mkv_auto(args):
                     remove_sdh_process(debug, max_workers, subtitle_files_to_process)
                     resync_sub_process(debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
 
-            if any(audio_tracks_to_be_merged) or any(subtitle_tracks_to_be_merged):
+            if any(audio_tracks_to_be_merged) or any(subtitle_tracks_to_be_merged) or remove_all_subtitles:
                 repack_mkv_tracks_process(debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
 
             move_files_to_output_process(debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)

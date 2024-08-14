@@ -136,7 +136,7 @@ def check_config(config, section, option):
     if section in config and option in config[section]:
         return config[section][option]
     else:
-        print(f"WARNING: {option} not found in section {section}.")
+        print(f"{YELLOW}WARNING{RESET}: {BLUE}{option}{RESET} not found in section '{section}'.")
         return None
 
 
@@ -269,6 +269,7 @@ def hide_cursor():
     sys.stdout.write("\033[?25l")
     sys.stdout.flush()
 
+
 # Function to show the cursor
 def show_cursor():
     sys.stdout.write("\033[?25h")
@@ -392,6 +393,7 @@ config = {
         'remove_music': get_config('subtitles', 'REMOVE_MUSIC', variables_defaults).lower() == "true",
         'resync_subtitles': get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true",
         'download_missing_subs': get_config('subtitles', 'DOWNLOAD_MISSING_SUBS', variables_defaults).lower() == "true",
+        'remove_all_subtitles': get_config('subtitles', 'REMOVE_ALL_SUBTITLES', variables_defaults).lower() == "true",
         'redo_casing': get_config('subtitles', 'REDO_CASING', variables_defaults).lower() == "true"
     }
 }

@@ -1087,6 +1087,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
             updated_missing_subs_langs.append('none')
     return all_srt_files, updated_missing_subs_langs
 
+
 def move_files_to_output_process(debug, max_worker_threads, input_files, dirpath, all_dirnames, output_dir):
     total_files = len(input_files)
 
@@ -1119,7 +1120,6 @@ def move_files_to_output_process_worker(debug, input_file, dirpath, all_dirnames
     input_file_with_path = os.path.join(dirpath, input_file)
 
     move_file_to_output(input_file_with_path, output_dir, all_dirnames)
-
 
 
 def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
