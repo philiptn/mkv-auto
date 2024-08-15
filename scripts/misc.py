@@ -47,7 +47,9 @@ class SpecificLevelFilter(logging.Filter):
 def print_with_progress(logger, current, total, header, description="Processing"):
     progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done) "
 
-    sys.stdout.write('\r' + progress_message)
+    # Clear the current line by overwriting with spaces, then return to the start
+    sys.stdout.write('\r' + ' ' * len(progress_message) + '\r')
+    sys.stdout.write(progress_message)
     sys.stdout.flush()
 
     if current == total:

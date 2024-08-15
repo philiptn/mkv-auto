@@ -14,7 +14,7 @@ while true; do
         cp /mkv-auto/config/user.ini /mkv-auto/user.ini
     fi
     # Check if the script is already running
-    if ! pgrep -f 'python3 mkv-auto.py' > /dev/null; then
+    if ! pgrep -f 'python3 -u mkv-auto.py' > /dev/null; then
         # Check for new files in the input directory
         if [ $(ls /mkv-auto/files/input | wc -l) -gt 0 ]; then
             cd /mkv-auto
@@ -25,7 +25,7 @@ while true; do
                 DEBUG_FLAG="--debug --service"
             fi
             # Run the Python script, ensure we capture real-time updates in user.ini
-            python3 mkv-auto.py --move --silent --temp_folder /mkv-auto/files/tmp --log_file $log_file --input_folder /mkv-auto/files/input --output_folder /mkv-auto/files/output $DEBUG_FLAG
+            python3 -u mkv-auto.py --move --silent --temp_folder /mkv-auto/files/tmp --log_file $log_file --input_folder /mkv-auto/files/input --output_folder /mkv-auto/files/output $DEBUG_FLAG
         fi
     fi
 
