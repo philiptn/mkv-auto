@@ -50,5 +50,4 @@ else
     $SUDO docker pull $IMAGE_NAME
 fi
 
-
 $SUDO docker run --rm -it -v "$HOST_FOLDER:/mkv-auto/files" $IMAGE_NAME --docker $move_files "${extra_args[@]}"

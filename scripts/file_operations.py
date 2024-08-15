@@ -56,7 +56,6 @@ def extract_archives(input_folder):
                 print(f"{GREY}[UTC {get_timestamp()}] [ERROR]{RESET} Failed to extract {archive_file}: {e}")
 
 
-
 def count_files(directory):
     total_files = 0
     for dirpath, dirnames, filenames in os.walk(directory):

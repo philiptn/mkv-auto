@@ -6,6 +6,9 @@ import re
 from collections import defaultdict
 import traceback
 import shutil
+import logging
+import sys
+import time
 
 
 # ANSI color codes
@@ -15,6 +18,81 @@ GREY = '\033[90m'
 YELLOW = '\033[93m'
 RED = '\033[91m'
 GREEN = '\033[92m'
+
+custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
+
+
+# Function to remove ANSI color codes
+def remove_color_codes(text):
+    ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', text)
+
+
+# Add the COLOR method to the logger
+def color(self, message, *args, **kwargs):
+    if self.isEnabledFor(25):
+        self._log(25, message, args, **kwargs)
+
+
+# Create a custom filter that only allows messages of a specific level
+class SpecificLevelFilter(logging.Filter):
+    def __init__(self, level):
+        self.level = level
+
+    def filter(self, record):
+        return record.levelno == self.level
+
+
+# Function to print dynamic progress, only updating the last line
+def print_with_progress(logger, current, total, header, description="Processing"):
+    progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done) "
+
+    sys.stdout.write('\r' + progress_message)
+    sys.stdout.flush()
+
+    if current == total:
+        sys.stdout.write('\n')  # Move to the next line after the final progress message
+
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total} Done)")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total} Done)")
+        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done)")
+
+
+def custom_print(logger, message):
+    message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
+    # Print the message to the console with color
+    sys.stdout.write(message_with_timestamp + "\n")
+    # Log the message without color to the plain text log
+    plain_message = remove_color_codes(message_with_timestamp)
+    logger.info(plain_message)
+    logger.debug(plain_message)
+    # Log the message with color to the color log
+    logger.color(message_with_timestamp)
+
+
+def print_no_timestamp(logger, message):
+    # Print the message to the console with color
+    sys.stdout.write(message + "\n")
+
+    # Store the original formatters
+    original_formatters = {}
+    for handler in logger.handlers:
+        original_formatters[handler] = handler.formatter
+
+    # Temporarily remove the timestamp from the formatters
+    no_timestamp_formatter = logging.Formatter('%(message)s')
+    for handler in logger.handlers:
+        handler.setFormatter(no_timestamp_formatter)
+
+    # Log the message without a timestamp, except plaintext
+    plain_message = remove_color_codes(message)
+    logger.info(f"[UTC {get_timestamp()}] {plain_message}")
+    logger.debug(f"[DEBUG] [UTC {get_timestamp()}] {plain_message}")
+    logger.color(message)  # Colored logging
+
+    # Restore the original formatters
+    for handler, formatter in original_formatters.items():
+        handler.setFormatter(formatter)
 
 
 def print_multi_or_single(amount, string):
@@ -306,7 +384,7 @@ def compact_episode_list(episodes):
     return ", ".join(f"{start}" if start == end else f"{start}-{end}" for start, end in ranges)
 
 
-def print_media_info(filenames):
+def print_media_info(logger, filenames):
     # Remove SRT subtitles from count list
     filenames = [f for f in filenames if not f.endswith('.srt')]
 
@@ -328,23 +406,23 @@ def print_media_info(filenames):
             uncategorized.append(file_info["media_name"])
 
     if tv_shows:
-        print(f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show, seasons in tv_shows.items():
             for season, episodes in sorted(seasons.items()):
                 episode_list = compact_episode_list(episodes)
-                print(f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
     if movies:
-        print(f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         movies = compact_names_list(movies)
         for movie in movies:
-            print(f"  {BLUE}{movie}{RESET}")
+            print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
     if uncategorized:
-        print(f"{GREY}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
         uncategorized = compact_names_list(uncategorized)
         for uncategorized_item in uncategorized:
-            print(f"  {BLUE}{uncategorized_item}{RESET}")
-    print(f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
-    print('')
+            print_no_timestamp(logger, f"  {BLUE}{uncategorized_item}{RESET}")
+    print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
+    print_no_timestamp(logger, '')
 
 
 # Initialize configparser
