@@ -614,7 +614,8 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
 
     # Disable tqdm if all the subtitles to be processed are SRT (therefore no OCR is needed)
     for subs in subtitle_files_list:
-        disable_print = True if all(sub.endswith('.srt') for sub in subs) else False
+        if subs and all(sub.endswith('.srt') for sub in subs):
+            disable_print = True
 
     # Calculate number of workers and internal threads, floor divide by 1.2 as
     # the OCR process uses multiple Tesseract processes internally.

@@ -45,15 +45,16 @@ class SpecificLevelFilter(logging.Filter):
 
 # Function to print dynamic progress, only updating the last line
 def print_with_progress(logger, current, total, header, description="Processing"):
-    progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done) "
+    progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done)"
 
-    # Clear the current line by overwriting with spaces, then return to the start
-    sys.stdout.write('\r' + ' ' * len(progress_message) + '\r')
-    sys.stdout.write(progress_message)
+    # Print the progress message followed by a newline, then return to the start of the previous line
+    sys.stdout.write(progress_message + '\n')
+    sys.stdout.write('\033[F')  # ANSI escape sequence to move cursor up one line
     sys.stdout.flush()
 
     if current == total:
-        sys.stdout.write('\n')  # Move to the next line after the final progress message
+        sys.stdout.write('\033[E')  # Move to the next line after the final progress message
+        sys.stdout.flush()
 
         logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total} Done)")
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total} Done)")
