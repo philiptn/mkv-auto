@@ -612,9 +612,11 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     all_replacements_list = [None] * total_files
     disable_print = False
 
-    # Disable tqdm if all the subtitles to be processed are SRT (therefore no OCR is needed)
+    # Disable print if all the subtitles to be processed are SRT (therefore no OCR is needed)
     for subs in subtitle_files_list:
         if subs and all(sub.endswith('.srt') for sub in subs):
+            disable_print = True
+        if not subs:
             disable_print = True
 
     # Calculate number of workers and internal threads, floor divide by 1.2 as
