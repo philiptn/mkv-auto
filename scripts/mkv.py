@@ -643,9 +643,13 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
 
     # Disable print if all the subtitles to be processed are SRT (therefore no OCR is needed)
     for subs in subtitle_files_list:
-        if subs and all(sub.endswith('.srt') for sub in subs):
-            disable_print = True
-        if not subs:
+        if subs:
+            if all(sub.endswith('.srt') for sub in subs):
+                disable_print = True
+            else:
+                disable_print = False
+                break
+        else:
             disable_print = True
 
     # Calculate number of workers and internal threads, floor divide by 1.2 as
@@ -902,8 +906,6 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Success: {success_len}, Unavailable: {failed_len}")
-    if success_len and resync_subtitles.lower() == 'downloaded_only':
-        custom_print(logger, f"{GREY}[FFSUBSYNC]{RESET} Synchronized {success_len} {print_multi_or_single(success_len, 'subtitle')}.")
 
     return all_downloaded_subs
 
@@ -944,9 +946,6 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
             downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
         else:
             failed_downloads.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
-
-    if downloaded_subs and resync_subtitles.lower() == 'downloaded_only':
-        resync_srt_subs(internal_threads, debug, input_file_with_path, downloaded_subs)
 
     return downloaded_subs, failed_downloads
 
@@ -1005,7 +1004,7 @@ def resync_subs_process_worker(debug, input_file, dirpath, subtitle_files_to_pro
     input_file_with_path = os.path.join(dirpath, input_file)
     resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
 
-    if resync_subtitles.lower() == 'true':
+    if resync_subtitles:
         resync_srt_subs(internal_threads, debug, input_file_with_path, subtitle_files_to_process)
 
 

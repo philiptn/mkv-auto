@@ -218,12 +218,15 @@ def mkv_auto(args):
                                                     all_missing_subs_langs)
                     all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, all_downloaded_subs)]
 
+                if all_subtitle_files and any(sub for sub in all_subtitle_files):
+                    # Filter the nested lists to only include .srt files
+                    subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in all_subtitle_files]
+                    resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
+
                 subtitle_tracks_to_be_merged, subtitle_files_to_process = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
 
                 if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
                     remove_sdh_process(logger, debug, max_workers, subtitle_files_to_process)
-                    if not resync_subtitles.lower() == 'false' and not resync_subtitles.lower() == 'downloaded_only':
-                        resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
 
             if any(audio_tracks_to_be_merged) or any(subtitle_tracks_to_be_merged) or remove_all_subtitles:
                 repack_mkv_tracks_process(logger, debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
