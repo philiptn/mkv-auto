@@ -181,6 +181,7 @@ def mkv_auto(args):
         filenames_before_retag = filenames_mkv_only
 
         download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
+        resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
         remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
 
         if not filenames:
@@ -190,7 +191,7 @@ def mkv_auto(args):
 
         for file in filenames_mkv_only:
             if not mkv_contains_video(file, dirpath):
-                custom_print(logger, f"{RED}[ERROR]{RESET} File '{file}' does not contain a video stream.\n")
+                custom_print(logger, f"{RED}[ERROR]{RESET} File '{file}' does not contain a video stream.")
                 custom_print(logger, f"{RED}[ERROR]{RESET} Remove this file from the input folder and try again.")
                 exit(1)
 
@@ -221,7 +222,8 @@ def mkv_auto(args):
 
                 if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
                     remove_sdh_process(logger, debug, max_workers, subtitle_files_to_process)
-                    resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
+                    if not resync_subtitles.lower() == 'false' and not resync_subtitles.lower() == 'downloaded_only':
+                        resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files_to_process)
 
             if any(audio_tracks_to_be_merged) or any(subtitle_tracks_to_be_merged) or remove_all_subtitles:
                 repack_mkv_tracks_process(logger, debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)

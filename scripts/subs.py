@@ -88,6 +88,7 @@ def get_active_xvfb_displays():
 
     return active_displays
 
+
 def find_available_display():
     while True:
         with x11_lock:
@@ -100,10 +101,12 @@ def find_available_display():
                 reserved_displays.add(display_number)
                 return display_number
 
+
 def release_display(display_number):
     with x11_lock:
         # Remove the display number from the reserved set
         reserved_displays.remove(display_number)
+
 
 def run_with_xvfb(command):
     display_number = find_available_display()
@@ -142,8 +145,6 @@ def detect_language_of_subtitle(subtitle_path):
         return "Language detection failed"
     except FileNotFoundError:
         return "File not found"
-
-
 
 
 def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
@@ -293,7 +294,7 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
 
 
-def resync_srt_subs(max_threads, debug, input_file, subtitle_files, external_sub):
+def resync_srt_subs(max_threads, debug, input_file, subtitle_files):
 
     if debug:
         print('')

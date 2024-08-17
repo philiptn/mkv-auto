@@ -376,8 +376,17 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, max_worker_threads, inp
                 if missing_subs_langs is not None:
                     all_missing_subs_langs[index] = missing_subs_langs
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
     return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
@@ -454,8 +463,18 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
                 if ready_subtitle_tracks is not None:
                     all_ready_subtitle_tracks[index] = ready_subtitle_tracks
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
     return all_ready_audio_tracks, all_ready_subtitle_tracks
@@ -581,8 +600,18 @@ def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, 
                 if subtitle_files is not None:
                     all_subtitle_files[index] = subtitle_files
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
     return all_subtitle_files
@@ -651,8 +680,20 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
                     all_replacements_list[index] = all_replacements
 
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+                subtitle_files = subtitle_files_list[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
+                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
@@ -661,7 +702,6 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
                              f"{all_replacements_list_count} OCR errors in subtitle tracks.")
     show_cursor()
     return all_ready_subtitle_tracks, subtitle_tracks_to_be_processed
-
 
 
 def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files):
@@ -735,8 +775,17 @@ def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_proc
                 if all_replacements is not None:
                     all_replacements_list[index] = all_replacements
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                subtitle_files = subtitle_files_to_process_list[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
+                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
     if all_replacements_list_count:
@@ -767,8 +816,10 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     all_downloaded_subs = [None] * total_files
     all_failed_downloads = [None] * total_files
 
+    resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
+
     header = "SUBTITLES"
-    description = f"Process missing {print_multi_or_single(len(all_truly_missing_subs_langs), 'subtitle')}"
+    description = f"Process missing subtitles"
 
     for index, input_file in enumerate(input_files):
         input_file_with_path = os.path.join(dirpath, input_file)
@@ -787,7 +838,10 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                     truly_missing_subs_langs.append(lang[:-1])
         all_truly_missing_subs_langs.append(truly_missing_subs_langs)
 
+    # Calculate number of workers and internal threads
     num_workers = min(total_files, max_worker_threads)
+    # Half it due to OCR process internally using multiple threads, to not overwhelm the system
+    internal_threads = max(1, max_worker_threads // num_workers)
 
     hide_cursor()
 
@@ -795,8 +849,9 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     print_with_progress(logger, 0, total_files, header=header, description=description)
 
     # Use ThreadPoolExecutor to handle multithreading
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, input_file, dirpath, all_truly_missing_subs_langs[index]): index for index, input_file in enumerate(input_files)}
+    # Max workers is set to 1 to throttle downloads with Subliminal
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, input_file, dirpath, all_truly_missing_subs_langs[index], internal_threads): index for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -808,8 +863,20 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                 if failed_downloads is not None:
                     all_failed_downloads[index] = failed_downloads
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+                subtitle_lang = all_truly_missing_subs_langs[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_langs{RESET}: {subtitle_lang}")
+                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
 
@@ -835,15 +902,20 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Success: {success_len}, Unavailable: {failed_len}")
+    if success_len and resync_subtitles.lower() == 'downloaded_only':
+        custom_print(logger, f"{GREY}[FFSUBSYNC]{RESET} Synchronized {success_len} {print_multi_or_single(success_len, 'subtitle')}.")
 
     return all_downloaded_subs
 
 
-def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_subs_langs):
+def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_subs_langs, internal_threads):
     mkv_base, _, mkv_extension = input_file.rpartition('.')
+    input_file_with_path = os.path.join(dirpath, input_file)
 
     downloaded_subs = []
     failed_downloads = []
+
+    resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
 
     if debug:
         print('\n')
@@ -872,6 +944,9 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
             downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
         else:
             failed_downloads.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
+
+    if downloaded_subs and resync_subtitles.lower() == 'downloaded_only':
+        resync_srt_subs(internal_threads, debug, input_file_with_path, downloaded_subs)
 
     return downloaded_subs, failed_downloads
 
@@ -907,8 +982,20 @@ def resync_sub_process(logger, debug, max_worker_threads, input_files, dirpath, 
             try:
                 result = future.result()
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+                subtitle_files = subtitle_files_to_process_list[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
+                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
     return result
@@ -918,8 +1005,8 @@ def resync_subs_process_worker(debug, input_file, dirpath, subtitle_files_to_pro
     input_file_with_path = os.path.join(dirpath, input_file)
     resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
 
-    if resync_subtitles:
-        resync_srt_subs(internal_threads, debug, input_file_with_path, subtitle_files_to_process, False)
+    if resync_subtitles.lower() == 'true':
+        resync_srt_subs(internal_threads, debug, input_file_with_path, subtitle_files_to_process)
 
 
 def remove_clutter_process(logger, debug, max_worker_threads, input_files, dirpath):
@@ -950,8 +1037,17 @@ def remove_clutter_process(logger, debug, max_worker_threads, input_files, dirpa
                 if updated_filename is not None:
                     all_updated_input_files[index] = updated_filename
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
     show_cursor()
@@ -1001,8 +1097,21 @@ def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, di
             try:
                 result = future.result()
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+                audio_tracks = audio_tracks_list[index]
+                subtitle_tracks = subtitle_tracks_list[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}audio_tracks{RESET}: {audio_tracks}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_tracks{RESET}: {subtitle_tracks}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
 
@@ -1043,8 +1152,19 @@ def process_external_subs(logger, debug, max_worker_threads, dirpath, input_file
                     updated_all_missing_subs_langs[index] = missing_subs_langs
 
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+                missing_subs_langs = all_missing_subs_langs[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}missing_subs_langs{RESET}: {missing_subs_langs}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
     return subtitle_tracks_to_be_processed, updated_all_missing_subs_langs
@@ -1139,8 +1259,18 @@ def move_files_to_output_process(logger, debug, max_worker_threads, input_files,
             try:
                 result = future.result()
             except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                input_file = input_files[index]
+
+                # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
+                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                print_no_timestamp(logger, f"  {BLUE}all_dirnames{RESET}: {all_dirnames}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     show_cursor()
 
