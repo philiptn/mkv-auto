@@ -973,7 +973,7 @@ def resync_sub_process(logger, debug, max_worker_threads, input_files, dirpath, 
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(resync_subs_process_worker, debug, input_file, dirpath, subtitle_files_to_process_list[index], internal_threads): input_file for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(resync_subs_process_worker, debug, input_file, dirpath, subtitle_files_to_process_list[index], internal_threads): index for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
@@ -1089,7 +1089,7 @@ def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, di
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(repack_mkv_tracks_process_worker, debug, input_file, dirpath, audio_tracks_list[index], subtitle_tracks_list[index]): input_file for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(repack_mkv_tracks_process_worker, debug, input_file, dirpath, audio_tracks_list[index], subtitle_tracks_list[index]): index for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)

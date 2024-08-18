@@ -678,6 +678,9 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                 needs_processing = True
                 needs_sdh_removal = True
 
+                if track_language == 'nob' or track_language == 'nno':
+                    track_language = 'nor'
+
                 if forced_track:
                     forced_track_ids.append(track["id"])
                     forced_track_languages.append(track_language)

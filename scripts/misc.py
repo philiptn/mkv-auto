@@ -156,9 +156,6 @@ def flatten_directories(directory):
         # Skip files starting with a dot
         files = [f for f in files if not f.startswith('.')]
 
-        if any(part.startswith('.') for part in root.split(os.sep)):
-            continue
-
         for name in files:
             # Move each file to the root directory
             source = os.path.join(root, name)

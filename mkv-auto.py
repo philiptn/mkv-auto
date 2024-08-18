@@ -145,13 +145,15 @@ def mkv_auto(args):
     remove_wsl_identifiers(input_dir)
 
     total_files = get_total_mkv_files(input_dir)
+
     if total_files == 0:
         if not args.silent:
             print_no_timestamp(logger, f"No mkv files found in input directory.\n")
         exit(0)
+    else:
+        print()
 
     dirpaths = []
-    print('')
 
     for dirpath, dirnames, filenames in os.walk(input_dir):
         dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
@@ -181,7 +183,6 @@ def mkv_auto(args):
         filenames_before_retag = filenames_mkv_only
 
         download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
-        resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
         remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
 
         if not filenames:
