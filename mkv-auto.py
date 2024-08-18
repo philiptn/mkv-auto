@@ -221,7 +221,8 @@ def mkv_auto(args):
                 if all_subtitle_files and any(sub for sub in all_subtitle_files):
                     # Filter the nested lists to only include .srt files
                     subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in all_subtitle_files]
-                    resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
+                    if any(sub for sub in subtitle_files):
+                        resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
 
                 subtitle_tracks_to_be_merged, subtitle_files_to_process = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
 
