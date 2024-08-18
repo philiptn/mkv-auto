@@ -632,9 +632,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         all_sub_langs.append(value)
         for lang in pref_subs_langs:
             if not lang in all_sub_langs:
-                # If the missing language is "nob" (Norsk Bokmål) then it
-                # can be skipped is a norwegian track already exists.
-                if lang == 'nob' and 'nor' in all_sub_langs or 'nor' in missing_subs_langs:
+                if lang == 'nob' and 'nor' in all_sub_langs or lang == 'nor' and 'nob' in all_sub_langs:
                     pass
                 else:
                     missing_subs_langs.append(lang)
