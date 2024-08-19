@@ -45,7 +45,7 @@ def convert_all_videos_to_mkv(debug, input_folder, silent):
     if total_files == 0:
         return
 
-    pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}%', leave=False, disable=silent)
+    pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}% ', leave=False, disable=silent)
     for i, video_file in enumerate(video_files, start=1):
         pbar.set_description(f'{GREY}[INFO]{RESET} Converting file {i} of {total_files} to MKV')
         if video_file.endswith('.mp4'):
@@ -808,7 +808,7 @@ def remove_sdh_process_worker(debug, input_subtitles, internal_threads):
     return all_replacements
 
 
-def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_files, dirpath, total_external_subs, all_missing_subs_langs):
+def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_files,  dirpath, total_external_subs, all_missing_subs_langs):
     total_files = len(input_files)
 
     # If no sub languages are missing, and no external subs are found, skip this process
@@ -818,8 +818,6 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     all_truly_missing_subs_langs = []
     all_downloaded_subs = [None] * total_files
     all_failed_downloads = [None] * total_files
-
-    resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
 
     header = "SUBTITLES"
     description = f"Process missing subtitles"
@@ -840,6 +838,12 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                 else:
                     truly_missing_subs_langs.append(lang[:-1])
         all_truly_missing_subs_langs.append(truly_missing_subs_langs)
+
+    # Copy default or user subliminal config file to dirpath
+    if os.path.exists('subliminal.toml'):
+        shutil.copy('subliminal.toml', os.path.join(dirpath, 'subliminal.toml'))
+    else:
+        shutil.copy('subliminal_defaults.toml', os.path.join(dirpath, 'subliminal.toml'))
 
     # Calculate number of workers and internal threads
     num_workers = min(total_files, max_worker_threads)
@@ -916,14 +920,13 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     downloaded_subs = []
     failed_downloads = []
 
-    resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
-
     if debug:
         print('\n')
 
     for index, lang in enumerate(missing_subs_langs):
+
         command = [
-            'subliminal', '--debug', 'download', '-l', lang, input_file
+            'subliminal', '--debug', '--config', './subliminal.toml', 'download', '-l', lang, input_file
         ]
 
         if debug:

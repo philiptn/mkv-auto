@@ -13,6 +13,9 @@ while true; do
     if [ -f /mkv-auto/config/user.ini ]; then
         cp /mkv-auto/config/user.ini /mkv-auto/user.ini
     fi
+    if [ -f /mkv-auto/config/subliminal.toml ]; then
+        cp /mkv-auto/config/subliminal.toml /mkv-auto/subliminal.toml
+    fi
     # Check if the script is already running
     if ! pgrep -f 'python3 -u mkv-auto.py' > /dev/null; then
         # Check for new files in the input directory

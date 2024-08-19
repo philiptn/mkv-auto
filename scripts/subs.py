@@ -421,7 +421,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
             # Convert to 3-letter code instead of 2-letter code
             language = pycountry.languages.get(alpha_2=language).alpha_3
 
-            if language not in languages:
+            if original_extension == 'srt':
                 all_languages.append(language)
                 all_names.append('')
                 all_forced.append(0)

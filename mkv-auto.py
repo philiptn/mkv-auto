@@ -123,9 +123,6 @@ def mkv_auto(args):
             move_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
         input_dir = temp_dir
 
-    if not args.silent:
-        show_cursor()
-
     extract_archives(input_dir)
     flatten_directories(input_dir)
 
@@ -133,9 +130,7 @@ def mkv_auto(args):
     rename_others_file_to_folder(input_dir)
 
     if not args.silent:
-        # Show the cursor
-        sys.stdout.write('\033[?25h')
-        sys.stdout.flush()
+        show_cursor()
 
     if remove_samples:
         remove_sample_files_and_dirs(input_dir)

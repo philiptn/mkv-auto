@@ -26,7 +26,7 @@ removing and/or converting any audio or subtitle tracks from the source video.
 1. Run `./prerequisites.sh` to install the necessary `apt` and `pip` packages needed for this utility to work.
 
 ## Usage
-Note: `defaults.ini` contains the default options set for this utility. If you want to make any changes, create a new file named `user.ini` with all the same parameters to override the default settings.  
+Note: `defaults.ini` contains the default options set for this utility. If you want to make any changes, create a new file named `user.ini` with all the same parameters to override the default settings. The same applies for Subliminal [config](https://github.com/Diaoul/subliminal/blob/main/docs/config.toml): `subliminal_defaults.toml` &rarr; `subliminal.toml`  
 
 Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the process of unpacking and repacking mkv files benefits greatly from high read/write performance. Alternatively, point the `TEMP_DIR` variable (from `user.ini`) to a fast storage medium.
 
@@ -44,7 +44,7 @@ If you would like to run mkv-auto as a service, meaning that it simply checks a 
 
 - To get started, create a folder on your host system, such as `~/mkv-auto-service`.
 - Next you need to copy `docker-compose.yml`, `.env_example` and `defaults.ini` over to this folder.
-- Next, rename the `defaults.ini` to `user.ini` and make the necessary modifications to suit your preferences. This file also needs to be placed inside a folder named `config`. 
+- Next, rename the `defaults.ini` to `user.ini` and make the necessary modifications to suit your preferences. This file also needs to be placed inside a folder named `config` Here you should also place your `subliminal.toml` file. 
 - The `.env_example` file also needs to be renamed to `.env`. In here you need to change the `$HOST_FOLDER` variable to the location of the mkv-auto-service folder (`/home/philip/mkv-auto-service` in my case).
 - The `$INPUT_FOLDER`, `$OUTPUT_FOLDER` and `$TEMP_DIR` variables in `.env` should be changed to the appropriate input, output and TEMP locations. If you have an NVMe SSD that is mounted to your system, and you have sufficient storage capacity, the tool will greatly benefit from the increased read/write speed if this drive is assigned to TEMP.
 
@@ -54,6 +54,7 @@ The folder structure should look something like this:
 ├── .env
 ├── config
 │   └── user.ini
+│   └── subliminal.toml
 ├── docker-compose.yml
 ├── input
 ├── output
@@ -68,7 +69,7 @@ The service will now process any files from the input folder automatically and p
 
 **NOTE: ALL files from the input folder will be MOVED to TEMP before starting, not copied. If you are processing many large files at once, make sure that you have enough TEMP storage capacity.**
 
-To see the progress/logs of the service, this can be viewed using `sudo docker logs mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` file manually.
+To see the progress/logs of the service, this can be viewed using `docker logs mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` file manually.
 
 Tip: If you want to continuously monitor the progress of mkv-auto-service you can easily do this by adding this to your `~/.bash_aliases` file (create it if you do not already have it).  
 
@@ -99,7 +100,7 @@ To run the utility like a program using Docker, this can be done by using one of
 5. Double-click the `mkv-auto.bat` file to start mkv-auto.
 6. Check the `output/` folder for the finished files.
 
-If you would like to change the default behaviour of mkv-auto, make a copy of `defaults.ini` and rename it to `user.ini`. Adjust the settings to match your preferences.
+If you would like to change the default behaviour of mkv-auto, make a copy of `defaults.ini` and rename it to `user.ini`. Adjust the settings to match your preferences. The same applies to the Subliminal [config](https://github.com/Diaoul/subliminal/blob/main/docs/config.toml), make a copy of `subliminal_defaults.toml` and name it `subliminal.toml`.
 
 
 #### Linux
@@ -129,13 +130,9 @@ docker run --rm -it -v ${PWD}:/mkv-auto/files philiptn/mkv-auto --docker --move
 ### mkv-auto
 
 ```
-usage: mkv-auto.py [-h] [--input_folder INPUT_DIR]
-                   [--output_folder OUTPUT_DIR] [--temp_folder TEMP_DIR]
-                   [--silent] [--move] [--docker] [--debug]
+usage: mkv-auto.py [-h] [--input_folder INPUT_DIR] [--output_folder OUTPUT_DIR] [--temp_folder TEMP_DIR] [--silent] [--move] [--docker] [--debug] [--service] [--log_file LOG_FILE]
 
-A tool that aims to remove unnecessary clutter from Matroska (.mkv) files by
-removing and/or converting any audio or subtitle tracks from the source
-video.
+A tool that aims to remove unnecessary clutter from Matroska (.mkv) files by removing and/or converting any audio or subtitle tracks from the source video.
 
 options:
   -h, --help            show this help message and exit
@@ -145,15 +142,12 @@ options:
                         output folder path (default: 'output/')
   --temp_folder TEMP_DIR, -tf TEMP_DIR
                         temp folder path (default: '.tmp/')
-  --silent              supress visual elements like progress bars (default:
-                        False)
-  --move                process files directly by moving them, no copying
-                        (default: False)
-  --docker              use docker-specific default directories from 'files/'
-                        (default: False)
-  --debug               print debugging information such as track selection,
-                        codecs, prefs etc. (default: False)
+  --silent              supress visual elements like progress bars (default: False)
+  --move                process files directly by moving them, no copying (default: False)
+  --docker              use docker-specific default directories from 'files/' (default: False)
+  --debug               print debugging information such as track selection, codecs, prefs etc. (default: False)
   --service             disables debug pause if enabled (default: False)
+  --log_file LOG_FILE   log file location (default: './mkv-auto.log')
 ```
 
 ### queue-service

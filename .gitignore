@@ -151,3 +151,6 @@ tmp/
 
 # Bak files
 *.bak
+
+# Subliminal user config
+subliminal.toml
