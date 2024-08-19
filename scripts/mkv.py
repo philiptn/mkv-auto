@@ -702,7 +702,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
     if all_replacements_list_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
-                             f"{all_replacements_list_count} OCR errors in subtitle tracks.")
+                             f"{all_replacements_list_count} OCR {print_multi_or_single(all_replacements_list_count, 'error')} in subtitle tracks.")
     show_cursor()
     return all_ready_subtitle_tracks, subtitle_tracks_to_be_processed
 
