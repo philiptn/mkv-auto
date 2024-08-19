@@ -569,7 +569,6 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
 def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, dirpath):
     total_files = len(input_files)
     all_subtitle_files = [None] * total_files
-    pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
     header = "MKVEXTRACT"
     description = "Extract subtitles"

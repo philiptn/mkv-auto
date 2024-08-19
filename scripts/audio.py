@@ -11,7 +11,11 @@ from scripts.misc import *
 # Function to extract a single audio track
 def extract_audio_track(debug, filename, track, language, name):
     base, _, _ = filename.rpartition('.')
-    audio_filename = f"{base}.{track}.{language[:-1]}.mkv"
+    try:
+        audio_language = pycountry.languages.get(alpha_3=language).alpha_2
+    except:
+        audio_language = language[:-1]
+    audio_filename = f"{base}.{track}.{audio_language}.mkv"
     command = ["mkvextract", filename, "tracks", f"{track}:{audio_filename}"]
 
     if debug:

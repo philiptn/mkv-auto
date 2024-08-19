@@ -351,7 +351,12 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
 # Function to extract a single subtitle track
 def extract_subtitle(debug, filename, track, output_filetype, language):
     base, _, _ = filename.rpartition('.')
-    subtitle_filename = f"{base}.{track}.{language[:-1]}.{output_filetype}"
+    try:
+        sub_language = pycountry.languages.get(alpha_3=language).alpha_2
+    except:
+        sub_language = language[:-1]
+
+    subtitle_filename = f"{base}.{track}.{sub_language}.{output_filetype}"
     command = ["mkvextract", filename, "tracks", f"{track}:{subtitle_filename}"]
 
     if debug:
