@@ -365,7 +365,7 @@ def extract_season_episode(filename):
 def compact_names_list(names):
     # Generates a preview of the filenames
     if len(names) > 5:
-        return ames[:2] + ["..."] + names[-2:]
+        return names[:2] + ["..."] + names[-2:]
     return names
 
 
