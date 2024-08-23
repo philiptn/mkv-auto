@@ -263,26 +263,7 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
     all_track_forced = []
 
     for index, file in enumerate(subtitle_files):
-        # If a downloaded or extracted SRT is passed, fill out
-        # the subtitle metadata variables
-        if file.endswith('.srt'):
-            base_and_lang_with_id, _, original_extension = file.rpartition('.')
-            base_with_id, _, language = base_and_lang_with_id.rpartition('.')
-            base, _, track_id = base_with_id.rpartition('.')
-            # Convert to 3-letter code instead of 2-letter code
-            try:
-                language = pycountry.languages.get(alpha_2=language).alpha_3
-            except:
-                language = language[:-1]
-
-            if original_extension == 'srt':
-                updated_subtitle_languages.append(language)
-                all_track_ids.append(track_id)
-                all_track_names.append('')
-                all_track_forced.append(0)
-                updated_sub_filetypes.append(original_extension)
-
-        elif file.endswith('.ass'):
+        if file.endswith('.ass'):
             base_and_lang_with_id, _, original_extension = file.rpartition('.')
             base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
             base, _, track_id = base_with_id.rpartition('.')
@@ -302,6 +283,21 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
                 all_track_forced = all_track_forced + [forced_tracks[index], forced_tracks[index]]
             updated_subtitle_languages = updated_subtitle_languages + [languages[index], languages[index]]
             output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
+        else:
+            base_and_lang_with_id, _, original_extension = file.rpartition('.')
+            base_with_id, _, language = base_and_lang_with_id.rpartition('.')
+            base, _, track_id = base_with_id.rpartition('.')
+            # Convert to 3-letter code instead of 2-letter code
+            try:
+                language = pycountry.languages.get(alpha_2=language).alpha_3
+            except:
+                language = language[:-1]
+
+            updated_subtitle_languages.append(language)
+            all_track_ids.append(track_id)
+            all_track_names.append('')
+            all_track_forced.append(0)
+            updated_sub_filetypes.append(original_extension)
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
 
