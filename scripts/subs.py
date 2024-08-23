@@ -263,11 +263,30 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
     all_track_forced = []
 
     for index, file in enumerate(subtitle_files):
-        base_and_lang_with_id, _, original_extension = file.rpartition('.')
-        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-        base, _, track_id = base_with_id.rpartition('.')
+        # If a downloaded or extracted SRT is passed, fill out
+        # the subtitle metadata variables
+        if file.endswith('.srt'):
+            base_and_lang_with_id, _, original_extension = file.rpartition('.')
+            base_with_id, _, language = base_and_lang_with_id.rpartition('.')
+            base, _, track_id = base_with_id.rpartition('.')
+            # Convert to 3-letter code instead of 2-letter code
+            try:
+                language = pycountry.languages.get(alpha_2=language).alpha_3
+            except:
+                language = language[:-1]
 
-        if "ass" in file:
+            if original_extension == 'srt':
+                updated_subtitle_languages.append(language)
+                all_track_ids.append(track_id)
+                all_track_names.append('')
+                all_track_forced.append(0)
+                updated_sub_filetypes.append(original_extension)
+
+        elif file.endswith('.ass'):
+            base_and_lang_with_id, _, original_extension = file.rpartition('.')
+            base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
+            base, _, track_id = base_with_id.rpartition('.')
+
             ass_file = open(file)
             srt_output = asstosrt.convert(ass_file)
             with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
@@ -283,13 +302,6 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
                 all_track_forced = all_track_forced + [forced_tracks[index], forced_tracks[index]]
             updated_subtitle_languages = updated_subtitle_languages + [languages[index], languages[index]]
             output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
-        else:
-            updated_sub_filetypes.append(original_extension)
-            output_subtitles.append(file)
-            updated_subtitle_languages.append(languages[index])
-            all_track_ids.append(track_id)
-            all_track_names.append(names[index] if names[index] else "Original")
-            all_track_forced.append(forced)
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
 
@@ -419,7 +431,10 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
             base_with_id, _, language = base_and_lang_with_id.rpartition('.')
             base, _, track_id = base_with_id.rpartition('.')
             # Convert to 3-letter code instead of 2-letter code
-            language = pycountry.languages.get(alpha_2=language).alpha_3
+            try:
+                language = pycountry.languages.get(alpha_2=language).alpha_3
+            except:
+                language = language[:-1]
 
             if original_extension == 'srt':
                 all_languages.append(language)
