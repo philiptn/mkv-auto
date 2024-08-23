@@ -205,6 +205,14 @@ def get_total_mkv_files(path):
 
 
 def replace_tags_in_file(file_path, replacement):
+    # List of tags to exclude from replacement
+    # https://support.plex.tv/articles/local-files-for-trailers-and-extras/
+    excluded_tags = [
+        "-behindthescenes", "-deleted", "-featurette",
+        "interview", "-scene", "-short", "-trailer", "-other"
+    ]
+
+    # Regular expression to match tags
     tag_regex = re.compile(r"-\w*(-sample)?(\.\w{2,3})?$", re.IGNORECASE)
 
     # Convert the relative path to an absolute path
@@ -212,12 +220,20 @@ def replace_tags_in_file(file_path, replacement):
 
     dirpath, filename = os.path.split(abs_file_path)
     base, ext = os.path.splitext(filename)
+
     if ext in {".mkv", ".srt"}:
         match = tag_regex.search(base)
         if match:
+            tag = match.group(0)  # Capture the entire tag (e.g., "-trailer", "-sample")
+
+            # Check if the tag is in the list of excluded tags
+            if any(excluded_tag in tag for excluded_tag in excluded_tags):
+                return filename  # Return the original filename if tag is excluded
+
             base = tag_regex.sub(replacement + (match.group(2) or ""), base)
         elif ext == ".mkv":
             base += replacement
+
     return base + ext
 
 

@@ -3,6 +3,7 @@ services:
     image: ${IMAGE_NAME}
     container_name: ${CONTAINER_NAME}
     restart: unless-stopped
+    tty: true
     volumes:
       - ${INPUT_FOLDER}:/mkv-auto/files/input
       - ${OUTPUT_FOLDER}:/mkv-auto/files/output

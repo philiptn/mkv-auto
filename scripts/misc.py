@@ -340,7 +340,7 @@ def reformat_filename(filename, names_only):
             }
         else:
             # Unidentified file
-            return os.path.join(others_folder, filename), 'None'
+            return others_folder, filename
 
 
 # Function to hide the cursor
