@@ -414,7 +414,6 @@ def print_media_info(logger, filenames):
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
     if movies:
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
-        movies = compact_names_list(movies)
         for movie in movies:
             print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
     if uncategorized:
