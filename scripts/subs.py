@@ -419,6 +419,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     all_names = []
     all_forced = []
 
+    # Fill out subtitle metadata from filenames
     for sub_file in subtitle_files:
         base_and_lang_with_id, _, original_extension = sub_file.rpartition('.')
         base_with_id, _, language = base_and_lang_with_id.rpartition('.')
@@ -429,10 +430,9 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
         except:
             language = language[:-1]
 
-        if original_extension == 'srt':
-            all_languages.append(language)
-            all_names.append('')
-            all_forced.append(0)
+        all_languages.append(language)
+        all_names.append('')
+        all_forced.append(0)
 
     if debug:
         print('\n')
