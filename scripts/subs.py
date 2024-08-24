@@ -415,27 +415,24 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
 
-    all_languages = languages
-    all_names = names
-    all_forced = forced
+    all_languages = []
+    all_names = []
+    all_forced = []
 
-    # If a downloaded or extracted SRT is passed, fill out
-    # the subtitle metadata variables
-    if any(sub_file.endswith('.srt') for sub_file in subtitle_files):
-        for sub_file in subtitle_files:
-            base_and_lang_with_id, _, original_extension = sub_file.rpartition('.')
-            base_with_id, _, language = base_and_lang_with_id.rpartition('.')
-            base, _, track_id = base_with_id.rpartition('.')
-            # Convert to 3-letter code instead of 2-letter code
-            try:
-                language = pycountry.languages.get(alpha_2=language).alpha_3
-            except:
-                language = language[:-1]
+    for sub_file in subtitle_files:
+        base_and_lang_with_id, _, original_extension = sub_file.rpartition('.')
+        base_with_id, _, language = base_and_lang_with_id.rpartition('.')
+        base, _, track_id = base_with_id.rpartition('.')
+        # Convert to 3-letter code instead of 2-letter code
+        try:
+            language = pycountry.languages.get(alpha_2=language).alpha_3
+        except:
+            language = language[:-1]
 
-            if original_extension == 'srt':
-                all_languages.append(language)
-                all_names.append('')
-                all_forced.append(0)
+        if original_extension == 'srt':
+            all_languages.append(language)
+            all_names.append('')
+            all_forced.append(0)
 
     if debug:
         print('\n')
