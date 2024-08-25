@@ -8,6 +8,7 @@ import shutil
 import time
 import pycountry
 import concurrent.futures
+import base64
 
 from scripts.misc import *
 from scripts.audio import *
@@ -628,7 +629,7 @@ def extract_subs_in_mkv_process_worker(debug, input_file, dirpath, internal_thre
      subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(debug, file_info, pref_subs_langs)
 
     subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
-                                         sub_filetypes, subs_track_languages)
+                                         sub_filetypes, subs_track_languages, subs_track_forced, subs_track_names)
 
     return subtitle_files
 
@@ -725,12 +726,11 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
     if "ass" in sub_filetypes:
         (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
          all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = convert_ass_to_srt(
-            subtitle_files, subs_track_languages, subs_track_names, subs_track_forced, main_audio_track_lang)
+            subtitle_files, main_audio_track_lang)
     else:
         (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
          all_subs_track_names, all_subs_track_forced, updated_sub_filetypes, all_replacements) = ocr_subtitles(
-            internal_threads, debug, subtitle_files, subs_track_languages, subs_track_names, subs_track_forced,
-            main_audio_track_lang)
+            internal_threads, debug, subtitle_files, main_audio_track_lang)
 
     sub_filetypes = updated_sub_filetypes
 
@@ -830,7 +830,7 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
         truly_missing_subs_langs = []
         for lang in all_missing_subs_langs[index]:
             if lang != 'none':
-                if total_external_subs:
+                if any(sub for sub in total_external_subs):
                     input_file_base = re.sub(r'^[^/]+/', '', input_files[index]).replace(".mkv", "")
                     if any(input_file_base in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in total_external_subs for sub in sublist):
                         if not any(lang[:-1] in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in total_external_subs for sub in sublist):
@@ -944,10 +944,10 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
             print(f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}{RESET}")
 
         if os.path.exists(os.path.join(dirpath, f"{mkv_base}.{lang}.srt")):
-            shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"), os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
-            downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
+            shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"), os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
+            downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
         else:
-            failed_downloads.append(os.path.join(dirpath, f"{mkv_base}.{index + 1}.{lang}.srt"))
+            failed_downloads.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
 
     return downloaded_subs, failed_downloads
 
@@ -975,7 +975,8 @@ def resync_sub_process(logger, debug, max_worker_threads, input_files, dirpath, 
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(resync_subs_process_worker, debug, input_file, dirpath, subtitle_files_to_process_list[index], internal_threads): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(resync_subs_process_worker, debug, input_file, dirpath,
+                                   subtitle_files_to_process_list[index], internal_threads): index for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
@@ -1202,7 +1203,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 else:
                     mkv_with_ext = f"{mkv_base_name}.mkv"
                 mkv_base_name, _, ext = mkv_with_ext.rpartition('.')
-                new_srt_file_name = os.path.join(dirpath, f"{mkv_base_name}.{index + 10}.{lang_code}.srt")
+                new_srt_file_name = os.path.join(dirpath, f"{mkv_base_name}_0_''_{index + 10}_.{full_language}.srt")
                 shutil.move(srt_file, new_srt_file_name)
                 srt_file = new_srt_file_name
                 all_srt_files.append(srt_file)
@@ -1217,8 +1218,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 if len(lang) > 2:
                     if pref_subs_langs:
                         if lang in pref_subs_langs:
-                            lang_2_letter = pycountry.languages.get(alpha_3=lang).alpha_2
-                            new_srt_file_name = os.path.join(dirpath, f"{base}.{index + 10}.{lang_2_letter}.srt")
+                            new_srt_file_name = os.path.join(dirpath, f"{base}_0_''_{index + 10}_{lang}.srt")
                             all_srt_files.append(new_srt_file_name)
                             all_langs_found.append(lang)
                             shutil.move(srt_file, new_srt_file_name)
@@ -1226,7 +1226,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                     if pref_subs_langs:
                         lang_3_letter = pycountry.languages.get(alpha_2=lang).alpha_3
                         if lang_3_letter in pref_subs_langs:
-                            new_srt_file_name = os.path.join(dirpath,f"{base}.{index + 10}.{lang}.srt")
+                            new_srt_file_name = os.path.join(dirpath, f"{base}_0_''_{index + 10}_{lang_3_letter}.srt")
                             all_srt_files.append(new_srt_file_name)
                             all_langs_found.append(lang_3_letter)
                             shutil.move(srt_file, new_srt_file_name)
@@ -1348,6 +1348,8 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
 
 
 def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
+    logger = get_custom_logger()
+
     pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
     pref_subs_ext = check_config(config, 'subtitles', 'pref_subs_ext')
@@ -1521,11 +1523,9 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         lang_str = f"0:{final_sub_languages[index]}"
         name_str = f"0:{final_sub_track_names[index]}"
         forced_str = f"0:{final_sub_track_forced[index]}"
-        try:
-            final_sub_language = pycountry.languages.get(alpha_3=final_sub_languages[index]).alpha_2
-        except:
-            final_sub_language = final_sub_languages[index][:-1]
-        filelist_str = f"{base}.{final_sub_track_ids[index]}.{final_sub_language}.{filetype}"
+        sub_track_name = base64.b64encode(final_sub_track_names[index].encode("utf-8")).decode("utf-8")
+        filelist_str = (f"{base}_{final_sub_track_forced[index]}_'{sub_track_name}'_"
+                        f"{final_sub_track_ids[index]}_{final_sub_languages[index]}.{filetype}")
         sub_files_list += ('--default-track', default_track_str,
                            '--language', lang_str,
                            '--track-name', name_str,
@@ -1545,7 +1545,7 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        raise Exception("Error executing mkvmerge command: " + result.stdout)
+        log_debug(logger, "Error executing mkvmerge command: " + result.stdout)
 
     os.remove(filename)
     shutil.move(temp_filename, filename)
@@ -1565,10 +1565,9 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
                 final_sub_languages.append(final_sub_languages[index])
                 final_sub_track_ids.append(final_sub_track_ids[index])
                 final_sub_track_names.append(final_sub_track_names[index])
+                final_sub_track_forced.append(final_sub_track_forced[index])
 
         for index, filetype in enumerate(final_sub_filetypes):
-            try:
-                final_sub_language = pycountry.languages.get(alpha_3=final_sub_languages[index]).alpha_2
-            except:
-                final_sub_language = final_sub_languages[index][:-1]
-            os.remove(f"{base}.{final_sub_track_ids[index]}.{final_sub_language}.{filetype}")
+            sub_track_name = base64.b64encode(final_sub_track_names[index].encode("utf-8")).decode("utf-8")
+            os.remove(f"{base}_{final_sub_track_forced[index]}_'{sub_track_name}'_"
+                      f"{final_sub_track_ids[index]}_{final_sub_languages[index]}.{filetype}")

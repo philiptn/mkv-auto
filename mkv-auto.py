@@ -9,6 +9,7 @@ from scripts.mkv import *
 from scripts.subs import *
 from scripts.audio import *
 from scripts.misc import *
+from scripts.logger import *
 
 
 def mkv_auto(args):
@@ -19,45 +20,7 @@ def mkv_auto(args):
     remove_samples = check_config(config, 'general', 'remove_samples')
 
     # Create the logger
-    logger = logging.getLogger("logger")
-    logger.setLevel(logging.DEBUG)  # Set logger to capture all levels
-    logging.Logger.color = color
-    # Define a custom log level named COLOR, with a numeric value between INFO and DEBUG
-    logging.addLevelName(25, "COLOR")
-    # Set the time zone to UTC
-    logging.Formatter.converter = time.gmtime
-
-    # Extract the directory and the file name
-    log_dir, log_filename = os.path.split(args.log_file)
-    log_basename, log_extension = os.path.splitext(log_filename)
-
-    # Create the log handlers
-    plain_file_handler = logging.FileHandler(os.path.join(log_dir, f"{log_basename}{log_extension}"), mode='a')
-    colored_file_handler = logging.FileHandler(os.path.join(log_dir, f"{log_basename}-color{log_extension}"), mode='a')
-    debug_file_handler = logging.FileHandler(os.path.join(log_dir, f"{log_basename}-debug{log_extension}"), mode='a')
-
-    # Handler for plain text logging (INFO level)
-    plain_file_handler.setLevel(logging.INFO)
-    plain_formatter = logging.Formatter('%(message)s')
-    plain_file_handler.setFormatter(plain_formatter)
-    plain_file_handler.addFilter(SpecificLevelFilter(logging.INFO))
-
-    # Handler for colored logging (COLOR level)
-    colored_file_handler.setLevel(25)
-    colored_formatter = logging.Formatter(f'%(message)s')
-    colored_file_handler.setFormatter(colored_formatter)
-    colored_file_handler.addFilter(SpecificLevelFilter(25))
-
-    # Handler for debug logging (DEBUG level)
-    debug_file_handler.setLevel(logging.DEBUG)
-    debug_formatter = logging.Formatter('[%(levelname)s] %(message)s')
-    debug_file_handler.setFormatter(debug_formatter)
-    debug_file_handler.addFilter(SpecificLevelFilter(logging.DEBUG))
-
-    # Add the handlers to the logger
-    logger.addHandler(plain_file_handler)
-    logger.addHandler(colored_file_handler)
-    logger.addHandler(debug_file_handler)
+    logger = setup_logger(args.log_file)
 
     if keep_original:
         move_files = False

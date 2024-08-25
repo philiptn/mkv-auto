@@ -21,6 +21,7 @@ import tempfile
 from collections import Counter
 import concurrent.futures
 from tqdm import tqdm
+import base64
 
 from scripts.misc import *
 
@@ -254,7 +255,7 @@ def remove_sdh(max_threads, debug, input_files, remove_music, track_names, exter
     return cleaned_track_names, all_replacements
 
 
-def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_audio_track_lang):
+def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
     output_subtitles = []
     updated_subtitle_languages = []
     updated_sub_filetypes = []
@@ -265,52 +266,53 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
 
     for index, file in enumerate(subtitle_files):
         if file.endswith('.ass'):
-            base_and_lang_with_id, _, original_extension = file.rpartition('.')
-            base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-            base, _, track_id = base_with_id.rpartition('.')
+            base_lang_id_name_forced, _, original_extension = file.rpartition('.')
+            base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
+            base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
+            base_forced, _, name_encoded = base_name_forced.rpartition('_')
+            name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith("'") else name_encoded
+            name = base64.b64decode(name_encoded).decode("utf-8")
+            base, _, forced = base_forced.rpartition('_')
 
             ass_file = open(file)
             srt_output = asstosrt.convert(ass_file)
-            with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
+            with open(f"{base}_{forced}_''_{track_id}_{language}.srt", "w") as srt_file:
                 srt_file.write(srt_output)
 
             if keep_original_subtitles:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
                 all_track_ids = all_track_ids + [track_id, track_id]
-                if 'forced' in names[index].lower():
+                if 'forced' in name.lower():
                     all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
-                                       names[index] if names[index] else '']
+                                                         name if name else '']
                     all_track_forced = all_track_forced + [1, 0]
                 else:
-                    all_track_names = all_track_names + ['', names[index] if names[index] else '']
-                    all_track_forced = all_track_forced + [forced_tracks[index], forced_tracks[index]]
-                updated_subtitle_languages = updated_subtitle_languages + [languages[index], languages[index]]
-                output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
+                    all_track_names = all_track_names + ['', name if name else '']
+                    all_track_forced = all_track_forced + [forced, forced]
+                updated_subtitle_languages = updated_subtitle_languages + [language, language]
+                output_subtitles = output_subtitles + [f"{base}_{forced}_''_{track_id}_{language}.srt"]
             else:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt']
                 all_track_ids = all_track_ids + [track_id]
-                if 'forced' in names[index].lower():
+                if 'forced' in name.lower():
                     all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue']
                     all_track_forced = all_track_forced + [1]
                 else:
                     all_track_names = all_track_names + ['']
-                    all_track_forced = all_track_forced + [forced_tracks[index]]
-                updated_subtitle_languages = updated_subtitle_languages + [languages[index]]
-                output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
+                    all_track_forced = all_track_forced + [forced]
+                updated_subtitle_languages = updated_subtitle_languages + [language]
+                output_subtitles = output_subtitles + [f"{base}_{forced}_''_{track_id}_{language}.srt"]
         else:
-            base_and_lang_with_id, _, original_extension = file.rpartition('.')
-            base_with_id, _, language = base_and_lang_with_id.rpartition('.')
-            base, _, track_id = base_with_id.rpartition('.')
-            # Convert to 3-letter code instead of 2-letter code
-            try:
-                language = pycountry.languages.get(alpha_2=language).alpha_3
-            except:
-                language = language[:-1]
+            base_lang_id_name_forced, _, original_extension = file.rpartition('.')
+            base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
+            base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
+            base_forced, _, name = base_name_forced.rpartition('_')
+            base, _, forced = base_forced.rpartition('_')
 
             updated_subtitle_languages.append(language)
             all_track_ids.append(track_id)
-            all_track_names.append('')
-            all_track_forced.append(0)
+            all_track_names.append(name)
+            all_track_forced.append(forced)
             updated_sub_filetypes.append(original_extension)
 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes
@@ -370,28 +372,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
             time.sleep(retry_delay)  # Wait before retrying
 
 
-# Function to extract a single subtitle track
-def extract_subtitle(debug, filename, track, output_filetype, language):
-    base, _, _ = filename.rpartition('.')
-    try:
-        sub_language = pycountry.languages.get(alpha_3=language).alpha_2
-    except:
-        sub_language = language[:-1]
-
-    subtitle_filename = f"{base}.{track}.{sub_language}.{output_filetype}"
-    command = ["mkvextract", filename, "tracks", f"{track}:{subtitle_filename}"]
-
-    if debug:
-        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
-
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception("Error executing mkvextract command: " + result.stderr)
-
-    return subtitle_filename
-
-
-def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_filetypes, subs_languages):
+def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_filetypes, subs_languages, subs_forced, subs_names):
     if debug:
         print('\n')
 
@@ -399,8 +380,9 @@ def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_file
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Create a dictionary to store futures with their respective indices
         future_to_index = {
-            executor.submit(extract_subtitle, debug, filename, track, filetype, language): i
-            for i, (track, filetype, language) in enumerate(zip(track_numbers, output_filetypes, subs_languages))
+            executor.submit(extract_subtitle, debug, filename, track, filetype, language, forced, name): i
+            for i, (track, filetype, language, forced, name) in
+            enumerate(zip(track_numbers, output_filetypes, subs_languages, subs_forced, subs_names))
         }
 
         # As each future completes, place the result in the corresponding index
@@ -414,6 +396,23 @@ def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_file
     return results
 
 
+def extract_subtitle(debug, filename, track, output_filetype, language, forced, name):
+    base, _, _ = filename.rpartition('.')
+    b64_name = base64.b64encode(name.encode("utf-8")).decode("utf-8")
+
+    subtitle_filename = f"{base}_{forced}_'{b64_name}'_{track}_{language}.{output_filetype}"
+    command = ["mkvextract", filename, "tracks", f"{track}:{subtitle_filename}"]
+
+    if debug:
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Exception("Error executing mkvextract command: " + result.stderr)
+
+    return subtitle_filename
+
+
 def get_output_subtitle_string(filename, track_numbers, output_filetypes, subs_languages):
     subtitle_filenames = []
 
@@ -425,7 +424,7 @@ def get_output_subtitle_string(filename, track_numbers, output_filetypes, subs_l
     return subtitle_filenames
 
 
-def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, main_audio_track_lang):
+def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
     keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
@@ -433,21 +432,22 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     all_languages = []
     all_names = []
     all_forced = []
+    all_ids = []
 
     # Fill out subtitle metadata from filenames
     for sub_file in subtitle_files:
-        base_and_lang_with_id, _, original_extension = sub_file.rpartition('.')
-        base_with_id, _, language = base_and_lang_with_id.rpartition('.')
-        base, _, track_id = base_with_id.rpartition('.')
-        # Convert to 3-letter code instead of 2-letter code
-        try:
-            language = pycountry.languages.get(alpha_2=language).alpha_3
-        except:
-            language = language[:-1]
+        base_lang_id_name_forced, _, original_extension = sub_file.rpartition('.')
+        base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
+        base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
+        base_forced, _, name = base_name_forced.rpartition('_')
+        # Remove starting and ending single-quotes
+        name = name[1:-1] if name.startswith("'") and name.endswith("'") else name
+        base, _, forced = base_forced.rpartition('_')
 
         all_languages.append(language)
-        all_names.append('')
-        all_forced.append(0)
+        all_names.append(name)
+        all_forced.append(forced)
+        all_ids.append(track_id)
 
     if debug:
         print('\n')
@@ -458,8 +458,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Submit all tasks and store futures in a dictionary with their index
         future_to_index = {
-            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], all_languages[i], all_names[i],
-                            all_forced[i], subtitleedit_dir): i
+            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], subtitleedit_dir): i
             for i in range(len(subtitle_files))
         }
 
@@ -477,8 +476,9 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     updated_sub_filetypes = []
 
     # Process each result and organize the outputs
-    for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
+    for original_file, output_subtitle, language, track_id, name_encoded, forced, replacements, original_extension in results:
         all_replacements = replacements + all_replacements
+        name = base64.b64decode(name_encoded).decode("utf-8")
         if output_subtitle:
             if keep_original_subtitles:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
@@ -487,7 +487,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
                 # Repeat language and track ID for both original and generated files
                 updated_subtitle_languages = updated_subtitle_languages + [language, language]
                 all_track_ids = all_track_ids + [track_id, track_id]
-                if 'forced' in name.lower() or forced:
+                if 'forced' in name.lower() or (forced != '0' and bool(forced)):
                     all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
                                                          name if name else "Original"]
                     # Enable forced only for the generated file, not original
@@ -499,14 +499,14 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
                 updated_sub_filetypes = updated_sub_filetypes + ['srt']
                 updated_subtitle_languages = updated_subtitle_languages + [language]
                 all_track_ids = all_track_ids + [track_id]
-                if 'forced' in name.lower() or forced:
+                if 'forced' in name.lower() or (forced != '0' and bool(forced)):
                     all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue']
                     all_track_forced = all_track_forced + [1]
                 else:
-                    all_track_names = all_track_names + ['']
+                    all_track_names = all_track_names + [name]
                     all_track_forced = all_track_forced + [forced]
         else:
-            if 'forced' in name.lower() or forced:
+            if 'forced' in name.lower() or (forced != '0' and bool(forced)):
                 all_track_names.append(f'non-{main_audio_track_lang} dialogue')
             else:
                 all_track_names.append(name if name else '')
@@ -529,7 +529,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes, all_replacements
 
 
-def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):
+def ocr_subtitle_worker(debug, file, subtitleedit_dir):
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
@@ -541,9 +541,13 @@ def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):
         subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
         subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
 
-        base_and_lang_with_id, _, original_extension = file.rpartition('.')
-        base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-        base, _, track_id = base_with_id.rpartition('.')
+        base_lang_id_name_forced, _, original_extension = file.rpartition('.')
+        base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
+        base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
+        base_forced, _, name = base_name_forced.rpartition('_')
+        # Remove starting and ending single-quotes
+        name = name[1:-1] if name.startswith("'") and name.endswith("'") else name
+        base, _, forced = base_forced.rpartition('_')
 
         if "sup" in file or "sub" in file:
             update_tesseract_lang_xml(language, subtitleedit_settings)
@@ -555,26 +559,27 @@ def ocr_subtitle_worker(debug, file, language, name, forced, subtitleedit_dir):
 
             run_with_xvfb(command)
 
-            output_subtitle = f"{base}.{track_id}.{lang}.srt"
-            subtitle_tmp = f"{base}.{track_id}.{lang}_tmp.srt"
+            output_subtitle = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
+            final_subtitle = f"{base}_{forced}_''_{track_id}_{language}.srt"
+            subtitle_tmp = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
 
-            if lang == 'en':
+            if language == 'eng':
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
                 replacements = replacements + current_replacements
-                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', output_subtitle)
+                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', final_subtitle)
                 os.remove(subtitle_tmp)
                 replacements = replacements + current_replacements
             else:
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements.csv', subtitle_tmp)
-                os.rename(subtitle_tmp, output_subtitle)
+                os.rename(subtitle_tmp, final_subtitle)
                 replacements = replacements + current_replacements
         else:
-            output_subtitle = ''
+            final_subtitle = ''
     finally:
         # Clean up the temporary directory
         shutil.rmtree(temp_dir)
 
-    return file, output_subtitle, language, track_id, name, forced, replacements, original_extension
+    return file, final_subtitle, language, track_id, name, forced, replacements, original_extension
 
 
 def update_tesseract_lang_xml(new_language, settings_file):
@@ -840,11 +845,11 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             needs_processing = True
 
     # Add the forced subtitle tracks
-    subs_track_ids = subs_track_ids + forced_track_ids
-    subs_track_languages = subs_track_languages + forced_track_languages
-    subs_track_names = subs_track_names + forced_track_names
-    sub_filetypes = sub_filetypes + forced_sub_filetypes
-    subs_track_forced = subs_track_forced + forced_sub_bool
+    subs_track_ids = forced_track_ids + subs_track_ids
+    subs_track_languages = forced_track_languages + subs_track_languages
+    subs_track_names = forced_track_names + subs_track_names
+    sub_filetypes = forced_sub_filetypes + sub_filetypes
+    subs_track_forced = forced_sub_bool + subs_track_forced
 
     # If none of the subtitles matched, add the forced tracks as a last effort
     if len(subs_track_ids) == 0:

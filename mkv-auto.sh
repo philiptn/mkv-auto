@@ -16,6 +16,7 @@ fi
 extra_args=()
 build_flag=false
 move_files='--move'
+no_cache='true'
 
 # Loop through all the arguments
 while [[ $# -gt 0 ]]; do
@@ -27,6 +28,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --copy)
             move_files=''
+            shift  # Move to the next argument
+            ;;
+        --no-cache)
+            no_cache='docker builder prune'
             shift  # Move to the next argument
             ;;
         *)  # Capture any other arguments
@@ -43,6 +48,7 @@ $SUDO true
 if [ "$build_flag" = true ]; then
     echo "Building Docker image..."
     $SUDO docker image rm -t mkv-auto > /dev/null 2>&1
+    $SUDO $no_cache > /dev/null 2>&1
     $SUDO docker build -t mkv-auto . > /dev/null 2>&1
     echo -e "\033[K\033[1A\033[K"
 else

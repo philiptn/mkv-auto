@@ -6,6 +6,7 @@ import zipfile
 from datetime import datetime
 import concurrent.futures
 from scripts.misc import *
+from scripts.logger import *
 
 
 def copy_file(src, dst):
@@ -21,6 +22,7 @@ def move_file(src, dst):
 
 
 def extract_archives(input_folder):
+    logger = get_custom_logger()
     for root, dirs, files in os.walk(input_folder):
         # Filter for .rar and .zip files
         archive_files = [f for f in files if f.endswith('.rar') or f.endswith('.zip')]
@@ -32,12 +34,10 @@ def extract_archives(input_folder):
             try:
                 os.makedirs(temp_extract_path, exist_ok=True)
                 if archive_file.endswith('.rar'):
-                    print(f"{GREY}[UTC {get_timestamp()}] [RAR]{RESET} Extracting '{archive_file}'...")
                     # Extract RAR file
                     with rarfile.RarFile(archive_path) as rf:
                         rf.extractall(temp_extract_path)
                 elif archive_file.endswith('.zip'):
-                    print(f"{GREY}[UTC {get_timestamp()}] [ZIP]{RESET} Extracting '{archive_file}'...")
                     # Extract ZIP file
                     with zipfile.ZipFile(archive_path, 'r') as zf:
                         zf.extractall(temp_extract_path)
@@ -52,8 +52,11 @@ def extract_archives(input_folder):
                 # Remove temporary extraction directory
                 shutil.rmtree(temp_extract_path)
 
+                # Remove the archive file after extraction
+                os.remove(archive_path)
+
             except Exception as e:
-                print(f"{GREY}[UTC {get_timestamp()}] [ERROR]{RESET} Failed to extract {archive_file}: {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} Failed to extract {archive_file}: {e}")
 
 
 def count_files(directory):
@@ -76,45 +79,14 @@ def count_bytes(directory):
     return total_bytes
 
 
+def get_free_space(directory):
+    return shutil.disk_usage(directory).free
+
+
 def move_file_with_progress(src_file, dst_file, pbar, file_counter, total_files):
     shutil.move(src_file, dst_file)
     pbar.update(1)
     pbar.set_description(f"{GREY}[INFO]{RESET} Moving file {file_counter[0]} of {total_files}")
-
-
-def move_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
-    if not os.path.exists(destination_directory):
-        os.makedirs(destination_directory)
-
-    # Function to move a single file or directory
-    def move_item(s, d):
-        if os.path.isdir(s):
-            if not os.path.exists(d):
-                os.makedirs(d)
-            for item in os.listdir(s):
-                next_source = os.path.join(s, item)
-                next_destination = os.path.join(d, item)
-                move_item(next_source, next_destination)
-            # After moving all items, check if the directory is empty and remove it
-            if not os.listdir(s):
-                os.rmdir(s)
-        else:
-            with pbar.get_lock():  # Synchronize access to shared resources
-                file_counter[0] += 1
-                pbar.set_postfix_str(f"Moving file {file_counter[0]} of {total_files}...")
-            move_file_with_progress(s, d, pbar, file_counter, total_files)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
-        futures = []
-        for item in os.listdir(source_directory):
-            if item.startswith('.'):  # Skip files or folders starting with a dot
-                continue
-            s = os.path.join(source_directory, item)
-            d = os.path.join(destination_directory, item)
-            futures.append(executor.submit(move_item, s, d))
-
-        # Wait for all the tasks to complete
-        concurrent.futures.wait(futures)
 
 
 def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files):
@@ -129,24 +101,45 @@ def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files)
         pbar.set_description(f"{GREY}[INFO]{RESET} Copying file {file_counter[0]} of {total_files}")
 
 
-def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
+def move_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
-    # Function to copy a single file or directory
-    def copy_item(s, d):
+    # Make sure that the temp dir has at least 150% of the storage capacity
+    total_bytes = count_bytes(source_directory)
+    total_gb_print = total_bytes / (1024 ** 3)  # Convert to gigabytes
+    required_space_print = (total_bytes * 1.5) / (1024 ** 3)  # Convert to gigabytes
+    available_space_print = get_free_space(destination_directory) / (1024 ** 3)  # Convert to gigabytes
+
+    log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
+    log_debug(logger, f"Required space: {required_space_print:.2f} GB")
+    log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
+
+    available_space = get_free_space(destination_directory)
+
+    # Function to move a single file or directory
+    def move_item(s, d):
+        nonlocal available_space
+
         if os.path.isdir(s):
             if not os.path.exists(d):
                 os.makedirs(d)
             for item in os.listdir(s):
                 next_source = os.path.join(s, item)
                 next_destination = os.path.join(d, item)
-                copy_item(next_source, next_destination)
+                move_item(next_source, next_destination)
+            if not os.listdir(s):
+                os.rmdir(s)
         else:
-            with pbar.get_lock():  # Synchronize access to shared resources
-                file_counter[0] += 1
-                pbar.set_postfix_str(f"Copying file {file_counter[0]} of {total_files}...")
-            copy_file_with_progress(s, d, pbar, file_counter, total_files)
+            file_size = os.path.getsize(s)
+            required_space = file_size * 1.5  # 150% of the original file size
+
+            if available_space >= required_space:
+                available_space -= required_space
+                with pbar.get_lock():
+                    file_counter[0] += 1
+                    pbar.set_postfix_str(f"Moving file {file_counter[0]} of {total_files}...")
+                move_file_with_progress(s, d, pbar, file_counter, total_files)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
@@ -155,9 +148,61 @@ def copy_directory_contents(source_directory, destination_directory, pbar, file_
                 continue
             s = os.path.join(source_directory, item)
             d = os.path.join(destination_directory, item)
-            futures.append(executor.submit(copy_item, s, d))
+            future = executor.submit(move_item, s, d)
+            futures.append(future)
 
-        # Wait for all the tasks to complete
+        concurrent.futures.wait(futures)
+
+
+def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
+    logger = get_custom_logger()
+
+    if not os.path.exists(destination_directory):
+        os.makedirs(destination_directory)
+
+    # Make sure that the temp dir has at least 150% of the storage capacity
+    total_bytes = count_bytes(source_directory)
+    total_gb_print = total_bytes / (1024 ** 3)  # Convert to gigabytes
+    required_space_print = (total_bytes * 1.5) / (1024 ** 3)  # Convert to gigabytes
+    available_space_print = get_free_space(destination_directory) / (1024 ** 3)  # Convert to gigabytes
+
+    log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
+    log_debug(logger, f"Required space: {required_space_print:.2f} GB")
+    log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
+
+    available_space = get_free_space(destination_directory)
+
+    def copy_item(s, d):
+        nonlocal available_space
+
+        if os.path.isdir(s):
+            if not os.path.exists(d):
+                os.makedirs(d)
+            for item in os.listdir(s):
+                next_source = os.path.join(s, item)
+                next_destination = os.path.join(d, item)
+                copy_item(next_source, next_destination)
+        else:
+            file_size = os.path.getsize(s)
+            required_space = file_size * 1.5  # 150% of the original file size
+
+            if available_space >= required_space:
+                available_space -= required_space
+                with pbar.get_lock():
+                    file_counter[0] += 1
+                    pbar.set_postfix_str(f"Copying file {file_counter[0]} of {total_files}...")
+                copy_file_with_progress(s, d, pbar, file_counter, total_files)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for item in os.listdir(source_directory):
+            if item.startswith('.'):  # Skip files or folders starting with a dot
+                continue
+            s = os.path.join(source_directory, item)
+            d = os.path.join(destination_directory, item)
+            future = executor.submit(copy_item, s, d)
+            futures.append(future)
+
         concurrent.futures.wait(futures)
 
 

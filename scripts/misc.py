@@ -29,21 +29,6 @@ def remove_color_codes(text):
     return ansi_escape.sub('', text)
 
 
-# Add the COLOR method to the logger
-def color(self, message, *args, **kwargs):
-    if self.isEnabledFor(25):
-        self._log(25, message, args, **kwargs)
-
-
-# Create a custom filter that only allows messages of a specific level
-class SpecificLevelFilter(logging.Filter):
-    def __init__(self, level):
-        self.level = level
-
-    def filter(self, record):
-        return record.levelno == self.level
-
-
 # Function to print dynamic progress, only updating the last line
 def print_with_progress(logger, current, total, header, description="Processing"):
     progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done)"
@@ -72,6 +57,13 @@ def custom_print(logger, message):
     logger.debug(plain_message)
     # Log the message with color to the color log
     logger.color(message_with_timestamp)
+
+
+def log_debug(logger, message):
+    message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
+    # Log the message without color to the plain text log
+    plain_message = remove_color_codes(message_with_timestamp)
+    logger.debug(plain_message)
 
 
 def print_no_timestamp(logger, message):
@@ -418,7 +410,6 @@ def print_media_info(logger, filenames):
             print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
     if uncategorized:
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
-        uncategorized = compact_names_list(uncategorized)
         for uncategorized_item in uncategorized:
             print_no_timestamp(logger, f"  {BLUE}{uncategorized_item}{RESET}")
     print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")

@@ -92,7 +92,8 @@ def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_n
     #custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-filter_complex', '[0:a]pan=stereo|c0=c0+c2|c1=c1+c2[out]', '-map', '[out]'] if output_codec.lower() == 'aac' else []
     custom_ffmpeg_options = ['-aq', '6', '-ac', '2',
                              '-filter_complex',
-                             '[0:a]dynaudnorm,pan=stereo|FL<0.2FL+0.8FC+0.1BL|FR<0.2FR+0.8FC+0.1BR'] \
+                             '[0:a]compand=attacks=0:points=-110/-900|-80/-95|-70/-85|-45/-35|-27/-16|0/-7|20/-7:gain=5,'
+                             'pan=stereo|FL<0.2FL+0.8FC+0.1BL|FR<0.2FR+0.8FC+0.1BR'] \
         if output_codec.lower() == 'aac' else []
 
     if debug:
