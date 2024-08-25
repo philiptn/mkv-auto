@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
             shift  # Move to the next argument
             ;;
         --no-cache)
-            no_cache='docker builder prune'
+            no_cache='docker builder prune -f'
             shift  # Move to the next argument
             ;;
         *)  # Capture any other arguments
