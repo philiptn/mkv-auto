@@ -261,6 +261,7 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
     all_track_ids = []
     all_track_names = []
     all_track_forced = []
+    keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
 
     for index, file in enumerate(subtitle_files):
         if file.endswith('.ass'):
@@ -272,17 +273,30 @@ def convert_ass_to_srt(subtitle_files, languages, names, forced_tracks, main_aud
             srt_output = asstosrt.convert(ass_file)
             with open(f"{base}.{track_id}.{lang}.srt", "w") as srt_file:
                 srt_file.write(srt_output)
-            updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
-            all_track_ids = all_track_ids + [track_id, track_id]
-            if 'forced' in names[index].lower():
-                all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
-                                   names[index] if names[index] else '']
-                all_track_forced = all_track_forced + [0, 1]
+
+            if keep_original_subtitles:
+                updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
+                all_track_ids = all_track_ids + [track_id, track_id]
+                if 'forced' in names[index].lower():
+                    all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
+                                       names[index] if names[index] else '']
+                    all_track_forced = all_track_forced + [1, 0]
+                else:
+                    all_track_names = all_track_names + ['', names[index] if names[index] else '']
+                    all_track_forced = all_track_forced + [forced_tracks[index], forced_tracks[index]]
+                updated_subtitle_languages = updated_subtitle_languages + [languages[index], languages[index]]
+                output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
             else:
-                all_track_names = all_track_names + ['', names[index] if names[index] else '']
-                all_track_forced = all_track_forced + [forced_tracks[index], forced_tracks[index]]
-            updated_subtitle_languages = updated_subtitle_languages + [languages[index], languages[index]]
-            output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
+                updated_sub_filetypes = updated_sub_filetypes + ['srt']
+                all_track_ids = all_track_ids + [track_id]
+                if 'forced' in names[index].lower():
+                    all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue']
+                    all_track_forced = all_track_forced + [1]
+                else:
+                    all_track_names = all_track_names + ['']
+                    all_track_forced = all_track_forced + [forced_tracks[index]]
+                updated_subtitle_languages = updated_subtitle_languages + [languages[index]]
+                output_subtitles = output_subtitles + [f"{base}.{track_id}.{lang}.srt"]
         else:
             base_and_lang_with_id, _, original_extension = file.rpartition('.')
             base_with_id, _, language = base_and_lang_with_id.rpartition('.')
@@ -414,6 +428,7 @@ def get_output_subtitle_string(filename, track_numbers, output_filetypes, subs_l
 def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, main_audio_track_lang):
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
+    keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
 
     all_languages = []
     all_names = []
@@ -465,20 +480,31 @@ def ocr_subtitles(max_threads, debug, subtitle_files, languages, names, forced, 
     for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
         all_replacements = replacements + all_replacements
         if output_subtitle:
-            updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
-            # Add both original and generated subtitles to the output list
-            output_subtitles = output_subtitles + [output_subtitle]
-            # Repeat language and track ID for both original and generated files
-            updated_subtitle_languages = updated_subtitle_languages + [language, language]
-            all_track_ids = all_track_ids + [track_id, track_id]
-            if 'forced' in name.lower() or forced:
-                all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
-                                                     name if name else "Original"]
-                # Enable forced only for the generated file, not original
-                all_track_forced = all_track_forced + [1, 0]
+            if keep_original_subtitles:
+                updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
+                # Add both original and generated subtitles to the output list
+                output_subtitles = output_subtitles + [output_subtitle]
+                # Repeat language and track ID for both original and generated files
+                updated_subtitle_languages = updated_subtitle_languages + [language, language]
+                all_track_ids = all_track_ids + [track_id, track_id]
+                if 'forced' in name.lower() or forced:
+                    all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
+                                                         name if name else "Original"]
+                    # Enable forced only for the generated file, not original
+                    all_track_forced = all_track_forced + [1, 0]
+                else:
+                    all_track_names = all_track_names + ['', name if name else "Original"]
+                    all_track_forced = all_track_forced + [forced, forced]
             else:
-                all_track_names = all_track_names + ['', name if name else "Original"]
-                all_track_forced = all_track_forced + [forced, forced]
+                updated_sub_filetypes = updated_sub_filetypes + ['srt']
+                updated_subtitle_languages = updated_subtitle_languages + [language]
+                all_track_ids = all_track_ids + [track_id]
+                if 'forced' in name.lower() or forced:
+                    all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue']
+                    all_track_forced = all_track_forced + [1]
+                else:
+                    all_track_names = all_track_names + ['']
+                    all_track_forced = all_track_forced + [forced]
         else:
             if 'forced' in name.lower() or forced:
                 all_track_names.append(f'non-{main_audio_track_lang} dialogue')

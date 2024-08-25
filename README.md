@@ -125,6 +125,9 @@ docker run --rm -it -v ${PWD}:/mkv-auto/files philiptn/mkv-auto --docker --move
 - [x] Process multiple files at once - full multithreading support
 - [ ] Add support for video encoding workers - Handbrake/NVEncc/FFmpeg
 - [x] (maybe) add support for automatically fetching missing subtitles
+- [ ] Fix debug option to work with multithreaded operation
+- [ ] Implement more granular audio formats selection (#25)
+- [ ] Add option for generating Dialogue Balanced audio tracks
 
 ## CLI
 ### mkv-auto
