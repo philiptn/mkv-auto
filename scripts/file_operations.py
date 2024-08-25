@@ -111,9 +111,9 @@ def move_directory_contents(source_directory, destination_directory, pbar, file_
     required_space_print = (total_bytes * 1.5) / (1024 ** 3)  # Convert to gigabytes
     available_space_print = get_free_space(destination_directory) / (1024 ** 3)  # Convert to gigabytes
 
-    log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
-    log_debug(logger, f"Required space: {required_space_print:.2f} GB")
-    log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
+    #log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
+    #log_debug(logger, f"Required space: {required_space_print:.2f} GB")
+    #log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
 
     available_space = get_free_space(destination_directory)
 
@@ -166,9 +166,9 @@ def copy_directory_contents(source_directory, destination_directory, pbar, file_
     required_space_print = (total_bytes * 1.5) / (1024 ** 3)  # Convert to gigabytes
     available_space_print = get_free_space(destination_directory) / (1024 ** 3)  # Convert to gigabytes
 
-    log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
-    log_debug(logger, f"Required space: {required_space_print:.2f} GB")
-    log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
+    #log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
+    #log_debug(logger, f"Required space: {required_space_print:.2f} GB")
+    #log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
 
     available_space = get_free_space(destination_directory)
 
