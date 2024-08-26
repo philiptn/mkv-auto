@@ -340,9 +340,21 @@ def resync_srt_subs(max_threads, debug, input_file, subtitle_files):
 
 
 def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, retry_delay):
-    base, _, _ = subtitle_filename.rpartition('.')
-    base_nolang, _, lang = base.rpartition('.')
-    temp_filename = f"{base_nolang}.{lang}_tmp.srt"
+    base_lang_id_name_forced, _, original_extension = subtitle_filename.rpartition('.')
+    base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
+    full_language = pycountry.languages.get(alpha_3=language).name
+    base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
+    base_forced, _, name = base_name_forced.rpartition('_')
+    # Remove starting and ending single-quotes
+    name_encoded = name[1:-1] if name.startswith("'") and name.endswith("'") else name
+    name = base64.b64decode(name_encoded).decode("utf-8")
+    base, _, forced = base_forced.rpartition('_')
+
+    temp_filename = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"
+
+    # If the subtitle track is a forced track, skip resyncing as these have tendency to get out of sync
+    if 'forced' in name.lower() or f'non-{full_language} dialogue' in name:
+        return
 
     command = ["ffs", input_file, "--max-offset-seconds", "10",
                "-i", subtitle_filename, "-o", temp_filename]
@@ -609,6 +621,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         print(f"{BLUE}preferred subtitle languages{RESET}: {pref_langs}")
 
     remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
+    forced_subtitles_priority = check_config(config, 'subtitles', 'forced_subtitles_priority')
 
     total_subs_tracks = 0
     pref_subs_langs = pref_langs
@@ -736,7 +749,10 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         forced_sub_bool.append(forced_track_val)
                     elif track["codec"] == "SubRip/SRT":
                         forced_track_names.append(f'non-{main_audio_track_lang} dialogue')
-                        forced_sub_bool.append(forced_track_val)
+                        if forced_subtitles_priority.lower() == 'last':
+                            forced_sub_bool.append(0)
+                        else:
+                            forced_sub_bool.append(forced_track_val)
                         forced_sub_filetypes.append('srt')
                     elif track["codec"] == "SubStationAlpha":
                         forced_track_names.append(track_name)
@@ -845,11 +861,18 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                             needs_processing = True
 
     # Add the forced subtitle tracks
-    subs_track_ids = forced_track_ids + subs_track_ids
-    subs_track_languages = forced_track_languages + subs_track_languages
-    subs_track_names = forced_track_names + subs_track_names
-    sub_filetypes = forced_sub_filetypes + sub_filetypes
-    subs_track_forced = forced_sub_bool + subs_track_forced
+    if forced_subtitles_priority.lower() == 'last':
+        subs_track_ids = subs_track_ids + forced_track_ids
+        subs_track_languages = subs_track_languages + forced_track_languages
+        subs_track_names = subs_track_names + forced_track_names
+        sub_filetypes = sub_filetypes + forced_sub_filetypes
+        subs_track_forced = subs_track_forced + forced_sub_bool
+    else:
+        subs_track_ids = forced_track_ids + subs_track_ids
+        subs_track_languages = forced_track_languages + subs_track_languages
+        subs_track_names = forced_track_names + subs_track_names
+        sub_filetypes = forced_sub_filetypes + sub_filetypes
+        subs_track_forced = forced_sub_bool + subs_track_forced
 
     # If none of the subtitles matched, add the forced tracks as a last effort
     if len(subs_track_ids) == 0:
