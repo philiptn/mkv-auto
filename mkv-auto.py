@@ -86,7 +86,7 @@ def mkv_auto(args):
             move_directory_contents(input_dir, temp_dir, pbar, total_files=total_files)
         input_dir = temp_dir
 
-    extract_archives(input_dir)
+    extract_archives(logger, input_dir)
     flatten_directories(input_dir)
 
     convert_all_videos_to_mkv(debug, input_dir, args.silent)
@@ -166,13 +166,13 @@ def mkv_auto(args):
             if any(need_processing_subs):
                 all_subtitle_files = extract_subs_in_mkv_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
 
-                if not all(sub == ['none'] for sub in all_missing_subs_langs):
+                if not all(sub == ['none'] or sub == [''] for sub in all_missing_subs_langs):
                     if any(file.endswith('.srt') for file in filenames):
                         total_external_subs, all_missing_subs_langs = process_external_subs(logger, debug, max_workers, dirpath, filenames_before_retag, all_missing_subs_langs)
                         if not all(sub is None for sub in total_external_subs):
                             all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, total_external_subs)]
 
-                if not all(sub == ['none'] for sub in all_missing_subs_langs) and download_missing_subs:
+                if not all(sub == ['none'] or sub == [''] for sub in all_missing_subs_langs) and download_missing_subs:
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers, filenames_mkv_only, dirpath, total_external_subs,
                                                     all_missing_subs_langs)
                     all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, all_downloaded_subs)]

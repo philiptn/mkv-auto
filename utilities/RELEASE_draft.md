@@ -1,7 +1,7 @@
 ## ***Now supports full multithreading! Up to 56% faster processing!****
 ##### * Tested on a dataset of 10 episodes, generating audio and OCR for each episode. v1.0.3 and v2.0 tested. 11 CPU threads.
 
-**NOTE**: This version has new changes to both `docker-compose.yml`, `.env_example` and `defaults.ini`. Make sure to update your own compose, `.env` and `user.ini` files before upgrading to the newest version.
+**NOTE**: This version has new changes to both `docker-compose.yml`, `.env_example` and `defaults.ini`. A Subliminal configuration file `subliminal_defaults.toml` has also been added. Make sure to update your own compose, `.env`, `user.ini` and `subliminal.toml` files before upgrading to the newest version.
 
 To update to the latest version of mkv-auto, run `docker pull philiptn/mkv-auto`.
 

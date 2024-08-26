@@ -21,42 +21,48 @@ def move_file(src, dst):
     shutil.move(src, dst)
 
 
-def extract_archives(input_folder):
-    logger = get_custom_logger()
+def extract_archives(logger, input_folder):
     for root, dirs, files in os.walk(input_folder):
         # Filter for .rar and .zip files
         archive_files = [f for f in files if f.endswith('.rar') or f.endswith('.zip')]
 
-        for archive_file in archive_files:
-            archive_path = os.path.join(root, archive_file)
-            temp_extract_path = os.path.join(root, "temp_extracted")
+        if archive_files:
+            for archive_file in archive_files:
+                archive_path = os.path.join(root, archive_file)
+                temp_extract_path = os.path.join(root, "temp_extracted")
 
-            try:
-                os.makedirs(temp_extract_path, exist_ok=True)
-                if archive_file.endswith('.rar'):
-                    # Extract RAR file
-                    with rarfile.RarFile(archive_path) as rf:
-                        rf.extractall(temp_extract_path)
-                elif archive_file.endswith('.zip'):
-                    # Extract ZIP file
-                    with zipfile.ZipFile(archive_path, 'r') as zf:
-                        zf.extractall(temp_extract_path)
+                try:
+                    os.makedirs(temp_extract_path, exist_ok=True)
+                    if archive_file.endswith('.rar'):
+                        # Extract RAR file
+                        with rarfile.RarFile(archive_path) as rf:
+                            rf.extractall(temp_extract_path)
+                    elif archive_file.endswith('.zip'):
+                        # Extract ZIP file
+                        with zipfile.ZipFile(archive_path, 'r') as zf:
+                            zf.extractall(temp_extract_path)
 
-                # Move extracted files to root of input_folder
-                for extracted_root, extracted_dirs, extracted_files in os.walk(temp_extract_path):
-                    for file in extracted_files:
-                        shutil.move(os.path.join(extracted_root, file), input_folder)
-                    for dir in extracted_dirs:
-                        shutil.move(os.path.join(extracted_root, dir), input_folder)
+                    # Move extracted files to root of input_folder
+                    for extracted_root, extracted_dirs, extracted_files in os.walk(temp_extract_path):
+                        for file in extracted_files:
+                            shutil.move(os.path.join(extracted_root, file), input_folder)
+                        for dir in extracted_dirs:
+                            shutil.move(os.path.join(extracted_root, dir), input_folder)
 
-                # Remove temporary extraction directory
-                shutil.rmtree(temp_extract_path)
+                    # Remove temporary extraction directory
+                    shutil.rmtree(temp_extract_path)
 
-                # Remove the archive file after extraction
-                os.remove(archive_path)
+                    # Remove the archive file after extraction
+                    os.remove(archive_path)
 
-            except Exception as e:
-                custom_print(logger, f"{RED}[ERROR]{RESET} Failed to extract {archive_file}: {e}")
+                    # Remove all sub-rar files like .r00, .r01, etc.
+                    sub_rar_files = [f for f in files if f.startswith(archive_file.split('.rar')[0]) and f.endswith(
+                        tuple(f'.r{i:02d}' for i in range(100)))]
+                    for sub_rar_file in sub_rar_files:
+                        os.remove(os.path.join(root, sub_rar_file))
+
+                except Exception as e:
+                    custom_print(logger, f"{RED}[ERROR]{RESET} Failed to extract {archive_file}: {e}")
 
 
 def count_files(directory):

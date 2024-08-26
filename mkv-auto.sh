@@ -16,7 +16,7 @@ fi
 extra_args=()
 build_flag=false
 move_files='--move'
-no_cache='true'
+no_cache=false
 
 # Loop through all the arguments
 while [[ $# -gt 0 ]]; do
@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
             shift  # Move to the next argument
             ;;
         --no-cache)
-            no_cache='docker builder prune -f'
+            no_cache=true
             shift  # Move to the next argument
             ;;
         *)  # Capture any other arguments
@@ -46,11 +46,16 @@ $SUDO true
 
 # Building the image locally if "--build" is passed to the script
 if [ "$build_flag" = true ]; then
-    echo "Building Docker image..."
-    $SUDO docker image rm -t mkv-auto > /dev/null 2>&1
-    $SUDO $no_cache > /dev/null 2>&1
-    $SUDO docker build -t mkv-auto . > /dev/null 2>&1
-    echo -e "\033[K\033[1A\033[K"
+    if [ "$no_cache" = true ]; then
+      $SUDO docker image rm -t mkv-auto > /dev/null 2>&1
+      $SUDO docker system prune -a -f > /dev/null 2>&1
+      $SUDO docker build --no-cache -t mkv-auto .
+    else
+      echo "Building Docker image..."
+      $SUDO docker image rm -t mkv-auto > /dev/null 2>&1
+      $SUDO docker build -t mkv-auto . > /dev/null 2>&1
+      echo -e "\033[K\033[1A\033[K"
+    fi
 else
     # Update to latest version on Docker Hub
     $SUDO docker pull $IMAGE_NAME

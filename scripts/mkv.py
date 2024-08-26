@@ -1354,6 +1354,7 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
     pref_subs_ext = check_config(config, 'subtitles', 'pref_subs_ext')
     always_enable_subs = check_config(config, 'subtitles', 'always_enable_subs')
+    forced_subtitles_priority = check_config(config, 'subtitles', 'forced_subtitles_priority')
 
     # Unpack audio metadata
     audio_filetypes = audio_tracks['audio_extensions']
@@ -1522,7 +1523,10 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             default_locked = True
         lang_str = f"0:{final_sub_languages[index]}"
         name_str = f"0:{final_sub_track_names[index]}"
-        forced_str = f"0:{final_sub_track_forced[index]}"
+        if forced_subtitles_priority.lower() == 'last':
+            forced_str = f"0:0"
+        else:
+            forced_str = f"0:{final_sub_track_forced[index]}"
         sub_track_name = base64.b64encode(final_sub_track_names[index].encode("utf-8")).decode("utf-8")
         filelist_str = (f"{base}_{final_sub_track_forced[index]}_'{sub_track_name}'_"
                         f"{final_sub_track_ids[index]}_{final_sub_languages[index]}.{filetype}")
