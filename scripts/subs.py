@@ -573,13 +573,7 @@ def ocr_subtitle_worker(debug, file, subtitleedit_dir):
         name = name[1:-1] if name.startswith("'") and name.endswith("'") else name
         base, _, forced = base_forced.rpartition('_')
 
-        if name:
-            original_name_b64 = name
-        else:
-            original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
-        original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
-
-        if "sup" in file or "sub" in file:
+        if file.endswith('.sup') or file.endswith('.sub'):
             update_tesseract_lang_xml(language, subtitleedit_settings)
 
             command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
@@ -605,8 +599,15 @@ def ocr_subtitle_worker(debug, file, subtitleedit_dir):
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements.csv', subtitle_tmp)
                 os.rename(subtitle_tmp, final_subtitle)
                 replacements = replacements + current_replacements
+
+            if name:
+                original_name_b64 = name
+            else:
+                original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
+            original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
         else:
             final_subtitle = ''
+            original_subtitle = file
     finally:
         # Clean up the temporary directory
         shutil.rmtree(temp_dir)
