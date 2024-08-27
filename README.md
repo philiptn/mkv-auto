@@ -5,14 +5,15 @@ removing and/or converting any audio or subtitle tracks from the source video.
 ***Note***: If you are running Windows and just want to try the program, go [here](https://github.com/philiptn/mkv-auto?tab=readme-ov-file#windows).
 
 ### Features
+- Multithreaded file processing - uses up to 85% of available CPU (default)
 - Remove any audio or subtitle tracks from video that does not match user preferences
-- Option to automatically download missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal)
+- Automatically download missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal) (default enabled)
 - Generate audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (FFmpeg)
 - Convert any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and Tesseract OCR
 - Convert Advanced SubStation Alpha (ASS) and MP4 (tx3g) subtitles to SRT using Python libraries and FFmpeg
-- Remove SDH (such as `[MAN COUGHING]` or `[DISTANT CHATTER]`) from SRT subtitles (default enabled)
+- Remove SDH (such as `[MAN COUGHING]` or `*DISTANT CHATTER*`) from SRT subtitles (default enabled)
 - Resynchronize subtitles to match the audio track of the video using ffsubsync (best effort)
-- Unpack any `.rar` or `.zip` archives and converts `.mp4` or `.avi` files to MKV before processing the media
+- Unpack any `.rar` or `.zip` archives and convert `.mp4` or `.avi` files to MKV before processing the media
 - Remove any hidden Closed Captions (CC) from the video stream using FFmpeg 
 - Automatically categorize the media content type (TV Show/Movie, SDR/HDR) based on info in filename
 
@@ -43,8 +44,8 @@ Tip! Save this repository on a fast storage medium (NVMe SSD is optimal), as the
 If you would like to run mkv-auto as a service, meaning that it simply checks a defined input folder for new files, then processes them automatically, this can be achieved with the mkv-auto-service.
 
 - To get started, create a folder on your host system, such as `~/mkv-auto-service`.
-- Next you need to copy `docker-compose.yml`, `.env_example` and `defaults.ini` over to this folder.
-- Next, rename the `defaults.ini` to `user.ini` and make the necessary modifications to suit your preferences. This file also needs to be placed inside a folder named `config` Here you should also place your `subliminal.toml` file. 
+- Next you need to copy `docker-compose.yml`, `.env_example`, `defaults.ini` and `subliminal_defaults.toml` over to this folder.
+- Next, rename `defaults.ini` &rarr; `user.ini`, `subliminal_defaults.toml` &rarr; `subliminal.toml` and make the necessary modifications to suit your preferences. The `user.ini` and `subliminal.toml`files should then be placed inside a folder named `config`.  
 - The `.env_example` file also needs to be renamed to `.env`. In here you need to change the `$HOST_FOLDER` variable to the location of the mkv-auto-service folder (`/home/philip/mkv-auto-service` in my case).
 - The `$INPUT_FOLDER`, `$OUTPUT_FOLDER` and `$TEMP_DIR` variables in `.env` should be changed to the appropriate input, output and TEMP locations. If you have an NVMe SSD that is mounted to your system, and you have sufficient storage capacity, the tool will greatly benefit from the increased read/write speed if this drive is assigned to TEMP.
 
@@ -67,9 +68,9 @@ sudo docker compose up -d
 
 The service will now process any files from the input folder automatically and place them in the output folder.  
 
-**NOTE: ALL files from the input folder will be MOVED to TEMP before starting, not copied. If you are processing many large files at once, make sure that you have enough TEMP storage capacity.**
+**NOTE: ALL files from the input folder will be MOVED to TEMP before starting, not copied. The program will automatically check that you have at least 150% of the capacity available in TEMP before starting, and will dynamically limit the amount of files to be processed at once.**
 
-To see the progress/logs of the service, this can be viewed using `docker logs mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` file manually.
+To see the progress/logs of the service, this can be viewed using `docker logs -f mkv-auto-service` or by inspecting the `mkv-auto-service/logs/mkv-auto.log` files manually.
 
 Tip: If you want to continuously monitor the progress of mkv-auto-service you can easily do this by adding this to your `~/.bash_aliases` file (create it if you do not already have it).  
 
@@ -185,8 +186,8 @@ NikseDK for SubtitleEdit (OCR of BluRay/DVD subtitles)
 https://github.com/SubtitleEdit/subtitleedit/releases  
 https://www.nikse.dk/subtitleedit/help#linux
 
-Tesseract OCR (an Optical Character Recognition (OCR) engine used for converting subtitles within SubtitleEdit)  
-https://github.com/tesseract-ocr/tesseract
+Tesseract OCR-5 from Alexander Pozdnyakov  
+https://launchpad.net/~alex-p/+archive/ubuntu/tesseract-ocr5  
 
 qqq1243 for asstosrt (SSA/ASS to SRT conversion)  
 https://github.com/sorz/asstosrt/

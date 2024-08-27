@@ -933,8 +933,8 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
             print(f"{RESET}")
 
-        # Sleep for random 2-6 seconds to not overwhelm the subliminal service providers
-        time.sleep(random.uniform(2, 6))
+        # Sleep for random 1-3 seconds to not overwhelm the subliminal service providers
+        time.sleep(random.uniform(1.0, 3.0))
 
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=dirpath)
         stdout, stderr = process.communicate()

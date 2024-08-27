@@ -587,8 +587,6 @@ def ocr_subtitle_worker(debug, file, subtitleedit_dir):
             final_subtitle = f"{base}_{forced}_''_{track_id}_{language}.srt"
             subtitle_tmp = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
 
-            os.rename(file, original_subtitle)
-
             if language == 'eng':
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
                 replacements = replacements + current_replacements
@@ -605,6 +603,7 @@ def ocr_subtitle_worker(debug, file, subtitleedit_dir):
             else:
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
             original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
+            os.rename(file, original_subtitle)
         else:
             final_subtitle = ''
             original_subtitle = file
