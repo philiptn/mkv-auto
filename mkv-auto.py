@@ -151,8 +151,14 @@ def mkv_auto(args):
         for file in filenames_mkv_only:
             if not mkv_contains_video(file, dirpath):
                 custom_print(logger, f"{RED}[ERROR]{RESET} File '{file}' does not contain a video stream.")
-                custom_print(logger, f"{RED}[ERROR]{RESET} Remove this file from the input folder and try again.")
-                exit(1)
+                if args.service:
+                    custom_print(logger, f"{RED}[ERROR]{RESET} Service mode detected. Deleting file and continuing...")
+                    os.remove(os.path.join(dirpath, file))
+                    filenames_mkv_only.remove(file)
+                    filenames.remove(file)
+                else:
+                    custom_print(logger, f"{RED}[ERROR]{RESET} Remove this file from the input folder and try again.")
+                    exit(1)
 
         custom_print(logger, f"{GREY}[INFO]{RESET} Using {max_workers} CPU threads for processing.")
         start_time = time.time()
