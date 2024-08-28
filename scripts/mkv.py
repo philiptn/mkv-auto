@@ -1549,7 +1549,7 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        log_debug(logger, "Error executing mkvmerge command: " + result.stdout)
+        custom_print(logger, "Error executing mkvmerge command: " + result.stdout)
 
     os.remove(filename)
     shutil.move(temp_filename, filename)

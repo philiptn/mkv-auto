@@ -484,7 +484,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Submit all tasks and store futures in a dictionary with their index
         future_to_index = {
-            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], subtitleedit_dir): i
+            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], main_audio_track_lang, subtitleedit_dir): i
             for i in range(len(subtitle_files))
         }
 
@@ -553,7 +553,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes, all_replacements
 
 
-def ocr_subtitle_worker(debug, file, subtitleedit_dir):
+def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
@@ -584,8 +584,14 @@ def ocr_subtitle_worker(debug, file, subtitleedit_dir):
             run_with_xvfb(command)
 
             output_subtitle = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
-            final_subtitle = f"{base}_{forced}_''_{track_id}_{language}.srt"
             subtitle_tmp = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
+
+            if forced != '0' and bool(forced):
+                output_name = f'non-{main_audio_track_lang} dialogue'
+            else:
+                output_name = ''
+            output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
+            final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
 
             if language == 'eng':
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
