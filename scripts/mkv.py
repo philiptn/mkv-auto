@@ -182,7 +182,7 @@ def has_closed_captions(file_path):
 
 def get_all_audio_languages(filename):
     all_langs = []
-    parsed_json, _ = get_mkv_info(filename, True)
+    parsed_json, _ = get_mkv_info(False, filename, True)
     for track in parsed_json['tracks']:
         if track['type'] == 'audio':
             for key, value in track["properties"].items():
@@ -193,7 +193,7 @@ def get_all_audio_languages(filename):
 
 def get_all_subtitle_languages(filename):
     all_langs = []
-    parsed_json, _ = get_mkv_info(filename, True)
+    parsed_json, _ = get_mkv_info(False, filename, True)
     for track in parsed_json['tracks']:
         if track['type'] == 'subtitles':
             for key, value in track["properties"].items():
