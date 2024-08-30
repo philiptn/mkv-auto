@@ -584,7 +584,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             run_with_xvfb(command)
 
             output_subtitle = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
-            subtitle_tmp = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
+            subtitle_tmp = f"{base}_{forced}_'{name}'_{track_id}_{language}_tmp.srt"
 
             if name:
                 original_name_b64 = name
