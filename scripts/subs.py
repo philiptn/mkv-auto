@@ -586,12 +586,21 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             output_subtitle = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
             subtitle_tmp = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
 
+            if name:
+                original_name_b64 = name
+            else:
+                original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
+
             if forced != '0' and bool(forced):
                 output_name = f'non-{main_audio_track_lang} dialogue'
+                output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
+                original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
+                final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
             else:
                 output_name = ''
-            output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
-            final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
+                output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
+                original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
+                final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
 
             if language == 'eng':
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
@@ -604,11 +613,6 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 os.rename(subtitle_tmp, final_subtitle)
                 replacements = replacements + current_replacements
 
-            if name:
-                original_name_b64 = name
-            else:
-                original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
-            original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
             os.rename(file, original_subtitle)
         else:
             final_subtitle = ''
