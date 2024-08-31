@@ -1058,7 +1058,7 @@ def remove_clutter_process(logger, debug, max_worker_threads, input_files, dirpa
 
 def remove_clutter_process_worker(debug, input_file, dirpath):
     input_file_with_path = os.path.join(dirpath, input_file)
-    updated_filename = ''
+    updated_filename = input_file
     file_tag = check_config(config, 'general', 'file_tag')
 
     remove_all_mkv_track_tags(debug, input_file_with_path)
@@ -1070,7 +1070,7 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
         if mkv_video_codec != 'MPEG-1/2':
             remove_cc_hidden_in_file(debug, input_file_with_path)
 
-    if file_tag != "default":
+    if file_tag.lower() != "default":
         updated_filename = replace_tags_in_file(input_file, file_tag)
         updated_filename_with_path = os.path.join(dirpath, updated_filename)
         shutil.move(input_file_with_path, updated_filename_with_path)
