@@ -381,20 +381,28 @@ def print_media_info(logger, filenames):
     # Remove SRT subtitles from count list
     filenames = [f for f in filenames if not f.endswith('.srt')]
 
-    total_files = len(filenames)
     tv_shows = defaultdict(lambda: defaultdict(set))
+    tv_shows_hdr = defaultdict(lambda: defaultdict(set))
     movies = []
+    movies_hdr = []
     uncategorized = []
 
     for filename in filenames:
         file_info = reformat_filename(filename, True)
-        if 'tv_show' in file_info["media_type"]:
+        if file_info["media_type"] == 'tv_show':
             season, episode = extract_season_episode(filename)
             if season and episode:
                 show_name = file_info["media_name"]
                 tv_shows[show_name][season].add(episode)
-        elif 'movie' in file_info["media_type"]:
+        elif file_info["media_type"] == 'tv_show_hdr':
+            season, episode = extract_season_episode(filename)
+            if season and episode:
+                show_name = file_info["media_name"]
+                tv_shows_hdr[show_name][season].add(episode)
+        elif file_info["media_type"] == 'movie':
             movies.append(file_info["media_name"])
+        elif file_info["media_type"] == 'movie_hdr':
+            movies_hdr.append(file_info["media_name"])
         else:
             uncategorized.append(file_info["media_name"])
 
@@ -404,9 +412,19 @@ def print_media_info(logger, filenames):
             for season, episodes in sorted(seasons.items()):
                 episode_list = compact_episode_list(episodes)
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+    if tv_shows_hdr:
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
+        for show, seasons in tv_shows_hdr.items():
+            for season, episodes in sorted(seasons.items()):
+                episode_list = compact_episode_list(episodes)
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
     if movies:
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         for movie in movies:
+            print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+    if movies_hdr:
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
+        for movie in movies_hdr:
             print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
     if uncategorized:
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
