@@ -111,16 +111,6 @@ def move_directory_contents(source_directory, destination_directory, pbar, file_
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
-    # Make sure that the temp dir has at least 150% of the storage capacity
-    total_bytes = count_bytes(source_directory)
-    total_gb_print = total_bytes / (1024 ** 3)  # Convert to gigabytes
-    required_space_print = (total_bytes * 1.5) / (1024 ** 3)  # Convert to gigabytes
-    available_space_print = get_free_space(destination_directory) / (1024 ** 3)  # Convert to gigabytes
-
-    #log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
-    #log_debug(logger, f"Required space: {required_space_print:.2f} GB")
-    #log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
-
     available_space = get_free_space(destination_directory)
 
     # Function to move a single file or directory
@@ -138,7 +128,7 @@ def move_directory_contents(source_directory, destination_directory, pbar, file_
                 os.rmdir(s)
         else:
             file_size = os.path.getsize(s)
-            required_space = file_size * 1.5  # 150% of the original file size
+            required_space = file_size * 2.5  # 250% of the original file size
 
             if available_space >= required_space:
                 available_space -= required_space
@@ -161,20 +151,9 @@ def move_directory_contents(source_directory, destination_directory, pbar, file_
 
 
 def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
-    logger = get_custom_logger()
 
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
-
-    # Make sure that the temp dir has at least 150% of the storage capacity
-    total_bytes = count_bytes(source_directory)
-    total_gb_print = total_bytes / (1024 ** 3)  # Convert to gigabytes
-    required_space_print = (total_bytes * 1.5) / (1024 ** 3)  # Convert to gigabytes
-    available_space_print = get_free_space(destination_directory) / (1024 ** 3)  # Convert to gigabytes
-
-    #log_debug(logger, f"Input files: {total_gb_print:.2f} GB")
-    #log_debug(logger, f"Required space: {required_space_print:.2f} GB")
-    #log_debug(logger, f"Available space: {available_space_print:.2f} GB\n")
 
     available_space = get_free_space(destination_directory)
 
@@ -190,7 +169,7 @@ def copy_directory_contents(source_directory, destination_directory, pbar, file_
                 copy_item(next_source, next_destination)
         else:
             file_size = os.path.getsize(s)
-            required_space = file_size * 1.5  # 150% of the original file size
+            required_space = file_size * 2.5  # 250% of the original file size
 
             if available_space >= required_space:
                 available_space -= required_space

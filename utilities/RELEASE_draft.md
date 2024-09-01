@@ -9,19 +9,20 @@ To update to the latest version of mkv-auto, run `docker pull philiptn/mkv-auto`
 - `MAX_CPU_USAGE`
 - `DOWNLOAD_MISSING_SUBS`
 - `REMOVE_ALL_SUBTITLES`
-- `KEEP_ORIGINAL_SUBTITLES`
+- `KEEP_ORIGINAL_SUBTITLES` (#26)
 - `FORCED_SUBTITLES_PRIORITY`
 - `REDO_CASING`
 
 ### Other features:
 - Added support for automatically downloading missing subtitles using Subliminal
 - Added media overview print of detected files (Movie, TV Show etc.)
-- Dynamic copying/moving of files based on available storage capacity in TEMP (checks for at least 150% available)
+- Dynamic copying/moving of files based on available storage capacity in TEMP (checks for at least 250% available)
 
 ### Changes and bug fixes:
 - Changed license from LGPL-2.1 to GPL-3.0 to comply with imported libraries
 - Subtitle tracks marked with `"non-{language} Dialogue"` will now be set to `forced=True` in subtitle metadata if `FORCED_SUBTITLES_PRIORITY` is set to `"first"`
-- Added `/RedoCasing` parameter for SubtitleEdit to fix all uppercase subtitles
+- Fixed bug where keeping the original file tag would cause the program to halt (#27)
+- Added `/RedoCasing` parameter for SubtitleEdit to fix all uppercase subtitles if `REDO_CASING` is set to `true`
 - Moving files are now performed using `shutil.move()` instead of copying, then deleting the files
 - Added new find/replace entries
 - Changed FFsubsync process to check existing subtitles first before synchronizing to audio (default FFsubsync behavior)
