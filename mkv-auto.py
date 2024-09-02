@@ -211,6 +211,7 @@ def mkv_auto(args):
                                  f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
             custom_print(logger, traceback.print_tb(e.__traceback__))
             move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+            show_cursor()
     exit(0)
 
 
