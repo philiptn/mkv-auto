@@ -11,7 +11,6 @@ import sys
 import time
 import pycountry
 
-
 # ANSI color codes
 BLUE = '\033[94m'
 RESET = '\033[0m'  # Reset to default terminal color
@@ -407,30 +406,37 @@ def print_media_info(logger, filenames):
             uncategorized.append(file_info["media_name"])
 
     if tv_shows:
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
-        for show, seasons in tv_shows.items():
-            for season, episodes in sorted(seasons.items()):
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
+        for show in sorted(tv_shows):
+            for season, episodes in sorted(tv_shows[show].items()):
                 episode_list = compact_episode_list(episodes)
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
     if tv_shows_hdr:
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
-        for show, seasons in tv_shows_hdr.items():
-            for season, episodes in sorted(seasons.items()):
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
+        for show in sorted(tv_shows_hdr):
+            for season, episodes in sorted(tv_shows_hdr[show].items()):
                 episode_list = compact_episode_list(episodes)
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
     if movies:
+        movies.sort()
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         for movie in movies:
             print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
     if movies_hdr:
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
+        movies_hdr.sort()
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
         for movie in movies_hdr:
             print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
     if uncategorized:
+        uncategorized.sort()
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
         for uncategorized_item in uncategorized:
             print_no_timestamp(logger, f"  {BLUE}{uncategorized_item}{RESET}")
-    print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
+    print_no_timestamp(logger,
+                       f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
     print_no_timestamp(logger, '')
 
 
@@ -449,7 +455,6 @@ elif os.path.isfile('files/user.ini'):
     variables_user.read('files/user.ini')
 else:
     variables_user = variables_defaults
-
 
 config = {
     'general': {

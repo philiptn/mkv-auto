@@ -277,7 +277,7 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
             base, _, forced = base_forced.rpartition('_')
 
             if name:
-                original_name_b64 = name
+                original_name_b64 = base64.b64encode(name.encode("utf-8")).decode("utf-8")
             else:
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
             original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
@@ -316,7 +316,9 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
             base_lang_id_name_forced, _, original_extension = file.rpartition('.')
             base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
             base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-            base_forced, _, name = base_name_forced.rpartition('_')
+            base_forced, _, name_encoded = base_name_forced.rpartition('_')
+            name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith("'") else name_encoded
+            name = base64.b64decode(name_encoded).decode("utf-8")
             base, _, forced = base_forced.rpartition('_')
 
             updated_subtitle_languages.append(language)
@@ -502,9 +504,8 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     updated_sub_filetypes = []
 
     # Process each result and organize the outputs
-    for original_file, output_subtitle, language, track_id, name_encoded, forced, replacements, original_extension in results:
+    for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
         all_replacements = replacements + all_replacements
-        name = base64.b64decode(name_encoded).decode("utf-8")
         if output_subtitle:
             if keep_original_subtitles:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
@@ -568,9 +569,9 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
         base_lang_id_name_forced, _, original_extension = file.rpartition('.')
         base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
         base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-        base_forced, _, name = base_name_forced.rpartition('_')
-        # Remove starting and ending single-quotes
-        name = name[1:-1] if name.startswith("'") and name.endswith("'") else name
+        base_forced, _, name_encoded = base_name_forced.rpartition('_')
+        name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith("'") else name_encoded
+        name = base64.b64decode(name_encoded).decode("utf-8")
         base, _, forced = base_forced.rpartition('_')
 
         if file.endswith('.sup') or file.endswith('.sub'):
@@ -583,13 +584,14 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
 
             run_with_xvfb(command)
 
-            output_subtitle = f"{base}_{forced}_'{name}'_{track_id}_{language}.srt"
-            subtitle_tmp = f"{base}_{forced}_'{name}'_{track_id}_{language}_tmp.srt"
+            output_subtitle = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.srt"
+            subtitle_tmp = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"
 
             if name:
-                original_name_b64 = name
+                original_name_b64 = name_encoded
             else:
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
+                name = 'Original'
 
             if forced != '0' and bool(forced):
                 output_name = f'non-{main_audio_track_lang} dialogue'
@@ -606,14 +608,26 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
                 replacements = replacements + current_replacements
                 current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', final_subtitle)
+                os.remove(output_subtitle)
                 os.remove(subtitle_tmp)
                 replacements = replacements + current_replacements
             else:
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements.csv', subtitle_tmp)
                 os.rename(subtitle_tmp, final_subtitle)
+                if final_subtitle != output_subtitle:
+                    os.remove(output_subtitle)
                 replacements = replacements + current_replacements
 
             os.rename(file, original_subtitle)
+
+            # Also rename .idx file if processing VobSub subtitles
+            if file.endswith('.sub'):
+                if forced != '0' and bool(forced):
+                    os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
+                              f"{base}_0_'{original_name_b64}'_{track_id}_{language}.idx")
+                else:
+                    os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
+                              f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
         else:
             final_subtitle = ''
             original_subtitle = file
