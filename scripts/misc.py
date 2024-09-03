@@ -46,6 +46,23 @@ def print_with_progress(logger, current, total, header, description="Processing"
         logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done)")
 
 
+def print_with_progress_files(logger, current, total, header, description="Processing"):
+    progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {current} of {total}:"
+
+    # Print the progress message followed by a newline, then return to the start of the previous line
+    sys.stdout.write(progress_message + '\n')
+    sys.stdout.write('\033[F')  # ANSI escape sequence to move cursor up one line
+    sys.stdout.flush()
+
+    if current == total:
+        sys.stdout.write('\033[E')  # Move to the next line after the final progress message
+        sys.stdout.flush()
+
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total}:")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total}:")
+        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {current} of {total}:")
+
+
 def custom_print(logger, message):
     message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
     # Print the message to the console with color

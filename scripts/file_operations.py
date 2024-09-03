@@ -89,13 +89,11 @@ def get_free_space(directory):
     return shutil.disk_usage(directory).free
 
 
-def move_file_with_progress(src_file, dst_file, pbar, file_counter, total_files):
+def move_file_with_progress(src_file, dst_file):
     shutil.move(src_file, dst_file)
-    pbar.update(1)
-    pbar.set_description(f"{GREY}[INFO]{RESET} Moving file {file_counter[0]} of {total_files}")
 
 
-def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files):
+def copy_file_with_progress(src_file, dst_file):
     chunk_size = 1024 * 1024  # e.g., copy in 1 MB chunks
     with open(src_file, 'rb') as fsrc, open(dst_file, 'wb') as fdst:
         while True:
@@ -103,19 +101,25 @@ def copy_file_with_progress(src_file, dst_file, pbar, file_counter, total_files)
             if not chunk:
                 break
             fdst.write(chunk)
-            pbar.update(len(chunk))
-        pbar.set_description(f"{GREY}[INFO]{RESET} Copying file {file_counter[0]} of {total_files}")
 
 
-def move_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
+def move_directory_contents(logger, source_directory, destination_directory, file_counter=[0], total_files=0):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
-    available_space = get_free_space(destination_directory)
+    initial_available_space = get_free_space(destination_directory)
+    available_space = initial_available_space
+    skipped_files_counter = [0]  # Counter for skipped files
+    all_required_space = -1
+    actual_file_sizes = -1
+    moved_file_sizes = -1
 
     # Function to move a single file or directory
     def move_item(s, d):
         nonlocal available_space
+        nonlocal actual_file_sizes
+        nonlocal all_required_space
+        nonlocal moved_file_sizes
 
         if os.path.isdir(s):
             if not os.path.exists(d):
@@ -129,15 +133,20 @@ def move_directory_contents(source_directory, destination_directory, pbar, file_
         else:
             file_size = os.path.getsize(s)
             required_space = file_size * 2.5  # 250% of the original file size
+            actual_file_sizes += file_size
+            all_required_space += required_space
 
-            if available_space >= required_space:
+            if available_space >= all_required_space:
                 available_space -= required_space
-                with pbar.get_lock():
-                    file_counter[0] += 1
-                    pbar.set_postfix_str(f"Moving file {file_counter[0]} of {total_files}...")
-                move_file_with_progress(s, d, pbar, file_counter, total_files)
+                moved_file_sizes += file_size
+                file_counter[0] += 1
+                print_with_progress_files(logger, file_counter[0], total_files, header='INFO',
+                                          description='Moving file')
+                move_file_with_progress(s, d)
+            else:
+                skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         futures = []
         for item in os.listdir(source_directory):
             if item.startswith('.'):  # Skip files or folders starting with a dot
@@ -149,16 +158,34 @@ def move_directory_contents(source_directory, destination_directory, pbar, file_
 
         concurrent.futures.wait(futures)
 
+    return {
+        "total_files": total_files,
+        "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
+        "required_space_gb": all_required_space / (1024 ** 3),
+        "available_space_gb": initial_available_space / (1024 ** 3),
+        "moved_files_gb": moved_file_sizes / (1024 ** 3),
+        "skipped_files": skipped_files_counter[0]  # Return the number of skipped files
+    }
 
-def copy_directory_contents(source_directory, destination_directory, pbar, file_counter=[0], total_files=0):
+
+def copy_directory_contents(logger, source_directory, destination_directory, file_counter=[0], total_files=0):
 
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
-    available_space = get_free_space(destination_directory)
+    initial_available_space = get_free_space(destination_directory)
+    #initial_available_space = 5 * 1024 ** 3
+    available_space = initial_available_space
+    skipped_files_counter = [0]  # Counter for skipped files
+    all_required_space = -1
+    actual_file_sizes = -1
+    copied_file_sizes = -1
 
     def copy_item(s, d):
         nonlocal available_space
+        nonlocal actual_file_sizes
+        nonlocal all_required_space
+        nonlocal copied_file_sizes
 
         if os.path.isdir(s):
             if not os.path.exists(d):
@@ -170,15 +197,20 @@ def copy_directory_contents(source_directory, destination_directory, pbar, file_
         else:
             file_size = os.path.getsize(s)
             required_space = file_size * 2.5  # 250% of the original file size
+            actual_file_sizes += file_size
+            all_required_space += required_space
 
-            if available_space >= required_space:
+            if available_space >= all_required_space:
                 available_space -= required_space
-                with pbar.get_lock():
-                    file_counter[0] += 1
-                    pbar.set_postfix_str(f"Copying file {file_counter[0]} of {total_files}...")
-                copy_file_with_progress(s, d, pbar, file_counter, total_files)
+                copied_file_sizes += file_size
+                file_counter[0] += 1
+                print_with_progress_files(logger, file_counter[0], total_files, header='INFO',
+                                                 description='Copying file')
+                copy_file_with_progress(s, d)
+            else:
+                skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         futures = []
         for item in os.listdir(source_directory):
             if item.startswith('.'):  # Skip files or folders starting with a dot
@@ -189,6 +221,15 @@ def copy_directory_contents(source_directory, destination_directory, pbar, file_
             futures.append(future)
 
         concurrent.futures.wait(futures)
+
+    return {
+        "total_files": total_files,
+        "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
+        "required_space_gb": all_required_space / (1024 ** 3),
+        "available_space_gb": initial_available_space / (1024 ** 3),
+        "copied_files_gb": copied_file_sizes / (1024 ** 3),
+        "skipped_files": skipped_files_counter[0]  # Return the number of skipped files
+    }
 
 
 def move_file_to_output(input_file_path, output_folder, folder_structure):
