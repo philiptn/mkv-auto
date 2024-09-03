@@ -70,8 +70,7 @@ def mkv_auto(args):
             print_no_timestamp(logger, f"No mkv files found in input directory.\n")
         exit(0)
 
-    if not args.silent:
-        hide_cursor()
+    hide_cursor()
 
     if not move_files:
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
@@ -116,14 +115,13 @@ def mkv_auto(args):
                              f"only {done_info['available_space_gb']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
 
+    show_cursor()
+
     extract_archives(logger, input_dir)
     flatten_directories(input_dir)
 
     convert_all_videos_to_mkv(debug, input_dir, args.silent)
     rename_others_file_to_folder(input_dir)
-
-    if not args.silent:
-        show_cursor()
 
     if remove_samples:
         remove_sample_files_and_dirs(input_dir)
