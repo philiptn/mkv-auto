@@ -136,13 +136,12 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
             actual_file_sizes += file_size
             all_required_space += required_space
 
-            if available_space >= all_required_space:
+            if available_space >= required_space:
                 available_space -= required_space
                 moved_file_sizes += file_size
                 file_counter[0] += 1
                 move_file_with_progress(s, d)
-                print_with_progress_files(logger, file_counter[0], total_files, header='INFO',
-                                          description='Moving file')
+                print_with_progress_files(logger, file_counter[0], total_files, header='INFO', description='Moving file')
             else:
                 skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
 
@@ -199,13 +198,12 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
             actual_file_sizes += file_size
             all_required_space += required_space
 
-            if available_space >= all_required_space:
+            if available_space >= required_space:
                 available_space -= required_space
                 copied_file_sizes += file_size
                 file_counter[0] += 1
                 copy_file_with_progress(s, d)
-                print_with_progress_files(logger, file_counter[0], total_files, header='INFO',
-                                          description='Copying file')
+                print_with_progress_files(logger, file_counter[0], total_files, header='INFO', description='Copying file')
             else:
                 skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
 

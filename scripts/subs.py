@@ -608,7 +608,8 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
                 replacements = replacements + current_replacements
                 current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', final_subtitle)
-                os.remove(output_subtitle)
+                if final_subtitle != output_subtitle:
+                    os.remove(output_subtitle)
                 os.remove(subtitle_tmp)
                 replacements = replacements + current_replacements
             else:
