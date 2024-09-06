@@ -134,10 +134,10 @@ def mkv_auto(args):
 
     if total_files == 0:
         if not args.silent:
-            print_no_timestamp(logger, f"No mkv files found in input directory.\n")
+            print_no_timestamp(logger, f"\n{RED}[ERROR]{RESET} No mkv files found in input directory.\n")
         exit(0)
     else:
-        print()
+        print_no_timestamp(logger, '')
 
     dirpaths = []
 
