@@ -443,7 +443,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     if pref_audio_codec.lower() == 'false':
         disable_print = True
 
-    if all(file == "False" for file in need_processing_audio):
+    if all(not bool for bool in need_processing_audio):
         disable_print = True
 
     hide_cursor()
