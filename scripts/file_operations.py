@@ -316,7 +316,7 @@ def remove_sample_files_and_dirs(root_dir):
         for filename in filenames:
             base, ext = os.path.splitext(filename)
             if not filename.startswith('.'):
-                if base.lower().endswith("-sample") or base.lower() == "sample":
+                if base.lower().endswith("-sample") or base.lower() == "sample" or base.lower().endswith(".sample"):
                     os.remove(os.path.join(dirpath, filename))
 
 
