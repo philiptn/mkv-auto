@@ -425,7 +425,7 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
     return needs_processing_audio, needs_processing_subs, missing_subs_langs
 
 
-def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_files, dirpath):
+def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_files, dirpath, need_processing_audio):
     total_files = len(input_files)
     all_ready_audio_tracks = [None] * total_files
     all_ready_subtitle_tracks = [None] * total_files
@@ -441,6 +441,9 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     description = f"Generate missing audio {print_multi_or_single(len(input_files), 'format')}"
 
     if pref_audio_codec.lower() == 'false':
+        disable_print = True
+
+    if all(file == "False" for file in need_processing_audio):
         disable_print = True
 
     hide_cursor()
