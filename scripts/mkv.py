@@ -438,7 +438,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "FFMPEG"
-    description = f"Generate missing audio {print_multi_or_single(len(input_files), 'format')}"
+    description = f"Generate missing audio {print_multi_or_single(len(input_files), 'codec')}"
 
     if pref_audio_codec.lower() == 'false':
         disable_print = True

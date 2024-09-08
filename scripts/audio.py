@@ -226,9 +226,10 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             if preferred_audio_codec.lower() == 'false':
                 preferred_audio_codec = audio_codec
 
+            if track_language == 'nob' or track_language == 'nno':
+                track_language = 'nor'
+
             if track_language in pref_audio_langs:
-                if track_language == 'nob' or track_language == 'nno':
-                    track_language = 'nor'
                 if preferred_audio_codec in audio_codec.upper():
                     if (not remove_commentary and commentary_tracks_found) or (
                             "Original" in all_track_names[total_audio_tracks - 1]) \

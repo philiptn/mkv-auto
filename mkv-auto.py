@@ -63,11 +63,11 @@ def mkv_auto(args):
         os.mkdir(temp_dir)
 
     total_files = count_files(input_dir)
-    total_bytes = count_bytes(input_dir)
 
     if total_files == 0:
         if not args.silent:
-            print_no_timestamp(logger, f"No mkv files found in input directory.\n")
+            print_no_timestamp(logger, f"{RED}[ERROR]{RESET} No mkv files found in input directory.\n")
+            show_cursor()
         exit(0)
 
     hide_cursor()
@@ -115,8 +115,6 @@ def mkv_auto(args):
                              f"only {done_info['available_space_gb']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
 
-    show_cursor()
-
     extract_archives(logger, input_dir)
     flatten_directories(input_dir)
 
@@ -134,7 +132,8 @@ def mkv_auto(args):
 
     if total_files == 0:
         if not args.silent:
-            print_no_timestamp(logger, f"\n{RED}[ERROR]{RESET} No mkv files found in input directory.\n")
+            print_no_timestamp(logger, f"{RED}[ERROR]{RESET} No mkv files found in input directory.\n")
+            show_cursor()
         exit(0)
     else:
         print_no_timestamp(logger, '')
@@ -233,6 +232,8 @@ def mkv_auto(args):
             print_no_timestamp(logger, '')
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} successfully processed.")
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
+            show_cursor()
+
         except Exception as e:
             # If anything were to fail, move files to output folder
             custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
