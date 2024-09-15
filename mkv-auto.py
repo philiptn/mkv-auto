@@ -232,7 +232,8 @@ def mkv_auto(args):
             print_no_timestamp(logger, '')
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} successfully processed.")
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
-            show_cursor()
+            if not args.service:
+                show_cursor()
 
         except Exception as e:
             # If anything were to fail, move files to output folder
@@ -240,7 +241,8 @@ def mkv_auto(args):
                                  f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
             custom_print(logger, traceback.print_tb(e.__traceback__))
             move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
-            show_cursor()
+            if not args.service:
+                show_cursor()
     exit(0)
 
 
