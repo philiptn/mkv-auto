@@ -354,7 +354,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
     # If none of the language selections matched, assign those that are
     # unmatched as audio track ids + langs to keep.
-    if not all_audio_track_langs:
+    if not all_audio_track_langs and unmatched_audio_track_ids:
         default_audio_track = unmatched_audio_track_ids[0]
 
         # If the language "und" (undefined) is in the unmatched languages,
