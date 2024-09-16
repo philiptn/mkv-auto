@@ -713,7 +713,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
 
 def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files):
     input_file_with_path = os.path.join(dirpath, input_file)
-    all_replacements = []
+    subtitle_files_to_process = subtitle_files
 
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
@@ -727,13 +727,12 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
      subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(False, file_info, pref_subs_langs)
 
     if "ass" in sub_filetypes:
-        (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
-         all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = convert_ass_to_srt(
-            subtitle_files, main_audio_track_lang)
-    else:
-        (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
-         all_subs_track_names, all_subs_track_forced, updated_sub_filetypes, all_replacements) = ocr_subtitles(
-            internal_threads, debug, subtitle_files, main_audio_track_lang)
+        all_subtitles = convert_ass_to_srt(subtitle_files_to_process, main_audio_track_lang)
+        subtitle_files_to_process = all_subtitles
+
+    (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
+     all_subs_track_names, all_subs_track_forced, updated_sub_filetypes, all_replacements) = ocr_subtitles(
+        internal_threads, debug, subtitle_files_to_process, main_audio_track_lang)
 
     sub_filetypes = updated_sub_filetypes
 
@@ -805,9 +804,10 @@ def remove_sdh_process_worker(debug, input_subtitles, internal_threads):
     all_replacements = []
     remove_music = check_config(config, 'subtitles', 'remove_music')
     always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
+    srt_files = [f for f in input_subtitles if f.endswith('.srt')]
 
     if always_remove_sdh:
-        a, all_replacements = remove_sdh(internal_threads, debug, input_subtitles, remove_music, [], False)
+        a, all_replacements = remove_sdh(internal_threads, debug, srt_files, remove_music, [], False)
     return all_replacements
 
 
