@@ -1,4 +1,4 @@
 # Reference: https://github.com/Diaoul/subliminal/blob/main/docs/config.toml
 [download]
 encoding = "utf-8"
-min_score = 70
+min_score = 60

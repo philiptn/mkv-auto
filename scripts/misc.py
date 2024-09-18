@@ -361,7 +361,6 @@ def hide_cursor():
 def show_cursor():
     sys.stdout.write("\033[?25h")
     sys.stdout.flush()
-    os.system('stty sane')
 
 
 def extract_season_episode(filename):

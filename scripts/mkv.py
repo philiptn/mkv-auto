@@ -944,7 +944,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
         return_code = process.returncode
 
         if debug:
-            print(f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}{RESET}")
+            print(f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}\n\n{stderr.decode('utf-8')}{RESET}")
 
         if os.path.exists(os.path.join(dirpath, f"{mkv_base}.{lang}.srt")):
             shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"), os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
