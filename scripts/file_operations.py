@@ -259,17 +259,29 @@ def safe_delete_dir(directory_path):
 
 
 def get_total_mkv_files(path):
-    total = 0
-    for dirpath, dirnames, filenames in os.walk(path):
-        # Skip directories or files starting with '.'
-        if '/.' in dirpath or dirpath.startswith('./.'):
-            continue
-        for f in filenames:
-            if f.startswith('.'):
-                continue
-            if f.endswith('.mkv'):
-                total += 1
-    return total
+    def is_file_stable(file_path):
+        """Check if a file's size is stable (indicating it is fully copied)."""
+        initial_size = os.path.getsize(file_path)
+        time.sleep(0.5)
+        new_size = os.path.getsize(file_path)
+        return initial_size == new_size
+
+    # Get a list of .mkv files to check
+    mkv_files = [os.path.join(dirpath, f)
+                 for dirpath, _, filenames in os.walk(path)
+                 for f in filenames if f.endswith('.mkv') and not f.startswith('.')]
+
+    stable_files = set()
+
+    # Continuously check each file until all are stable
+    while len(stable_files) < len(mkv_files):
+        for file_path in mkv_files:
+            if file_path in stable_files:
+                continue  # Skip already stable files
+            if is_file_stable(file_path):
+                stable_files.add(file_path)  # Mark file as stable
+
+    return len(stable_files)
 
 
 def replace_tags_in_file(file_path, replacement):
