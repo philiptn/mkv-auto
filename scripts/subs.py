@@ -49,17 +49,12 @@ def is_valid_srt(file_path):
             if not content:
                 return False
 
-            entries = content.split("\n\n")
-            timestamp_pattern = re.compile(r"\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}")
+            # Define regex pattern for an index line followed by a valid SRT timestamp
+            pattern = re.compile(r"\d+\n\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}")
 
-            for entry in entries:
-                lines = entry.strip().splitlines()
-                if len(lines) < 3 or not lines[0].isdigit() or not timestamp_pattern.match(lines[1]):
-                    return False
-                if not any(line.strip() for line in lines[2:]):
-                    return False
+            # Check if there is at least one valid subtitle entry
+            return bool(pattern.search(content))
 
-            return True
     except:
         return False
 
@@ -630,7 +625,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                     os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
                               f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
 
-            if not is_valid_srt(output_subtitle):
+            if not is_valid_srt(final_subtitle):
                 final_subtitle = 'ERROR'
                 original_subtitle = 'ERROR'
                 language = 'ERROR'
