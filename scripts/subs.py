@@ -89,18 +89,17 @@ def get_active_xvfb_displays():
     active_displays = set()
 
     try:
-        # Run ps aux and grep for Xvfb processes
-        ps_output = subprocess.run(["ps", "aux"], stdout=subprocess.PIPE, text=True).stdout
-        for line in ps_output.splitlines():
-            if "Xvfb" in line:
-                parts = line.split()
-                for part in parts:
-                    if part.startswith(":"):
-                        try:
-                            display_number = int(part[1:])
-                            active_displays.add(display_number)
-                        except ValueError:
-                            continue
+        # Run the command and capture the output
+        command = "pgrep Xvfb | xargs -I{} ps -p {} -o args | grep -oP '(?<=:)\d+'"
+        result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, text=True)
+
+        # Process each line of output, converting it to an integer and adding to the set
+        for line in result.stdout.splitlines():
+            try:
+                display_number = int(line)
+                active_displays.add(display_number)
+            except ValueError:
+                continue
     except Exception as e:
         print(f"Error while checking active Xvfb displays: {e}")
 
