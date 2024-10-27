@@ -42,6 +42,28 @@ def clean_invalid_utf8(input_file, output_file):
         f.write(content)
 
 
+def is_valid_srt(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read().strip()
+            if not content:
+                return False
+
+            entries = content.split("\n\n")
+            timestamp_pattern = re.compile(r"\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}")
+
+            for entry in entries:
+                lines = entry.strip().splitlines()
+                if len(lines) < 3 or not lines[0].isdigit() or not timestamp_pattern.match(lines[1]):
+                    return False
+                if not any(line.strip() for line in lines[2:]):
+                    return False
+
+            return True
+    except:
+        return False
+
+
 def find_and_replace(input_file, replacement_file, output_file):
     # Read the input file content
     with open(input_file, 'r', encoding='utf-8') as file:
@@ -154,6 +176,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     base_and_lang_with_id, _, original_extension = input_file.rpartition('.')
     base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
     base, _, track_id = base_with_id.rpartition('.')
+    replacements = []
 
     redo_casing = check_config(config, 'subtitles', 'redo_casing')
 
@@ -165,8 +188,6 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         command = ["mono", subtitleedit, "/convert", input_file,
                    "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                    f"/outputfilename:{input_file}_tmp.srt"]
-
-    replacements = []
 
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
@@ -479,7 +500,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     # Process each result and organize the outputs
     for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
         all_replacements = replacements + all_replacements
-        if output_subtitle:
+        if output_subtitle and output_subtitle != 'ERROR':
             if keep_original_subtitles:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
                 output_subtitles = output_subtitles + [output_subtitle]
@@ -507,12 +528,18 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
             if 'forced' in name.lower() or (forced != '0' and bool(forced)):
                 all_track_names.append(f'non-{main_audio_track_lang} dialogue')
             else:
-                all_track_names.append(name if name else '')
-            updated_sub_filetypes.append(original_extension)
-            output_subtitles.append(original_file)
-            updated_subtitle_languages.append(language)
-            all_track_ids.append(track_id)
-            all_track_forced.append(forced)
+                if not name == 'ERROR':
+                    all_track_names.append(name if name else '')
+            if not original_extension == 'ERROR':
+                updated_sub_filetypes.append(original_extension)
+            if not original_file == 'ERROR':
+                output_subtitles.append(original_file)
+            if not language == 'ERROR':
+                updated_subtitle_languages.append(language)
+            if not track_id == -1:
+                all_track_ids.append(track_id)
+            if not forced == -1:
+                all_track_forced.append(forced)
 
     if debug and all_replacements:
         print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
@@ -602,6 +629,15 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 else:
                     os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
                               f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
+
+            if not is_valid_srt(output_subtitle):
+                final_subtitle = 'ERROR'
+                original_subtitle = 'ERROR'
+                language = 'ERROR'
+                name = 'ERROR'
+                forced = -1
+                track_id = -1
+                original_extension = 'ERROR'
         else:
             final_subtitle = ''
             original_subtitle = file
