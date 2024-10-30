@@ -227,8 +227,7 @@ def remove_all_mkv_track_tags(debug, filename):
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception("Error executing mkvpropedit command: " + result.stderr)
+    result.check_returncode()
 
 
 def convert_mp4_to_mkv_with_subtitles(debug, mp4_file):
@@ -642,6 +641,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     all_ready_subtitle_tracks = [None] * total_files
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
+    all_errored_ocr_list = [None] * total_files
     disable_print = False
 
     # Disable print if all the subtitles to be processed are SRT (therefore no OCR is needed)
@@ -655,10 +655,10 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
         else:
             disable_print = True
 
-    # Calculate number of workers and internal threads, floor divide by 1.7 as
+    # Calculate number of workers and internal threads, floor divide by 1.2 as
     # the OCR process uses multiple Tesseract processes internally.
     # Reduced threads to not overwhelm the system.
-    num_workers = min(total_files, max_worker_threads // 1.7)
+    num_workers = min(total_files, max_worker_threads // 1.2)
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "SUBTITLES"
@@ -678,13 +678,15 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
-                ready_tracks, output_subtitles, all_replacements = future.result()
+                ready_tracks, output_subtitles, all_replacements, all_errored_ocr = future.result()
                 if ready_tracks is not None:
                     all_ready_subtitle_tracks[index] = ready_tracks
                 if output_subtitles is not None:
                     subtitle_tracks_to_be_processed[index] = output_subtitles
                 if all_replacements is not None:
                     all_replacements_list[index] = all_replacements
+                if all_errored_ocr is not None:
+                    all_errored_ocr_list[index] = all_errored_ocr
 
             except Exception as e:
                 # Fetch the variables that were passed to the thread
@@ -707,6 +709,10 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     if all_replacements_list_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
                              f"{all_replacements_list_count} OCR {print_multi_or_single(all_replacements_list_count, 'error')} in subtitle tracks.")
+    all_errored_ocr_list_count = len([item for list in all_errored_ocr_list for item in list])
+    if all_replacements_list_count:
+        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_ocr_list_count} "
+                             f"{print_multi_or_single(all_errored_ocr_list_count, 'subtitle')} failed to be converted to SRT.")
     show_cursor()
     return all_ready_subtitle_tracks, subtitle_tracks_to_be_processed
 
@@ -731,7 +737,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
         subtitle_files_to_process = all_subtitles
 
     (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
-     all_subs_track_names, all_subs_track_forced, updated_sub_filetypes, all_replacements) = ocr_subtitles(
+     all_subs_track_names, all_subs_track_forced, updated_sub_filetypes, all_replacements, all_errored_ocr) = ocr_subtitles(
         internal_threads, debug, subtitle_files_to_process, main_audio_track_lang)
 
     sub_filetypes = updated_sub_filetypes
@@ -742,7 +748,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
         'sub_ids': all_subs_track_ids,
         'sub_names': all_subs_track_names,
         'sub_forced': all_subs_track_forced
-    }, output_subtitles, all_replacements
+    }, output_subtitles, all_replacements, all_errored_ocr
 
 
 def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_process_list):
@@ -1551,8 +1557,7 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        custom_print(logger, "Error executing mkvmerge command: " + result.stdout)
+    result.check_returncode()
 
     os.remove(filename)
     shutil.move(temp_filename, filename)

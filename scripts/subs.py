@@ -143,10 +143,9 @@ def run_with_xvfb(command):
         xvfb_process.terminate()
         xvfb_process.wait()
 
-        if result.returncode != 0:
-            raise Exception(f"Error executing command: {result.stderr}")
-
-        return result
+        return result.returncode
+    except:
+        return -1
     finally:
         release_display(display_number)
 
@@ -423,8 +422,7 @@ def extract_subtitle(debug, filename, track, output_filetype, language, forced, 
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception("Error executing mkvextract command: " + result.stderr)
+    result.check_returncode()
 
     return subtitle_filename
 
@@ -490,6 +488,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     all_track_names = []
     all_track_forced = []
     updated_sub_filetypes = []
+    errored_ocr = []
 
     # Process each result and organize the outputs
     for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
@@ -519,6 +518,8 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                     all_track_names = all_track_names + ['']
                     all_track_forced = all_track_forced + [forced]
         else:
+            if output_subtitle == 'ERROR':
+                errored_ocr.append(original_file)
             if 'forced' in name.lower() or (forced != '0' and bool(forced)):
                 all_track_names.append(f'non-{main_audio_track_lang} dialogue')
             else:
@@ -545,7 +546,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                 print(replacement)
         print('')
 
-    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes, all_replacements
+    return output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names, all_track_forced, updated_sub_filetypes, all_replacements, errored_ocr
 
 
 def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
@@ -576,7 +577,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             if debug:
                 print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
-            run_with_xvfb(command)
+            result_code = run_with_xvfb(command)
 
             output_subtitle = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.srt"
             subtitle_tmp = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"
@@ -598,20 +599,32 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
                 final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
 
-            if language == 'eng':
-                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
-                replacements = replacements + current_replacements
-                current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', final_subtitle)
-                if final_subtitle != output_subtitle:
-                    os.remove(output_subtitle)
-                os.remove(subtitle_tmp)
-                replacements = replacements + current_replacements
-            else:
-                current_replacements = find_and_replace(output_subtitle, 'scripts/replacements.csv', subtitle_tmp)
-                os.rename(subtitle_tmp, final_subtitle)
-                if final_subtitle != output_subtitle:
-                    os.remove(output_subtitle)
-                replacements = replacements + current_replacements
+            if result_code != 0:
+                final_subtitle = 'ERROR'
+            elif not is_valid_srt(final_subtitle):
+                final_subtitle = 'ERROR'
+                original_subtitle = 'ERROR'
+                language = 'ERROR'
+                name = 'ERROR'
+                forced = -1
+                track_id = -1
+                original_extension = 'ERROR'
+
+            if final_subtitle != 'ERROR':
+                if language == 'eng':
+                    current_replacements = find_and_replace(output_subtitle, 'scripts/replacements_eng_only.csv', subtitle_tmp)
+                    replacements = replacements + current_replacements
+                    current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', final_subtitle)
+                    if final_subtitle != output_subtitle:
+                        os.remove(output_subtitle)
+                    os.remove(subtitle_tmp)
+                    replacements = replacements + current_replacements
+                else:
+                    current_replacements = find_and_replace(output_subtitle, 'scripts/replacements.csv', subtitle_tmp)
+                    os.rename(subtitle_tmp, final_subtitle)
+                    if final_subtitle != output_subtitle:
+                        os.remove(output_subtitle)
+                    replacements = replacements + current_replacements
 
             os.rename(file, original_subtitle)
 
@@ -623,15 +636,6 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 else:
                     os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
                               f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
-
-            if not is_valid_srt(final_subtitle):
-                final_subtitle = 'ERROR'
-                original_subtitle = 'ERROR'
-                language = 'ERROR'
-                name = 'ERROR'
-                forced = -1
-                track_id = -1
-                original_extension = 'ERROR'
         else:
             final_subtitle = ''
             original_subtitle = file

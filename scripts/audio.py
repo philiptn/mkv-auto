@@ -73,8 +73,7 @@ def encode_audio_track(file, index, debug, languages, track_names, output_codec,
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise Exception("Error executing ffmpeg command: " + result.stderr)
+    result.check_returncode()
 
     output_extension = output_codec.lower()
     output_lang = languages[index]
