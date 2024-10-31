@@ -599,9 +599,11 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
                 final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
 
+            os.rename(file, original_subtitle)
+
             if result_code != 0:
                 final_subtitle = 'ERROR'
-            elif not is_valid_srt(final_subtitle):
+            if not is_valid_srt(final_subtitle) and result_code == 0:
                 final_subtitle = 'ERROR'
                 original_subtitle = 'ERROR'
                 language = 'ERROR'
@@ -625,8 +627,6 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                     if final_subtitle != output_subtitle:
                         os.remove(output_subtitle)
                     replacements = replacements + current_replacements
-
-            os.rename(file, original_subtitle)
 
             # Also rename .idx file if processing VobSub subtitles
             if file.endswith('.sub'):
