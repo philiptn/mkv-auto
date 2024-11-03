@@ -22,6 +22,7 @@ from collections import Counter
 import concurrent.futures
 from tqdm import tqdm
 import base64
+import signal
 
 from scripts.misc import *
 
@@ -126,8 +127,27 @@ def release_display(display_number):
 
 
 def run_with_xvfb(command):
-    time.sleep(random.uniform(0.5, 1.5))
+    #time.sleep(random.uniform(0.5, 1.5))
     display_number = find_available_display()
+
+    # Store process references to terminate them on SIGTERM
+    xvfb_process = None
+    command_process = None
+
+    # Signal handler to terminate child processes
+    def terminate_all_processes(signum, frame):
+        nonlocal xvfb_process, command_process
+        if xvfb_process and xvfb_process.poll() is None:  # If xvfb_process is still running
+            xvfb_process.terminate()
+            xvfb_process.wait()
+        if command_process and command_process.poll() is None:  # If command_process is still running
+            command_process.terminate()
+            command_process.wait()
+        release_display(display_number)
+        exit(0)  # Ensure clean exit
+
+    # Set up the signal handler for SIGTERM
+    signal.signal(signal.SIGTERM, terminate_all_processes)
 
     try:
         xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24",
@@ -138,12 +158,19 @@ def run_with_xvfb(command):
 
         env = os.environ.copy()
         env['DISPLAY'] = f":{display_number}"
-        result = subprocess.run(command, env=env, capture_output=True, text=True)
 
+        # Start the command with subprocess.Popen for better control over termination
+        command_process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Wait for command to complete and capture output
+        stdout, stderr = command_process.communicate()
+        return_code = command_process.returncode
+
+        # Terminate xvfb process after command completes
         xvfb_process.terminate()
         xvfb_process.wait()
 
-        return result.returncode
+        return return_code
     except:
         return -1
     finally:
