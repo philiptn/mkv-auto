@@ -127,51 +127,41 @@ def release_display(display_number):
 
 
 def run_with_xvfb(command):
-    #time.sleep(random.uniform(0.5, 1.5))
+    time.sleep(random.uniform(0.5, 1.5))
     display_number = find_available_display()
 
-    # Store process references to terminate them on SIGTERM
     xvfb_process = None
     command_process = None
 
-    # Signal handler to terminate child processes
-    def terminate_all_processes(signum, frame):
-        nonlocal xvfb_process, command_process
-        if xvfb_process and xvfb_process.poll() is None:  # If xvfb_process is still running
-            xvfb_process.terminate()
-            xvfb_process.wait()
-        if command_process and command_process.poll() is None:  # If command_process is still running
-            command_process.terminate()
-            command_process.wait()
-        release_display(display_number)
-        exit(0)  # Ensure clean exit
-
-    # Set up the signal handler for SIGTERM
-    signal.signal(signal.SIGTERM, terminate_all_processes)
-
     try:
+        # Start Xvfb in the background with a new process group
         xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24",
                     "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
+        xvfb_process = subprocess.Popen(xvfb_cmd, preexec_fn=os.setsid)
 
-        # Start Xvfb in the background
-        xvfb_process = subprocess.Popen(xvfb_cmd)
-
+        # Set the DISPLAY environment variable
         env = os.environ.copy()
         env['DISPLAY'] = f":{display_number}"
 
-        # Start the command with subprocess.Popen for better control over termination
-        command_process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Start the main command in the same new process group
+        command_process = subprocess.Popen(command, env=env, preexec_fn=os.setsid,
+                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-        # Wait for command to complete and capture output
+        # Wait for the command to complete and capture output
         stdout, stderr = command_process.communicate()
         return_code = command_process.returncode
 
-        # Terminate xvfb process after command completes
-        xvfb_process.terminate()
+        # Terminate Xvfb process after the command completes
+        os.killpg(os.getpgid(xvfb_process.pid), signal.SIGTERM)
         xvfb_process.wait()
 
         return return_code
     except:
+        # If any exception occurs, kill both processes to prevent them from lingering
+        if xvfb_process and xvfb_process.poll() is None:
+            os.killpg(os.getpgid(xvfb_process.pid), signal.SIGTERM)
+        if command_process and command_process.poll() is None:
+            os.killpg(os.getpgid(command_process.pid), signal.SIGTERM)
         return -1
     finally:
         release_display(display_number)
