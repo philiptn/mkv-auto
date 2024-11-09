@@ -6,16 +6,14 @@ GROUP_ID=${GID:-1000}
 
 # Create a group if it doesn't exist
 if ! getent group tempgroup &>/dev/null; then
-    groupadd -g $GROUP_ID tempgroup
+    groupadd -g "$GROUP_ID" tempgroup
 fi
 
 # Create or modify the user to match the specified UID and GID
 if ! id -u tempuser &>/dev/null; then
-    # User does not exist, create it
-    useradd -u $USER_ID -g $GROUP_ID -m tempuser
+    useradd -u "$USER_ID" -g "$GROUP_ID" -m tempuser
 else
-    # User exists, modify it if necessary
-    usermod -u $USER_ID -g $GROUP_ID tempuser
+    usermod -u "$USER_ID" -g "$GROUP_ID" tempuser
 fi
 
 # Adjust permissions for mounted volumes to avoid permission issues
