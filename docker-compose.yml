@@ -2,6 +2,7 @@ services:
   mkv-auto-service:
     image: ${IMAGE_NAME}
     container_name: ${CONTAINER_NAME}
+    user: "${UID}:${GID}"
     restart: unless-stopped
     tty: true
     volumes:

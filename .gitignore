@@ -148,6 +148,7 @@ testing.py
 # Temporary files
 .tmp/
 tmp/
+.cache/
 
 # Bak files
 *.bak

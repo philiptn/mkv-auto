@@ -641,7 +641,10 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     all_ready_subtitle_tracks = [None] * total_files
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
-    all_errored_ocr_list = [None] * total_files
+    all_errored_ocr = [None] * total_files
+    all_missing_subs_langs = [None] * total_files
+    main_audio_track_langs_list = [None] * total_files
+
     disable_print = False
 
     # Disable print if all the subtitles to be processed are SRT (therefore no OCR is needed)
@@ -678,15 +681,19 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
-                ready_tracks, output_subtitles, all_replacements, all_errored_ocr = future.result()
+                ready_tracks, output_subtitles, all_replacements, errored_ocr, missing_subs_langs, main_audio_track_langs = future.result()
                 if ready_tracks is not None:
                     all_ready_subtitle_tracks[index] = ready_tracks
                 if output_subtitles is not None:
                     subtitle_tracks_to_be_processed[index] = output_subtitles
                 if all_replacements is not None:
                     all_replacements_list[index] = all_replacements
-                if all_errored_ocr is not None:
-                    all_errored_ocr_list[index] = all_errored_ocr
+                if errored_ocr is not None:
+                    all_errored_ocr[index] = errored_ocr
+                if missing_subs_langs is not None:
+                    all_missing_subs_langs[index] = missing_subs_langs
+                if main_audio_track_langs is not None:
+                    main_audio_track_langs_list[index] = main_audio_track_langs
 
             except Exception as e:
                 # Fetch the variables that were passed to the thread
@@ -709,12 +716,13 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     if all_replacements_list_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
                              f"{all_replacements_list_count} OCR {print_multi_or_single(all_replacements_list_count, 'error')} in subtitle tracks.")
-    all_errored_ocr_list_count = len([item for list in all_errored_ocr_list for item in list])
-    if all_replacements_list_count:
-        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_ocr_list_count} "
-                             f"{print_multi_or_single(all_errored_ocr_list_count, 'subtitle')} failed to be converted to SRT.")
+    all_errored_ocr_count = len([item for list in all_errored_ocr for item in list])
+    if all_errored_ocr_count:
+        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_ocr_count} "
+                             f"{print_multi_or_single(all_errored_ocr_count, 'subtitle')} failed to be converted to SRT.")
     show_cursor()
-    return all_ready_subtitle_tracks, subtitle_tracks_to_be_processed
+    return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed,
+            all_missing_subs_langs, all_errored_ocr, main_audio_track_langs_list)
 
 
 def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files):
@@ -737,7 +745,8 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
         subtitle_files_to_process = all_subtitles
 
     (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
-     all_subs_track_names, all_subs_track_forced, updated_sub_filetypes, all_replacements, all_errored_ocr) = ocr_subtitles(
+     all_subs_track_names, all_subs_track_forced, updated_sub_filetypes,
+     all_replacements, errored_ocr, missing_subs_langs) = ocr_subtitles(
         internal_threads, debug, subtitle_files_to_process, main_audio_track_lang)
 
     sub_filetypes = updated_sub_filetypes
@@ -748,7 +757,52 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
         'sub_ids': all_subs_track_ids,
         'sub_names': all_subs_track_names,
         'sub_forced': all_subs_track_forced
-    }, output_subtitles, all_replacements, all_errored_ocr
+    }, output_subtitles, all_replacements, errored_ocr, missing_subs_langs, main_audio_track_lang
+
+
+def get_subtitle_tracks_metadata_for_repack(logger, subtitle_files_list, max_worker_threads):
+    all_ready_subtitle_tracks = [None] * len(subtitle_files_list)
+    num_workers = min(len(subtitle_files_list), max_worker_threads)
+    internal_threads = max(1, max_worker_threads // num_workers)
+
+    # Use ThreadPoolExecutor to handle multithreading
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {executor.submit(return_subtitle_metadata_worker, subtitle_files_list[index], internal_threads): index for index, input_file in enumerate(subtitle_files_list)}
+        for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
+            try:
+                index = futures[future]
+                ready_tracks = future.result()
+                if ready_tracks is not None:
+                    all_ready_subtitle_tracks[index] = ready_tracks
+
+            except Exception as e:
+                # Fetch the variables that were passed to the thread
+                index = futures[future]
+                subtitle_files = subtitle_files_list[index]
+
+                # Print the error and traceback
+                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
+                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
+                raise
+
+    return all_ready_subtitle_tracks
+
+
+def return_subtitle_metadata_worker(subtitle_files, max_threads):
+    (updated_subtitle_languages, all_subs_track_ids,
+     all_subs_track_names, all_subs_track_forced, updated_sub_filetypes) = get_subtitle_tracks_metadata_lists(
+        subtitle_files, max_threads)
+
+    return {
+        'sub_extensions': updated_sub_filetypes,
+        'sub_langs': updated_subtitle_languages,
+        'sub_ids': all_subs_track_ids,
+        'sub_names': all_subs_track_names,
+        'sub_forced': all_subs_track_forced
+    }
 
 
 def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_process_list):
@@ -896,23 +950,11 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                 raise
     show_cursor()
 
-    failed_len = 0
-    for failed in all_failed_downloads:
-        if failed:
-            for item in failed:
-                failed_len += 1
-    success_len = 0
-    for success in all_downloaded_subs:
-        if success:
-            for item in success:
-                success_len += 1
-    truly_missing_subs_count = 0
-    for sub in all_missing_subs_langs:
-        if sub:
-            for item in sub:
-                truly_missing_subs_count += 1
-
+    success_len = len((set(f"'{item}'" for sublist in all_downloaded_subs for item in sublist)))
+    failed_len = len((set(f"'{item}'" for sublist in all_failed_downloads for item in sublist)))
+    truly_missing_subs_count = len((set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist)))
     unique_vals_print = ", ".join(set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist))
+
     if success_len or failed_len:
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")

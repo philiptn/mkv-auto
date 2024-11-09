@@ -191,6 +191,7 @@ def mkv_auto(args):
         start_time = time.time()
 
         try:
+            errored_ocr_list = []
             filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
 
             need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath)
@@ -216,7 +217,26 @@ def mkv_auto(args):
                     if any(sub for sub in subtitle_files):
                         resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
 
-                subtitle_tracks_to_be_merged, subtitle_files_to_process = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
+                (subtitle_tracks_to_be_merged, subtitle_files_to_process,
+                 all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
+
+                if (not all(sub == ['none'] or sub == [''] for sub in all_missing_subs_langs)
+                        and any(sub for sub in errored_ocr_list) and download_missing_subs):
+                    all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers,
+                                                                          filenames_mkv_only, dirpath,
+                                                                          total_external_subs,
+                                                                          all_missing_subs_langs)
+
+                    subtitle_files_to_process = [[*a, *b] for a, b in zip(subtitle_files_to_process, all_downloaded_subs)]
+                    all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, subtitle_files_to_process)]
+
+                    if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
+                        # Filter the nested lists to only include .srt files
+                        subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in subtitle_files_to_process]
+                        if any(sub for sub in subtitle_files):
+                            resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
+
+                    subtitle_tracks_to_be_merged = get_subtitle_tracks_metadata_for_repack(logger, all_subtitle_files, max_workers)
 
                 if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
                     remove_sdh_process(logger, debug, max_workers, subtitle_files_to_process)
@@ -230,7 +250,8 @@ def mkv_auto(args):
             processing_time = end_time - start_time
 
             print_no_timestamp(logger, '')
-            print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} successfully processed.")
+            print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} "
+                                       f"{'successfully ' if not any(sub for sub in errored_ocr_list) else ''}processed.")
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
             if not args.service:
                 show_cursor()
