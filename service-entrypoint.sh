@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Default UID and GID if not specified
-USER_ID=${UID:-1000}
-GROUP_ID=${GID:-1000}
+# If UID and GID are not set, determine them dynamically
+USER_ID=${UID:-$(stat -c '%u' /mkv-auto/files)}
+GROUP_ID=${GID:-$(stat -c '%g' /mkv-auto/files)}
 
 # Create a group if it doesn't exist
 if ! getent group tempgroup &>/dev/null; then
