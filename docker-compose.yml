@@ -5,11 +5,11 @@ services:
     restart: unless-stopped
     tty: true
     volumes:
-      - ${INPUT_FOLDER}:/mkv-auto/files/input
-      - ${OUTPUT_FOLDER}:/mkv-auto/files/output
-      - ${TEMP_FOLDER}:/mkv-auto/files/tmp
-      - ${CONFIG_FOLDER}:/mkv-auto/config
-      - ${LOGS_FOLDER}:/mkv-auto/logs
+      - ${INPUT_FOLDER}:/mkv-auto/files/input:rw,uid=${UID},gid=${GID}
+      - ${OUTPUT_FOLDER}:/mkv-auto/files/output:rw,uid=${UID},gid=${GID}
+      - ${TEMP_FOLDER}:/mkv-auto/files/tmp:rw,uid=${UID},gid=${GID}
+      - ${CONFIG_FOLDER}:/mkv-auto/config:rw,uid=${UID},gid=${GID}
+      - ${LOGS_FOLDER}:/mkv-auto/logs:rw,uid=${UID},gid=${GID}
     entrypoint: ["/bin/bash", "/mkv-auto/service-entrypoint.sh"]
     environment:
       - DEBUG_MODE=${DEBUG_MODE}
