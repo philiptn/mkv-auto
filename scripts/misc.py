@@ -151,6 +151,18 @@ def get_main_audio_track_language(file_info):
                     return main_audio_track_lang
 
 
+def get_main_audio_track_language_3_letter(file_info):
+    # Get the main audio language
+    for track in file_info['tracks']:
+        if track['type'] == 'audio':
+            for key, value in track["properties"].items():
+                if key == 'language':
+                    # If the language is undetermined, assume English
+                    if value == 'und':
+                        value = 'eng'
+                    return value
+
+
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
     current_time = datetime.utcnow()
@@ -504,6 +516,7 @@ config = {
         'forced_subtitles_priority': get_config('subtitles', 'FORCED_SUBTITLES_PRIORITY', variables_defaults),
         'download_missing_subs': get_config('subtitles', 'DOWNLOAD_MISSING_SUBS', variables_defaults).lower() == "true",
         'remove_all_subtitles': get_config('subtitles', 'REMOVE_ALL_SUBTITLES', variables_defaults).lower() == "true",
+        'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY', variables_defaults).lower() == "true",
         'redo_casing': get_config('subtitles', 'REDO_CASING', variables_defaults).lower() == "true"
     }
 }

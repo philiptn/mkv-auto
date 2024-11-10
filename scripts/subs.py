@@ -726,6 +726,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
 
     remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
     forced_subtitles_priority = check_config(config, 'subtitles', 'forced_subtitles_priority')
+    main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
 
     total_subs_tracks = 0
     pref_subs_langs = pref_langs
@@ -1006,6 +1007,33 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         elif lang in pref_subs_langs:
             default_subs_track = track_id
             break
+
+    # Remove any subtitles that do not match the main audio language
+    if main_audio_language_subs_only:
+        main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
+        # Filter each subtitle list to only include items matching `main_audio_track_lang`
+        if subs_track_languages:
+            filtered_subs = [
+                (lang, filetype, forced, track_id, name)
+                for lang, filetype, forced, track_id, name in zip(
+                    subs_track_languages, sub_filetypes, subs_track_forced, subs_track_ids, subs_track_names
+                ) if lang == main_audio_track_lang
+            ]
+
+            if filtered_subs:
+                # Unzip the filtered lists back into separate variables
+                (subs_track_languages, sub_filetypes, subs_track_forced,
+                 subs_track_ids, subs_track_names) = map(list, zip(*filtered_subs))
+            else:
+                # Clear lists if no subtitles match the main audio language
+                subs_track_languages = []
+                sub_filetypes = []
+                subs_track_forced = []
+                subs_track_ids = []
+                subs_track_names = []
+        # Filter `missing_subs_langs` to only include languages matching `main_audio_track_lang`
+        if missing_subs_langs:
+            missing_subs_langs = [lang for lang in missing_subs_langs if lang == main_audio_track_lang]
 
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True
