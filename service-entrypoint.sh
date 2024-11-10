@@ -1,22 +1,14 @@
 #!/bin/bash
 
-# If UID and GID are not set, determine them dynamically
-USER_ID=${UID:-$(stat -c '%u' /mkv-auto/files)}
-GROUP_ID=${GID:-$(stat -c '%g' /mkv-auto/files)}
+# Set default UID and GID dynamically based on the input folder's ownership
+USER_ID=${UID:-$(stat -c '%u' /mkv-auto/files/input 2>/dev/null || echo 1000)}
+GROUP_ID=${GID:-$(stat -c '%g' /mkv-auto/files/input 2>/dev/null || echo 1000)}
 
-# Create a group if it doesn't exist
-if ! getent group tempgroup &>/dev/null; then
-    groupadd -g "$GROUP_ID" tempgroup
-fi
+# Create a user and group with the determined UID and GID
+groupadd -o -g "$GROUP_ID" tempgroup
+useradd -o -u "$USER_ID" -g "$GROUP_ID" -m tempuser
 
-# Create or modify the user to match the specified UID and GID
-if ! id -u tempuser &>/dev/null; then
-    useradd -u "$USER_ID" -g "$GROUP_ID" -m tempuser
-else
-    usermod -u "$USER_ID" -g "$GROUP_ID" tempuser
-fi
-
-# Adjust permissions for mounted volumes to avoid permission issues
+# Set ownership for mounted directories
 chown -R tempuser:tempgroup /mkv-auto/files /mkv-auto/config /mkv-auto/logs
 
 # Log file path
