@@ -528,6 +528,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                 if not language == 'ERROR':
                     missing_subs_langs.append(language)
             if not name == 'ERROR':
+                output_subtitles.append(original_file)
                 if 'forced' in name.lower() or (forced != '0' and bool(forced)):
                     all_track_names.append(f'non-{main_audio_track_lang} dialogue')
                 else:
@@ -556,6 +557,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
 
 
 def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
+    limit_ocr_languages = check_config(config, 'subtitles', 'limit_ocr_languages')
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
@@ -574,6 +576,12 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
         name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith("'") else name_encoded
         name = base64.b64decode(name_encoded).decode("utf-8")
         base, _, forced = base_forced.rpartition('_')
+
+        if limit_ocr_languages[0].lower() != 'none':
+            if language not in limit_ocr_languages:
+                final_subtitle = ''
+                original_subtitle = file
+                return original_subtitle, final_subtitle, language, track_id, name, forced, replacements, original_extension
 
         if file.endswith('.sup') or file.endswith('.sub'):
             update_tesseract_lang_xml(language, subtitleedit_settings)
