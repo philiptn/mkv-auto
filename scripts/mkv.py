@@ -1623,5 +1623,8 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
 
         for index, filetype in enumerate(final_sub_filetypes):
             sub_track_name = base64.b64encode(final_sub_track_names[index].encode("utf-8")).decode("utf-8")
-            os.remove(f"{base}_{final_sub_track_forced[index]}_'{sub_track_name}'_"
-                      f"{final_sub_track_ids[index]}_{final_sub_languages[index]}.{filetype}")
+            try:
+                os.remove(f"{base}_{final_sub_track_forced[index]}_'{sub_track_name}'_"
+                          f"{final_sub_track_ids[index]}_{final_sub_languages[index]}.{filetype}")
+            except:
+                pass

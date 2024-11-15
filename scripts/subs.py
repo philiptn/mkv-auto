@@ -619,6 +619,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
 
             if result_code != 0:
                 final_subtitle = 'ERROR'
+                name = 'ERROR'
             if not is_valid_srt(final_subtitle) and result_code == 0:
                 final_subtitle = 'ERROR'
                 original_subtitle = 'ERROR'

@@ -200,13 +200,13 @@ def mkv_auto(args):
             if any(need_processing_subs):
                 all_subtitle_files = extract_subs_in_mkv_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
 
-                if not all(sub == ['none'] or sub == [''] for sub in all_missing_subs_langs):
+                if not all(sub == ['none'] or sub == [] for sub in all_missing_subs_langs):
                     if any(file.endswith('.srt') for file in filenames):
                         total_external_subs, all_missing_subs_langs = process_external_subs(logger, debug, max_workers, dirpath, filenames_before_retag, all_missing_subs_langs)
                         if not all(sub is None for sub in total_external_subs):
                             all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, total_external_subs)]
 
-                if not all(sub == ['none'] or sub == [''] for sub in all_missing_subs_langs) and download_missing_subs:
+                if not all(sub == ['none'] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs:
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers, filenames_mkv_only, dirpath, total_external_subs,
                                                     all_missing_subs_langs)
                     all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, all_downloaded_subs)]
@@ -220,7 +220,7 @@ def mkv_auto(args):
                 (subtitle_tracks_to_be_merged, subtitle_files_to_process,
                  all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
 
-                if (not all(sub == ['none'] or sub == [''] for sub in all_missing_subs_langs)
+                if (not all(sub == ['none'] or sub == [] for sub in all_missing_subs_langs)
                         and any(sub for sub in errored_ocr_list) and download_missing_subs):
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers,
                                                                           filenames_mkv_only, dirpath,
