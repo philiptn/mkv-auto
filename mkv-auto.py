@@ -192,6 +192,8 @@ def mkv_auto(args):
 
         try:
             errored_ocr_list = []
+            all_downloaded_subs = []
+
             filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
 
             need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath)
@@ -211,7 +213,7 @@ def mkv_auto(args):
                                                     all_missing_subs_langs)
                     all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, all_downloaded_subs)]
 
-                if all_subtitle_files and any(sub for sub in all_subtitle_files):
+                if total_external_subs or all_downloaded_subs and any(sub for sub in all_subtitle_files):
                     # Filter the nested lists to only include .srt files
                     subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in all_subtitle_files]
                     if any(sub for sub in subtitle_files):
