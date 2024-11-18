@@ -21,7 +21,7 @@ while true; do
         # Check for new files in the input directory
         if [ $(ls /mkv-auto/files/input | wc -l) -gt 0 ]; then
             cd /mkv-auto
-            . venv/bin/activate
+            . /pre/venv/bin/activate
             # Determine if debug mode is enabled
             DEBUG_FLAG=""
             if [[ "${DEBUG_MODE}" == "true" ]]; then

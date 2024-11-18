@@ -52,3 +52,7 @@ source venv/bin/activate
 # Install required PyPI packages using Pip
 pip3 install --upgrade pip
 pip3 install -r requirements.txt
+
+# Cleanup
+$SUDO apt-get clean
+$SUDO rm -rf /var/lib/apt/lists/*

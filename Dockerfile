@@ -1,9 +1,17 @@
 FROM ubuntu:22.04
 
-COPY prerequisites.sh /mkv-auto/
-COPY requirements.txt /mkv-auto/
-WORKDIR /mkv-auto
+WORKDIR /pre
+COPY prerequisites.sh /pre/
+COPY requirements.txt /pre/
 RUN ./prerequisites.sh
+
+# Create a non-root user and group
+RUN groupadd -g 1000 mkv-auto && \
+    useradd -m -u 1000 -g mkv-auto mkv-auto
+
+# Switch to the non-root user
+USER mkv-auto
+WORKDIR /mkv-auto
 
 COPY scripts /mkv-auto/scripts
 COPY utilities /mkv-auto/utilities
