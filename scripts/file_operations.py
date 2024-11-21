@@ -160,9 +160,9 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     return {
         "total_files": total_files,
         "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
-        "required_space_gb": all_required_space / (1024 ** 3),
-        "available_space_gb": initial_available_space / (1024 ** 3),
-        "moved_files_gb": moved_file_sizes / (1024 ** 3),
+        "required_space_gib": all_required_space / (1024 ** 3),
+        "available_space_gib": initial_available_space / (1024 ** 3),
+        "moved_files_gib": moved_file_sizes / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]  # Return the number of skipped files
     }
 
@@ -222,9 +222,9 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     return {
         "total_files": total_files,
         "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
-        "required_space_gb": all_required_space / (1024 ** 3),
-        "available_space_gb": initial_available_space / (1024 ** 3),
-        "copied_files_gb": copied_file_sizes / (1024 ** 3),
+        "required_space_gib": all_required_space / (1024 ** 3),
+        "available_space_gib": initial_available_space / (1024 ** 3),
+        "copied_files_gib": copied_file_sizes / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]  # Return the number of skipped files
     }
 

@@ -1390,9 +1390,7 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        print("Error executing mkvmerge command: " + result.stdout)
-        print("Continuing...")
+    result.check_returncode()
 
     os.remove(filename)
     shutil.move(temp_filename, filename)

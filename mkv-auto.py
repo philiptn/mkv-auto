@@ -66,7 +66,7 @@ def mkv_auto(args):
 
     if total_files == 0:
         if not args.silent:
-            print_no_timestamp(logger, f"{RED}[ERROR]{RESET} No mkv files found in input directory.\n")
+            print_no_timestamp(logger, f"No mkv files found in input directory.\n")
             show_cursor()
         exit(0)
 
@@ -85,12 +85,12 @@ def mkv_auto(args):
                 if done_info['skipped_files'] < total_files:
                     custom_print(logger, f"{GREY}[INFO]{RESET} "
                                          f"Successfully copied {total_files - done_info['skipped_files']} "
-                                         f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['copied_files_gb']:.2f} GB) to TEMP.")
+                                         f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['copied_files_gib']:.2f} GB) to TEMP.")
                 custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                                      f"had to be skipped due to insufficient storage capacity.")
-                custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['required_space_gb']:.2f} GB needed in total (250% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (250% of {done_info['actual_file_sizes_gb']:.2f} GB, "
                                      f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                                     f"only {done_info['available_space_gb']:.2f} GB is available in TEMP.")
+                                     f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
     if move_files and not debug or move_files and args.service:
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
@@ -105,14 +105,14 @@ def mkv_auto(args):
                 if done_info['skipped_files'] < total_files:
                     custom_print(logger, f"{GREY}[INFO]{RESET} "
                                          f"Successfully moved {total_files - done_info['skipped_files']} "
-                                         f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gb']:.2f} GB) to TEMP.")
+                                         f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
                 custom_print(logger,
                              f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                              f"had to be skipped due to insufficient storage capacity.")
                 custom_print(logger,
-                             f"{GREY}[INFO]{RESET} {done_info['required_space_gb']:.2f} GB needed in total (250% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                             f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (250% of {done_info['actual_file_sizes_gb']:.2f} GB, "
                              f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                             f"only {done_info['available_space_gb']:.2f} GB is available in TEMP.")
+                             f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
 
     extract_archives(logger, input_dir)
@@ -132,7 +132,7 @@ def mkv_auto(args):
 
     if total_files == 0:
         if not args.silent:
-            print_no_timestamp(logger, f"{RED}[ERROR]{RESET} No mkv files found in input directory.\n")
+            print_no_timestamp(logger, f"No mkv files found in input directory.\n")
             show_cursor()
         exit(0)
     else:
