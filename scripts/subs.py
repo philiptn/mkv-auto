@@ -257,7 +257,7 @@ def remove_sdh(max_threads, debug, input_files, remove_music, track_names, exter
     cleaned_track_names = []
 
     if debug:
-        print('')
+        print('\n')
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         tasks = [executor.submit(remove_sdh_worker, debug, input_file, remove_music, subtitleedit)
@@ -405,8 +405,6 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
 
 
 def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_filetypes, subs_languages, subs_forced, subs_names):
-    if debug:
-        print('\n')
 
     results = [None] * len(track_numbers)  # Pre-allocate a list for the results in order
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
@@ -421,9 +419,6 @@ def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_file
         for future in concurrent.futures.as_completed(future_to_index):
             index = future_to_index[future]
             results[index] = future.result()  # Store the result at the correct index
-
-    if debug:
-        print('')
 
     return results
 
@@ -1072,7 +1067,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         print(f"{BLUE}default subtitle track id{RESET}: {default_subs_track}")
         print(f"{BLUE}subtitle tracks to be extracted{RESET}:\n  {BLUE}filetypes{RESET}: {sub_filetypes}, "
               f"{BLUE}langs{RESET}: {subs_track_languages}, {BLUE}names{RESET}: {subs_track_names}, "
-              f"{BLUE}forced{RESET}: {subs_track_forced}\n")
+              f"{BLUE}forced{RESET}: {subs_track_forced}")
 
     return (subs_track_ids, default_subs_track, needs_sdh_removal, needs_convert,
             sub_filetypes, subs_track_languages, subs_track_names, needs_processing,

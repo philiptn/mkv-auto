@@ -3,6 +3,7 @@ import os
 import concurrent.futures
 from tqdm import tqdm
 import re
+import uuid
 from datetime import datetime
 
 from scripts.misc import *
@@ -33,6 +34,9 @@ def extract_audio_tracks_in_mkv(internal_threads, debug, filename, track_numbers
         print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Error: No track numbers passed.")
         return
 
+    if debug:
+        print()
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=internal_threads) as executor:
         tasks = [executor.submit(extract_audio_track, debug, filename, track, language, name)
                  for track, language, name in zip(track_numbers, audio_languages, audio_names)]
@@ -43,79 +47,323 @@ def extract_audio_tracks_in_mkv(internal_threads, debug, filename, track_numbers
     return audio_files, updated_audio_langs, updated_audio_names, audio_extensions
 
 
-def encode_audio_track(file, index, debug, languages, track_names, output_codec, custom_ffmpeg_options):
+def parse_preferred_codecs(preferred_codec_string):
+    preferences = []
+    items = [p.strip() for p in preferred_codec_string.split(',')]
+    for item in items:
+        if '-' in item:
+            transformation_part, codec_part = item.split('-', 1)
+            transformation = transformation_part.strip().upper()
+            if ':' in codec_part:
+                c, ch = codec_part.split(':', 1)
+                c = c.strip().upper()
+                ch = ch.strip()
+                preferences.append((transformation, c, ch))
+            else:
+                c = codec_part.strip().upper()
+                preferences.append((transformation, c, None))
+        else:
+            if ':' in item:
+                c, ch = item.split(':', 1)
+                c = c.strip().upper()
+                ch = ch.strip()
+                preferences.append((None, c, ch))
+            else:
+                val = item.upper()
+                if val == "EOS":
+                    preferences.append(("EOS", "AAC", None))
+                else:
+                    preferences.append((None, val, None))
+    return preferences
+
+
+def channels_to_int(ch):
+    if ch is None:
+        return None
+    ch = ch.strip().lower()
+    if ch == '5.1':
+        return 6
+    elif ch == '7.1':
+        return 8
+    elif ch == '2.0':
+        return 2
+    elif ch == '1.0':
+        return 1
+    try:
+        return int(ch)
+    except ValueError:
+        return None
+
+
+def detect_source_channels_and_layout(source_codec_info):
+    # Distinguish between 5.1(side) and 5.1
+    if '7.1' in source_codec_info:
+        return 8, '7.1'
+    elif '5.1(side)' in source_codec_info:
+        return 6, '5.1(side)'
+    elif '5.1' in source_codec_info:
+        return 6, '5.1'
+    elif 'stereo' in source_codec_info or '2.0' in source_codec_info:
+        return 2, 'stereo'
+    elif 'mono' in source_codec_info or '1.0' in source_codec_info:
+        return 1, 'mono'
+    return None, None
+
+
+def get_pan_filter(layout):
+    if layout in ('5.1', '5.1(side)'):
+        # Channels: FL, FR, FC, LFE, BL, BR
+        # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
+        return (
+            'pan=5.1|'
+            'FL=0.3*FL|'
+            'FR=0.3*FR|'
+            'FC=0.8*FC|'
+            'LFE=0.3*LFE|'
+            'BL=0.1*BL|'
+            'BR=0.1*BR'
+        )
+
+    elif layout == '7.1':
+        # Channels: FL, FR, FC, LFE, BL, BR, SL, SR
+        # Similar approach: boost FC, mix some FC into FL/FR,
+        # keep LFE as is, and reduce the volume of surrounds and sides.
+        return (
+            'pan=7.1|'
+            'FL=0.3*FL|'
+            'FR=0.3*FR|'
+            'FC=0.8*FC|'
+            'LFE=0.3*LFE|'
+            'BL=0.1*BL|'
+            'BR=0.1*BR|'
+            'SL=0.1*SL|'
+            'SR=0.1*SR'
+        )
+
+    elif layout == 'Stereo':
+        # Input might be multi-channel. We want a stereo downmix that still
+        # emphasizes FC and includes others at lower levels.
+        # If original source had more channels, this mixes them into FL/FR.
+        # For simplicity assume FL, FR, FC, BL, BR, SL, SR, LFE might exist and need mixing.
+        # If the source has fewer channels, missing ones are treated as silence by ffmpeg.
+        return (
+            'pan=stereo|'
+            'FL=0.3*FL+0.8*FC+0.1*BL+0.1*SL+0.3*LFE|'
+            'FR=0.3*FR+0.8*FC+0.1*BR+0.1*SR+0.3*LFE'
+        )
+
+    elif layout == 'Mono':
+        # For mono, just take a strong center channel presence.
+        # If FC exists, use it. Otherwise combine FL and FR.
+        return 'pan=mono|FC=0.5*FL+0.5*FR+1.0*FC'
+
+    else:
+        return None
+
+
+def encode_single_preference(file, index, debug, languages, track_names, transformation, codec, ch_str,
+                             custom_ffmpeg_options):
     base_and_lang_with_id, _, extension = file.rpartition('.')
     base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-    base, _, track_id = base_with_id.rpartition('.')
+    base, _, original_track_id = base_with_id.rpartition('.')
 
-    # Get the audio stream info using FFmpeg
     command_probe = ['ffmpeg', '-i', file, '-hide_banner']
     result = subprocess.run(command_probe, stderr=subprocess.PIPE, text=True)
     audio_info = result.stderr
 
-    # Search for audio codec information and determine the channel layout
-    channel_layout = []
-    codec_pattern = re.compile(r'Audio: ([^\n]+)')
-    codec_match = codec_pattern.search(audio_info)
-    if codec_match:
-        codec_info = codec_match.group(1)
-        if '5.1(side)' in codec_info or '5.1' in codec_info:
-            if not output_codec.lower() == 'aac':
-                channel_layout = ['-af', 'channelmap=channel_layout=5.1']
-        elif '7.1' in codec_info:
-            if not output_codec.lower() == 'aac':
-                channel_layout = ['-af', 'channelmap=channel_layout=7.1']
+    source_channels, source_layout = detect_source_channels_and_layout(audio_info)
+    chosen_channels = channels_to_int(ch_str) if ch_str else None
+    if chosen_channels is None and source_channels is not None:
+        chosen_channels = source_channels
+    if chosen_channels is None:
+        chosen_channels = 2
 
-    command = (["ffmpeg", "-i", file] + channel_layout
-               + custom_ffmpeg_options +
-               ["-strict", "-2", f"{base}.{track_id}.{lang}.{output_codec.lower()}"])
+    chosen_layout = source_layout
+    if chosen_channels == 6:
+        chosen_layout = '5.1'
+    elif chosen_channels == 8:
+        chosen_layout = '7.1'
+    elif chosen_channels == 2:
+        chosen_layout = 'Stereo'
+    elif chosen_channels == 1:
+        chosen_layout = 'Mono'
+
+    unique_id = str(uuid.uuid4())
+
+    # If original no transformation, just copy
+    if codec == 'ORIG' and transformation is None:
+        final_out_ext = extension
+        final_out = f"{base}.{unique_id}.{lang}.{final_out_ext}"
+        command = ["ffmpeg", "-i", file, "-c:a", "copy"] + custom_ffmpeg_options + [final_out]
+        if debug:
+            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+        subprocess.run(command, capture_output=True, text=True, check=True)
+        if track_names[index]:
+            track_name = track_names[index]
+        else:
+            track_name = "Original"
+        return final_out_ext, languages[index], track_name, unique_id
+
+    # Unique temp wav
+    temp_wav = f"{base}.{unique_id}.{lang}.temp.wav"
+
+    # Decode to WAV
+    decode_cmd = ["ffmpeg", "-i", file, "-c:a", "pcm_s16le", "-f", "wav", temp_wav]
     if debug:
-        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(decode_cmd)}{RESET}")
+    subprocess.run(decode_cmd, capture_output=True, text=True, check=True)
 
-    result = subprocess.run(command, capture_output=True, text=True)
-    result.check_returncode()
+    final_codec = codec.lower()
+    if final_codec == 'orig':
+        final_codec = extension
 
-    output_extension = output_codec.lower()
-    output_lang = languages[index]
-    output_name = ''
+    final_out_ext = final_codec if final_codec != 'orig' else extension
+    final_out = f"{base}.{unique_id}.{lang}.{final_out_ext}"
 
-    return output_extension, output_lang, output_name, track_id
+    ffmpeg_final_opts = []
+
+    # Codec settings
+    if codec == 'AAC':
+        ffmpeg_final_opts += ['-c:a', 'aac', '-aq', '6', '-strict', '-2']
+        track_name = f"AAC {chosen_layout}"
+    elif codec == 'DTS':
+        ffmpeg_final_opts += ['-c:a', 'dts', '-strict', '-2']
+        track_name = f"DTS {chosen_layout}"
+    elif codec == 'ORIG':
+        ffmpeg_final_opts += ['-c:a', 'copy']
+        if track_names[index]:
+            track_name = track_names[index]
+        else:
+            track_name = "Original"
+    else:
+        # Default to AAC if nothing else
+        ffmpeg_final_opts += ['-c:a', 'aac', '-aq', '6', '-strict', '-2']
+        track_name = f"AAC {chosen_layout}"
+
+    # Apply transformations
+    if transformation == 'EOS':
+        compand_filter = (
+            'compand='
+            'attacks=0.05:'
+            'decays=0.3:'
+            'soft-knee=6:'
+            'points='
+            '-110/-110|'
+            '-100/-105|'
+            '-90/-95|'
+            '-80/-90|'
+            '-75/-85|'
+            '-70/-65|'
+            '-60/-55|'
+            '-50/-40|'
+            '-45/-35|'
+            '-35/-28|'
+            '-30/-24|'
+            '-27/-16|'
+            '-20/-14|'
+            '-10/-10|'
+            '-5/-10|'
+            '0/-10|'
+            '10/-10|'
+            '20/-10'
+            ':gain=3'
+        )
+
+        pan_filter = get_pan_filter(chosen_layout)
+        if pan_filter:
+            eos_filter = f'[0:a]{compand_filter},{pan_filter}'
+            ffmpeg_final_opts += ["-filter_complex", eos_filter]
+            chosen_layout_name = chosen_layout
+            if chosen_layout == "5.1(side)":
+                chosen_layout_name = "5.1"
+            track_name = f'Even-Out-Sound ({chosen_layout_name})'
+        else:
+            # If no pan filter for this layout, just apply compand alone
+            eos_filter = f'[0:a]{compand_filter}'
+            ffmpeg_final_opts += ["-filter_complex", eos_filter]
+            chosen_layout_name = chosen_layout
+            if chosen_layout == "5.1(side)":
+                chosen_layout_name = "5.1"
+            track_name = f'Even-Out-Sound ({chosen_layout_name})'
+    else:
+        if chosen_layout == '5.1':
+            ffmpeg_final_opts += ['-af', 'channelmap=0|1|2|3|4|5:5.1']
+        elif chosen_layout == '5.1(side)':
+            ffmpeg_final_opts += ['-af', 'channelmap=0|1|2|3|4|5:5.1(side)']
+        elif chosen_layout == '7.1':
+            ffmpeg_final_opts += ['-af', 'channelmap=0|1|2|3|4|5|6|7:7.1']
+        elif chosen_layout == 'stereo':
+            ffmpeg_final_opts += ['-af', 'channelmap=0|1:stereo']
+        elif chosen_layout == 'mono':
+            ffmpeg_final_opts += ['-af', 'channelmap=0:mono']
+
+    final_cmd = ["ffmpeg", "-i", temp_wav] + ffmpeg_final_opts + custom_ffmpeg_options + [final_out]
+    if debug:
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(final_cmd)}{RESET}")
+    subprocess.run(final_cmd, capture_output=True, text=True, check=True)
+
+    os.remove(temp_wav)
+
+    return final_out_ext, languages[index], track_name, unique_id
 
 
-def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_names, output_codec,
-                        other_files, other_langs, other_names, keep_original_audio, other_track_ids):
+def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_names, preferred_codec_string,
+                        other_files, other_langs, other_names, other_track_ids):
     if not audio_files:
         return
 
-    # Old version without center channel boost
-    #custom_ffmpeg_options = ['-aq', '6', '-ac', '2', '-filter_complex', '[0:a]pan=stereo|c0=c0+c2|c1=c1+c2[out]', '-map', '[out]'] if output_codec.lower() == 'aac' else []
-    custom_ffmpeg_options = ['-aq', '6', '-ac', '2',
-                             '-filter_complex',
-                             '[0:a]compand=attacks=0:points=-110/-900|-80/-95|-70/-85|-45/-35|-27/-16|0/-7|20/-7:gain=5,'
-                             'pan=stereo|FL<0.2FL+0.8FC+0.1BL|FR<0.2FR+0.8FC+0.1BR'] \
-        if output_codec.lower() == 'aac' else []
+    preferences = parse_preferred_codecs(preferred_codec_string)
+    custom_ffmpeg_options = []
 
     if debug:
-        print('')
+        print()
 
+    # Store futures by (track_index, preference_index) for ordering later
+    futures_map = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=internal_threads) as executor:
-        futures = [executor.submit(encode_audio_track, file, index,
-                                   debug, languages, track_names, output_codec, custom_ffmpeg_options)
-                   for index, file in enumerate(audio_files)]
-        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+        for track_index, file in enumerate(audio_files):
+            for pref_index, (transformation, codec, ch_str) in enumerate(preferences):
+                future = executor.submit(
+                    encode_single_preference, file, track_index, debug, languages, track_names,
+                    transformation, codec, ch_str, custom_ffmpeg_options
+                )
+                futures_map[future] = (track_index, pref_index)
 
-    output_audio_files_extensions, output_audio_langs, output_audio_names, all_track_ids = zip(*results)
+        # Collect results
+        results_map = {}
+        for future in concurrent.futures.as_completed(futures_map):
+            track_idx, pref_idx = futures_map[future]
+            try:
+                res = future.result()
+                # Store result keyed by (track_idx, pref_idx) so we can restore order
+                results_map[(track_idx, pref_idx)] = res
+            except Exception as e:
+                if debug:
+                    print(f"Error processing track {track_idx}, preference {pref_idx}: {e}")
 
-    if keep_original_audio:
-        output_audio_files_extensions += tuple(ext for file in audio_files for ext in [file.rpartition('.')[-1]])
-        output_audio_langs += tuple(languages)  # Convert languages to a tuple before concatenating
-        output_audio_names += tuple(name if name else "Original" for name in track_names)
-        all_track_ids += tuple(file.rpartition('.')[0].rpartition('.')[0].rpartition('.')[-1] for file in audio_files)
-    else:
-        for audio_file in audio_files:
+    if not results_map:
+        return (), (), (), ()
+
+    if debug:
+        print()
+
+    # Reconstruct results in the correct order
+    # For each track in the order of audio_files, and each preference in the order given by preferences
+    ordered_results = []
+    for track_index in range(len(audio_files)):
+        for pref_index in range(len(preferences)):
+            if (track_index, pref_index) in results_map:
+                ordered_results.append(results_map[(track_index, pref_index)])
+
+    if not ordered_results:
+        return (), (), (), ()
+
+    output_audio_files_extensions, output_audio_langs, output_audio_names, all_track_ids = zip(*ordered_results)
+    for audio_file in audio_files:
+        if os.path.exists(audio_file):
             os.remove(audio_file)
 
-    output_audio_files_extensions = (tuple(ext for file in other_files for ext in [file.rpartition('.')[-1]])
+    output_audio_files_extensions = (tuple(file.rpartition('.')[-1] for file in other_files)
                                      + output_audio_files_extensions)
     output_audio_langs = tuple(other_langs) + output_audio_langs
     output_audio_names = tuple(other_names) + output_audio_names

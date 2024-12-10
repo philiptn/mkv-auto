@@ -88,7 +88,7 @@ def mkv_auto(args):
                                          f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['copied_files_gib']:.2f} GB) to TEMP.")
                 custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                                      f"had to be skipped due to insufficient storage capacity.")
-                custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (250% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
                                      f"{total_files} {print_multi_or_single(total_files, 'file')}), "
                                      f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
@@ -110,7 +110,7 @@ def mkv_auto(args):
                              f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                              f"had to be skipped due to insufficient storage capacity.")
                 custom_print(logger,
-                             f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (250% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                             f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
                              f"{total_files} {print_multi_or_single(total_files, 'file')}), "
                              f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
         input_dir = temp_dir

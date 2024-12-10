@@ -495,7 +495,6 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
     ready_audio_langs = []
     ready_track_ids = []
     ready_track_names = []
-    keep_original_audio = True
 
     pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
     pref_audio_codec = check_config(config, 'audio', 'pref_audio_codec')
@@ -542,8 +541,7 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
              ready_track_names, ready_track_ids) = encode_audio_tracks(
                 internal_threads, debug, extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
                 extracted_for_convert_audio_names, pref_audio_codec, extracted_other_audio_files,
-                extracted_other_audio_langs, extracted_other_audio_names,
-                keep_original_audio, other_track_ids)
+                extracted_other_audio_langs, extracted_other_audio_names, other_track_ids)
         else:
             ready_audio_extensions = extracted_audio_extensions
             ready_audio_langs = extracted_other_audio_langs
@@ -1336,7 +1334,7 @@ def move_files_to_output_process_worker(debug, input_file, dirpath, all_dirnames
 def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
                         sub_tracks, default_subs_track, always_enable_subs):
     if debug:
-        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} strip_tracks_in_mkv:\n")
+        print(f"{GREY}\n[UTC {get_timestamp()}] [DEBUG]{RESET} strip_tracks_in_mkv:\n")
         print(f"{BLUE}always enable subs{RESET}: {always_enable_subs}")
         print(f"{BLUE}audio tracks to keep{RESET}: {audio_tracks}")
         print(f"{BLUE}subtitle tracks to keep{RESET}: {sub_tracks}")
