@@ -434,7 +434,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     disable_print = False
 
     # Calculate number of workers and internal threads
-    num_workers = min(total_files, max_worker_threads)
+    num_workers = min(total_files, max_worker_threads // 1.7)
     # Half it due to OCR process internally using multiple threads, to not overwhelm the system
     internal_threads = max(1, max_worker_threads // num_workers)
 
