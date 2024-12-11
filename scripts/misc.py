@@ -116,6 +116,60 @@ def print_multi_or_single(amount, string):
         return string
 
 
+def format_audio_preferences_print(audio_format_preferences):
+    # Define mappings for better readability in the output
+    audio_label_map = {
+        'EOS': 'Even-Out-Sound',
+        'ORIG': 'Original audio'
+    }
+
+    # Initialize an empty list to store the formatted strings
+    formatted_preferences = []
+
+    # Iterate through the preferences and format them
+    for preference in audio_format_preferences:
+        label, codec, channels = preference
+
+        # Handle the label mapping
+        if label in audio_label_map:
+            label_text = audio_label_map[label]
+        elif label:
+            label_text = label  # If not in map, use the raw label
+        elif codec == 'ORIG':
+            label_text = audio_label_map['ORIG']
+        elif codec == 'EOS':
+            label_text = audio_label_map['EOS']
+        else:
+            label_text = None
+
+        # Handle codec and channel configurations
+        if codec and channels:
+            if channels == '2.0':
+                channel_text = "Stereo"
+            else:
+                channel_text = f"Surround {channels}"
+            if label:
+                formatted_preferences.append(f"{label_text} ({codec}) - {channel_text}")
+            else:
+                if label_text:
+                    formatted_preferences.append(f"{label_text} ({channel_text})")
+                else:
+                    formatted_preferences.append(f"{codec} ({channel_text})")
+        elif codec and codec != 'ORIG':  # Exclude ORIG codec from additional output
+            formatted_preferences.append(f"{label_text} ({codec})")
+        elif label_text:  # Only add the label text if it's not empty
+            formatted_preferences.append(label_text)
+
+    # Add numbering to the formatted preferences
+    tree_lines = []
+    for i, pref in enumerate(formatted_preferences):
+        prefix = "├── " if i < len(formatted_preferences) - 1 else "└── "
+        tree_lines.append(f"{prefix}{pref}")
+
+    # Ensure a single string output with proper formatting
+    return [x for x in tree_lines if x]  # Remove any empty strings
+
+
 def debug_pause():
     print(f"{GREY}[DEBUG]{RESET} Press Enter to continue or 'q' to quit: ")
     if os.name == 'nt':  # Windows
@@ -501,7 +555,7 @@ config = {
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
-        'pref_audio_codec': get_config('audio', 'PREFERRED_AUDIO_CODEC', variables_defaults),
+        'pref_audio_formats': get_config('audio', 'PREFERRED_AUDIO_FORMATS', variables_defaults),
         'remove_commentary': get_config('audio', 'REMOVE_COMMENTARY_TRACK', variables_defaults).lower() == "true"
     },
     'subtitles': {

@@ -11,12 +11,16 @@ To update to the latest version of mkv-auto, run `docker pull philiptn/mkv-auto`
 - `REMOVE_ALL_SUBTITLES`
 - `KEEP_ORIGINAL_SUBTITLES` (#26)
 - `FORCED_SUBTITLES_PRIORITY`
+- `MAIN_AUDIO_LANGUAGE_SUBS_ONLY`
 - `REDO_CASING`
+
+### Changed options in `defaults.ini`:
+- `PREFERRED_AUDIO_CODEC` is now `PREFERRED_AUDIO_FORMATS`
 
 ### Other features:
 - Added support for automatically downloading missing subtitles using Subliminal
 - Added media overview print of detected files (Movie, TV Show etc.)
-- Dynamic copying/moving of files based on available storage capacity in TEMP (checks for at least 250% available)
+- Dynamic copying/moving of files based on available storage capacity in TEMP (checks for at least 350% available)
 
 ### Changes and bug fixes:
 - Changed license from LGPL-2.1 to GPL-3.0 to comply with imported libraries
@@ -29,4 +33,6 @@ To update to the latest version of mkv-auto, run `docker pull philiptn/mkv-auto`
 - Generated subtitles (OCR) and forced subtitles will be skipped in the FFsubsync process due to syncing errors
 - Fixed `find_available_display()` function, as previous version did not find xvfb displays properly
 - Implemented logging using `logging` library to properly log to files and handle stdout
+- Fixed bug where audio track handling would fail if no audio track was present
+- Changed user/group context when using Docker - now runs mkv-auto as current user, not root
 - Other various bug fixes and improvements

@@ -1,5 +1,6 @@
 import subprocess
 import os
+import json
 import concurrent.futures
 from tqdm import tqdm
 import re
@@ -95,19 +96,43 @@ def channels_to_int(ch):
         return None
 
 
-def detect_source_channels_and_layout(source_codec_info):
-    # Distinguish between 5.1(side) and 5.1
-    if '7.1' in source_codec_info:
-        return 8, '7.1'
-    elif '5.1(side)' in source_codec_info:
-        return 6, '5.1(side)'
-    elif '5.1' in source_codec_info:
-        return 6, '5.1'
-    elif 'stereo' in source_codec_info or '2.0' in source_codec_info:
-        return 2, 'stereo'
-    elif 'mono' in source_codec_info or '1.0' in source_codec_info:
-        return 1, 'mono'
-    return None, None
+def detect_source_channels_and_layout(file):
+    try:
+        # Use ffprobe to extract audio stream data in JSON format
+        command_probe = [
+            'ffprobe', '-i', file, '-show_streams', '-select_streams', 'a', '-print_format', 'json'
+        ]
+        result = subprocess.run(command_probe, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        audio_info = json.loads(result.stdout)
+
+        if 'streams' not in audio_info or not audio_info['streams']:
+            return None, None  # No audio streams found
+
+        # Assume the first audio stream is the relevant one
+        audio_stream = audio_info['streams'][0]
+        channel_layout = audio_stream.get('channel_layout', '')
+        channels = audio_stream.get('channels', 0)
+
+        # Map codec layout strings to the desired format
+        channel_map = {
+            '7.1': (8, '7.1'),
+            '5.1(side)': (6, '5.1(side)'),
+            '5.1': (6, '5.1'),
+            'stereo': (2, 'stereo'),
+            '2.0': (2, 'stereo'),
+            'mono': (1, 'mono'),
+            '1.0': (1, 'mono')
+        }
+
+        for layout, (num_channels, label) in channel_map.items():
+            if layout in channel_layout:
+                return num_channels, label
+
+        return None, None  # Default if no match found
+
+    except (subprocess.SubprocessError, json.JSONDecodeError) as e:
+        print(f"Error processing file: {e}")
+        return None, None
 
 
 def get_pan_filter(layout):
@@ -167,11 +192,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
     base, _, original_track_id = base_with_id.rpartition('.')
 
-    command_probe = ['ffmpeg', '-i', file, '-hide_banner']
-    result = subprocess.run(command_probe, stderr=subprocess.PIPE, text=True)
-    audio_info = result.stderr
-
-    source_channels, source_layout = detect_source_channels_and_layout(audio_info)
+    source_channels, source_layout = detect_source_channels_and_layout(file)
     chosen_channels = channels_to_int(ch_str) if ch_str else None
     if chosen_channels is None and source_channels is not None:
         chosen_channels = source_channels
@@ -179,6 +200,9 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         chosen_channels = 2
 
     chosen_layout = source_layout
+    # Limit the chosen channel based on that the source actually is
+    chosen_channels = min(int(source_channels), int(chosen_channels))
+
     if chosen_channels == 6:
         chosen_layout = '5.1'
     elif chosen_channels == 8:
@@ -199,7 +223,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
         subprocess.run(command, capture_output=True, text=True, check=True)
         if track_names[index]:
-            track_name = track_names[index]
+            track_name = f"{track_names[index]} (Original)"
         else:
             track_name = "Original"
         return final_out_ext, languages[index], track_name, unique_id
@@ -232,7 +256,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     elif codec == 'ORIG':
         ffmpeg_final_opts += ['-c:a', 'copy']
         if track_names[index]:
-            track_name = track_names[index]
+            track_name = f"{track_names[index]} (Original)"
         else:
             track_name = "Original"
     else:
@@ -292,9 +316,9 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             ffmpeg_final_opts += ['-af', 'channelmap=0|1|2|3|4|5:5.1(side)']
         elif chosen_layout == '7.1':
             ffmpeg_final_opts += ['-af', 'channelmap=0|1|2|3|4|5|6|7:7.1']
-        elif chosen_layout == 'stereo':
+        elif chosen_layout == 'Stereo':
             ffmpeg_final_opts += ['-af', 'channelmap=0|1:stereo']
-        elif chosen_layout == 'mono':
+        elif chosen_layout == 'Mono':
             ffmpeg_final_opts += ['-af', 'channelmap=0:mono']
 
     final_cmd = ["ffmpeg", "-i", temp_wav] + ffmpeg_final_opts + custom_ffmpeg_options + [final_out]
@@ -372,11 +396,11 @@ def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_n
     return output_audio_files_extensions, output_audio_langs, output_audio_names, all_track_ids
 
 
-def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentary, pref_audio_codec):
+def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentary, pref_audio_formats):
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} get_wanted_audio_tracks:\n")
         print(f"{BLUE}preferred audio languages{RESET}: {pref_audio_langs}")
-        print(f"{BLUE}preferred audio codec{RESET}: {pref_audio_codec}")
+        print(f"{BLUE}preferred audio codec{RESET}: {pref_audio_formats}")
         print(f"{BLUE}remove commentary tracks{RESET}: {remove_commentary}")
 
     file_name = file_info["file_name"]
@@ -418,12 +442,35 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     default_audio_track_set = False
     pref_default_audio_track = ''
     total_audio_tracks = 0
-    preferred_audio_codec = pref_audio_codec
+    preferred_audio_codec = pref_audio_formats
     needs_processing = False
     first_audio_track_found = False
     pref_codec_replaced_main = []
 
     # Check if there are any commentary tracks
+    original_audio_track_ids = []
+    original_audio_track_languages = []
+    original_audio_track_names = []
+    original_audio_track_codecs = []
+    for track in file_info["tracks"]:
+        if track["type"] == "audio":
+            track_name = ''
+            codec = ''
+            language = ''
+            for key, value in track["properties"].items():
+                if key == 'track_name':
+                    track_name = value
+                if key == 'codec_id':
+                    codec = value
+                if key == 'language':
+                    language = value
+            if 'original' in track_name.lower():
+                original_audio_track_ids.append(track["id"])
+                original_audio_track_names.append(track_name)
+                original_audio_track_languages.append(language)
+                original_audio_track_codecs.append(codec)
+
+    # Get all the original audio tracks
     all_track_names = []
     all_track_codecs = []
     all_track_ids = []
@@ -452,7 +499,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             track_name = ''
             track_language = ''
             audio_codec = ''
-            preferred_audio_codec = pref_audio_codec
+            preferred_audio_codec = pref_audio_formats
             for key, value in track["properties"].items():
                 if key == 'track_name':
                     if not value.lower() in file_name.lower():
@@ -582,11 +629,11 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
     # If the preferred audio codec is in all the matching tracks, then it is fully found
     if all(preferred_audio_codec in item for item in audio_track_codecs):
-        pref_audio_codec_found = True
+        pref_audio_formats_found = True
         all_audio_track_ids = pref_audio_track_ids
         default_audio_track = pref_default_audio_track
     else:
-        pref_audio_codec_found = False
+        pref_audio_formats_found = False
         needs_processing = True
         tracks_ids_to_be_converted = audio_track_ids
         tracks_langs_to_be_converted = audio_track_languages
@@ -595,7 +642,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
         other_tracks_langs = pref_audio_track_languages
         other_tracks_names = pref_audio_track_names
 
-    if pref_audio_codec.lower() == 'false' or default_audio_track is None:
+    if pref_audio_formats.lower() == 'false' or default_audio_track is None:
         default_audio_track = pref_default_audio_track
         needs_processing = False
 
@@ -608,8 +655,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
         # assign it to be an english audio track. Else, keep the originals.
         if "und" in unmatched_audio_track_languages[0].lower():
             all_audio_track_ids = unmatched_audio_track_ids
-            if (pref_audio_codec.lower() not in unmatched_audio_track_codecs[0].lower()) \
-                    and pref_audio_codec.lower() != 'false':
+            if (pref_audio_formats.lower() not in unmatched_audio_track_codecs[0].lower()) \
+                    and pref_audio_formats.lower() != 'false':
                 tracks_langs_to_be_converted = ['eng']
                 tracks_ids_to_be_converted = unmatched_audio_track_ids
                 tracks_names_to_be_converted = unmatched_audio_track_names
@@ -620,8 +667,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             needs_processing = True
         else:
             for index, codec in enumerate(unmatched_audio_track_codecs):
-                if (pref_audio_codec.lower() not in codec.lower()) \
-                        and pref_audio_codec.lower() != 'false':
+                if (pref_audio_formats.lower() not in codec.lower()) \
+                        and pref_audio_formats.lower() != 'false':
                     if remove_commentary and "commentary" in unmatched_audio_track_names[index].lower():
                         continue
                     else:
@@ -647,7 +694,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
         all_audio_track_ids.append(first_audio_track_id)
         all_audio_track_langs.append(first_audio_track_lang)
         all_audio_track_names.append(first_audio_track_name)
-        preferred_audio_codec = pref_audio_codec
+        preferred_audio_codec = pref_audio_formats
         needs_processing = True
         if preferred_audio_codec.lower() != 'false':
             if first_audio_track_codec not in preferred_audio_codec:
@@ -680,8 +727,16 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     if len(all_audio_track_ids) != 0 and len(all_audio_track_ids) < total_audio_tracks:
         needs_processing = True
 
+    # If the preferred codec is not found, only keep original tracks
+    if not pref_audio_formats_found and original_audio_track_ids:
+        all_audio_track_ids = original_audio_track_ids
+        default_audio_track = original_audio_track_ids[0]
+        tracks_ids_to_be_converted = original_audio_track_ids
+        tracks_langs_to_be_converted = original_audio_track_languages
+        tracks_names_to_be_converted = original_audio_track_names
+
     if debug:
-        print(f"{BLUE}preferred audio codec found in all tracks{RESET}: {pref_audio_codec_found}")
+        print(f"{BLUE}preferred audio codec found in all tracks{RESET}: {pref_audio_formats_found}")
         print(f"{BLUE}needs processing{RESET}: {needs_processing}")
         print(f"\n{BLUE}all wanted audio track ids{RESET}: {all_audio_track_ids}")
         print(f"{BLUE}default audio track id{RESET}: {default_audio_track}")
@@ -691,6 +746,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
               f"{BLUE}langs{RESET}: {tracks_langs_to_be_converted}, {BLUE}names{RESET}: "
               f"{tracks_names_to_be_converted}\n")
 
-    return (all_audio_track_ids, default_audio_track, needs_processing, pref_audio_codec_found,
+    return (all_audio_track_ids, default_audio_track, needs_processing, pref_audio_formats_found,
             tracks_ids_to_be_converted, tracks_langs_to_be_converted, other_tracks_ids, other_tracks_langs,
             tracks_names_to_be_converted, other_tracks_names)

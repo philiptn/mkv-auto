@@ -406,6 +406,9 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
 
 def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_filetypes, subs_languages, subs_forced, subs_names):
 
+    if debug:
+        print('\n')
+
     results = [None] * len(track_numbers)  # Pre-allocate a list for the results in order
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Create a dictionary to store futures with their respective indices
