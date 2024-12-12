@@ -223,7 +223,9 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
         subprocess.run(command, capture_output=True, text=True, check=True)
         if track_names[index]:
-            if not track_names[index].endswith(' (Original)'):
+            if track_names[index] == 'Original':
+                track_name = f"{track_names[index]}"
+            elif not track_names[index].endswith(' (Original)'):
                 track_name = f"{track_names[index]} (Original)"
             else:
                 track_name = f"{track_names[index]}"
@@ -259,7 +261,9 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     elif codec == 'ORIG':
         ffmpeg_final_opts += ['-c:a', 'copy']
         if track_names[index]:
-            if not track_names[index].endswith(' (Original)'):
+            if track_names[index] == 'Original':
+                track_name = f"{track_names[index]}"
+            elif not track_names[index].endswith(' (Original)'):
                 track_name = f"{track_names[index]} (Original)"
             else:
                 track_name = f"{track_names[index]}"
