@@ -223,7 +223,10 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
         subprocess.run(command, capture_output=True, text=True, check=True)
         if track_names[index]:
-            track_name = f"{track_names[index]} (Original)"
+            if not track_names[index].endswith(' (Original)'):
+                track_name = f"{track_names[index]} (Original)"
+            else:
+                track_name = f"{track_names[index]}"
         else:
             track_name = "Original"
         return final_out_ext, languages[index], track_name, unique_id
@@ -256,7 +259,10 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     elif codec == 'ORIG':
         ffmpeg_final_opts += ['-c:a', 'copy']
         if track_names[index]:
-            track_name = f"{track_names[index]} (Original)"
+            if not track_names[index].endswith(' (Original)'):
+                track_name = f"{track_names[index]} (Original)"
+            else:
+                track_name = f"{track_names[index]}"
         else:
             track_name = "Original"
     else:
@@ -290,7 +296,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             '0/-10|'
             '10/-10|'
             '20/-10'
-            ':gain=2'
+            ':gain=3'
         )
 
         pan_filter = get_pan_filter(chosen_layout)
