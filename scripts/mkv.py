@@ -439,7 +439,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "FFMPEG"
-    description = f"Encode audio {print_multi_or_single(len(audio_format_preferences), 'format')}"
+    description = f"Generate audio {print_multi_or_single(len(audio_format_preferences), 'format')}"
 
     if pref_audio_formats.lower() == 'false':
         disable_print = True
