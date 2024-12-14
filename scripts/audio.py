@@ -141,12 +141,12 @@ def get_pan_filter(layout):
         # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
         return (
             'pan=5.1|'
-            'FL=0.3*FL|'
-            'FR=0.3*FR|'
+            'FL=0.5*FL|'
+            'FR=0.5*FR|'
             'FC=0.8*FC|'
-            'LFE=0.3*LFE|'
-            'BL=0.1*BL|'
-            'BR=0.1*BR'
+            'LFE=0.4*LFE|'
+            'BL=0.2*BL|'
+            'BR=0.2*BR'
         )
 
     elif layout == '7.1':
@@ -155,14 +155,14 @@ def get_pan_filter(layout):
         # keep LFE as is, and reduce the volume of surrounds and sides.
         return (
             'pan=7.1|'
-            'FL=0.3*FL|'
-            'FR=0.3*FR|'
+            'FL=0.5*FL|'
+            'FR=0.5*FR|'
             'FC=0.8*FC|'
-            'LFE=0.3*LFE|'
-            'BL=0.1*BL|'
-            'BR=0.1*BR|'
-            'SL=0.1*SL|'
-            'SR=0.1*SR'
+            'LFE=0.4*LFE|'
+            'BL=0.2*BL|'
+            'BR=0.2*BR|'
+            'SL=0.2*SL|'
+            'SR=0.2*SR'
         )
 
     elif layout == 'Stereo':
@@ -457,7 +457,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     first_audio_track_found = False
     pref_codec_replaced_main = []
 
-    # Check if there are any commentary tracks
+    # Get all the original audio tracks
     original_audio_track_ids = []
     original_audio_track_languages = []
     original_audio_track_names = []
@@ -480,7 +480,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                 original_audio_track_languages.append(language)
                 original_audio_track_codecs.append(codec)
 
-    # Get all the original audio tracks
     all_track_names = []
     all_track_codecs = []
     all_track_ids = []
