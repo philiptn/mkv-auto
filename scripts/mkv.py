@@ -9,6 +9,7 @@ import time
 import pycountry
 import concurrent.futures
 import base64
+from collections import defaultdict
 
 from scripts.misc import *
 from scripts.audio import *
@@ -449,7 +450,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
 
     hide_cursor()
 
-    custom_print(logger, f"{GREY}[AUDIO]{RESET} Requested formats:")
+    custom_print(logger, f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
     for pref in audio_format_preferences_print:
         custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
 
@@ -1403,19 +1404,86 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
     always_enable_subs = check_config(config, 'subtitles', 'always_enable_subs')
     forced_subtitles_priority = check_config(config, 'subtitles', 'forced_subtitles_priority')
 
-    # Unpack audio metadata and remove duplicates
-    seen = set()
-    filtered = [
-        (name, ext, lang, track_id)
-        for name, ext, lang, track_id in zip(
+    base, extension = os.path.splitext(filename)
+
+    def get_codec(filepath):
+        cmd = [
+            "ffprobe", "-v", "quiet", "-show_entries",
+            "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1",
+            filepath
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        return res.stdout.strip().lower()
+
+    def unify_codec(codec):
+        # Normalize DTS variants to "dts"
+        if codec.startswith("dts"):
+            return "dts"
+        return codec
+
+    all_tracks = []
+    for name, ext, lang, track_id in zip(
             audio_tracks['audio_names'],
             audio_tracks['audio_extensions'],
             audio_tracks['audio_langs'],
             audio_tracks['audio_ids']
-        )
-        if (key := (name, ext, lang)) not in seen and not seen.add(key)
-    ]
-    audio_track_names, audio_filetypes, audio_languages, audio_track_ids = map(list, zip(*filtered))
+    ):
+        try:
+            final_audio_lang = pycountry.languages.get(alpha_3=lang).alpha_2
+        except:
+            # Fallback if pycountry fails
+            final_audio_lang = lang[:-1]
+
+        track_file = f"{base}.{track_id}.{final_audio_lang}.{ext}"
+        codec = get_codec(track_file)
+        codec = unify_codec(codec)
+
+        is_eos = "even-out-sound" in name.lower()
+        is_orig = "original" in name.lower()
+
+        all_tracks.append({
+            'name': name,
+            'ext': ext,
+            'lang': lang,
+            'track_id': track_id,
+            'codec': codec,
+            'is_eos': is_eos,
+            'is_orig': is_orig
+        })
+
+    # We'll keep track of which (codec, lang) combos we've used:
+    # - has_eos_or_orig: if we've included an ORIG/EOS track for that combo
+    # - seen_normal: if we've included a normal track for that combo (only if no EOS/ORIG found)
+    has_eos_or_orig = set()
+    seen_normal = set()
+    filtered_tracks = []
+
+    # First pass: check for any ORIG or EOS track presence
+    for t in all_tracks:
+        if t['is_eos'] or t['is_orig']:
+            # Mark that this codec/lang combo already has an ORIG/EOS
+            has_eos_or_orig.add((t['codec'], t['lang']))
+
+    # Second pass: decide which tracks to keep
+    for t in all_tracks:
+        key = (t['codec'], t['lang'])
+        if t['is_eos'] or t['is_orig']:
+            # Always keep EOS or ORIG
+            # They also override normal tracks
+            filtered_tracks.append(t)
+        else:
+            # It's a normal track
+            # Only add if no EOS/ORIG track for that combo and not already seen a normal one
+            if key not in has_eos_or_orig and key not in seen_normal:
+                filtered_tracks.append(t)
+                seen_normal.add(key)
+            # If there's an ORIG/EOS, skip normal track entirely
+
+    # Extract final lists
+    audio_track_names = [t['name'] for t in filtered_tracks]
+    audio_filetypes = [t['ext'] for t in filtered_tracks]
+    audio_languages = [t['lang'] for t in filtered_tracks]
+    audio_track_ids = [t['track_id'] for t in filtered_tracks]
 
     # Unpack subtitle metadata
     sub_filetypes = subtitle_tracks['sub_extensions']

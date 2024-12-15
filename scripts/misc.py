@@ -120,7 +120,7 @@ def format_audio_preferences_print(audio_format_preferences):
     # Define mappings for better readability in the output
     audio_label_map = {
         'EOS': 'Even-Out-Sound',
-        'ORIG': 'Original audio'
+        'ORIG': 'Original audio',
     }
 
     # Initialize an empty list to store the formatted strings
@@ -155,8 +155,11 @@ def format_audio_preferences_print(audio_format_preferences):
                     formatted_preferences.append(f"{label_text} ({channel_text})")
                 else:
                     formatted_preferences.append(f"{codec} ({channel_text})")
-        elif codec and codec != 'ORIG':  # Exclude ORIG codec from additional output
-            formatted_preferences.append(f"{label_text} ({codec})")
+        elif codec and codec != 'ORIG':
+            if label_text:
+                formatted_preferences.append(f"{label_text} ({codec})")
+            else:
+                formatted_preferences.append(f"{codec}")
         elif label_text:  # Only add the label text if it's not empty
             formatted_preferences.append(label_text)
 
