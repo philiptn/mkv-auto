@@ -1415,11 +1415,12 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         res = subprocess.run(cmd, capture_output=True, text=True)
         return res.stdout.strip().lower()
 
-    def unify_codec(codec):
-        # Normalize DTS variants to "dts"
-        if codec.startswith("dts"):
+    def unify_codec(acodec):
+        if acodec.startswith("dts"):
             return "dts"
-        return codec
+        if acodec.endswith("ac3"):
+            return "ac3"
+        return acodec
 
     all_tracks = []
     for name, ext, lang, track_id in zip(
@@ -1431,7 +1432,6 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         try:
             final_audio_lang = pycountry.languages.get(alpha_3=lang).alpha_2
         except:
-            # Fallback if pycountry fails
             final_audio_lang = lang[:-1]
 
         track_file = f"{base}.{track_id}.{final_audio_lang}.{ext}"
@@ -1451,33 +1451,26 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             'is_orig': is_orig
         })
 
-    # We'll keep track of which (codec, lang) combos we've used:
-    # - has_eos_or_orig: if we've included an ORIG/EOS track for that combo
-    # - seen_normal: if we've included a normal track for that combo (only if no EOS/ORIG found)
-    has_eos_or_orig = set()
-    seen_normal = set()
-    filtered_tracks = []
-
-    # First pass: check for any ORIG or EOS track presence
+    # Keep track of which (codec, lang) combos have an ORIG track
+    has_orig = set()
     for t in all_tracks:
-        if t['is_eos'] or t['is_orig']:
-            # Mark that this codec/lang combo already has an ORIG/EOS
-            has_eos_or_orig.add((t['codec'], t['lang']))
+        if t['is_orig']:
+            has_orig.add((t['codec'], t['lang']))
 
-    # Second pass: decide which tracks to keep
+    filtered_tracks = []
+    seen_normal = set()
+
     for t in all_tracks:
         key = (t['codec'], t['lang'])
         if t['is_eos'] or t['is_orig']:
-            # Always keep EOS or ORIG
-            # They also override normal tracks
+            # Always keep EOS and ORIG
             filtered_tracks.append(t)
         else:
-            # It's a normal track
-            # Only add if no EOS/ORIG track for that combo and not already seen a normal one
-            if key not in has_eos_or_orig and key not in seen_normal:
+            # Normal track
+            # Only exclude if there's an ORIG track of the same codec/lang
+            if key not in has_orig and key not in seen_normal:
                 filtered_tracks.append(t)
                 seen_normal.add(key)
-            # If there's an ORIG/EOS, skip normal track entirely
 
     # Extract final lists
     audio_track_names = [t['name'] for t in filtered_tracks]

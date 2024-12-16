@@ -144,12 +144,12 @@ def get_pan_filter(layout):
         # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
         return (
             'pan=5.1|'
-            'FL=0.5*FL|'
-            'FR=0.5*FR|'
-            'FC=0.8*FC|'
-            'LFE=0.4*LFE|'
-            'BL=0.2*BL|'
-            'BR=0.2*BR'
+            'FL=0.4*FL|'
+            'FR=0.4*FR|'
+            'FC=0.7*FC|'
+            'LFE=0.3*LFE|'
+            'BL=0.1*BL|'
+            'BR=0.1*BR'
         )
 
     elif layout == '7.1':
@@ -158,14 +158,14 @@ def get_pan_filter(layout):
         # keep LFE as is, and reduce the volume of surrounds and sides.
         return (
             'pan=7.1|'
-            'FL=0.5*FL|'
-            'FR=0.5*FR|'
-            'FC=0.8*FC|'
-            'LFE=0.4*LFE|'
-            'BL=0.2*BL|'
-            'BR=0.2*BR|'
-            'SL=0.2*SL|'
-            'SR=0.2*SR'
+            'FL=0.4*FL|'
+            'FR=0.4*FR|'
+            'FC=0.7*FC|'
+            'LFE=0.3*LFE|'
+            'BL=0.1*BL|'
+            'BR=0.1*BR|'
+            'SL=0.1*SL|'
+            'SR=0.1*SR'
         )
 
     elif layout == 'Stereo':
@@ -314,8 +314,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
 
         pan_filter = get_pan_filter(chosen_layout)
         if pan_filter:
-            # Add limiter at the end of the chain
-            eos_filter = f'[0:a]{compand_filter},{pan_filter},alimiter=limit=0.95'
+            eos_filter = f'[0:a]{compand_filter},{pan_filter}'
             ffmpeg_final_opts += ["-filter_complex", eos_filter]
             chosen_layout_name = chosen_layout
             if chosen_layout == "5.1(side)":
@@ -323,7 +322,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             track_name = f'Even-Out-Sound ({chosen_layout_name})'
         else:
             # If no pan filter for this layout, just apply compand and limiter
-            eos_filter = f'[0:a]{compand_filter},alimiter=limit=0.95'
+            eos_filter = f'[0:a]{compand_filter}'
             ffmpeg_final_opts += ["-filter_complex", eos_filter]
             chosen_layout_name = chosen_layout
             if chosen_layout == "5.1(side)":
