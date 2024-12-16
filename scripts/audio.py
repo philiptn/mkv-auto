@@ -144,10 +144,10 @@ def get_pan_filter(layout):
         # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
         return (
             'pan=5.1|'
-            'FL=0.4*FL|'
-            'FR=0.4*FR|'
-            'FC=0.7*FC|'
-            'LFE=0.3*LFE|'
+            'FL=0.3*FL|'
+            'FR=0.3*FR|'
+            'FC=0.6*FC|'
+            'LFE=0.2*LFE|'
             'BL=0.1*BL|'
             'BR=0.1*BR'
         )
@@ -158,10 +158,10 @@ def get_pan_filter(layout):
         # keep LFE as is, and reduce the volume of surrounds and sides.
         return (
             'pan=7.1|'
-            'FL=0.4*FL|'
-            'FR=0.4*FR|'
-            'FC=0.7*FC|'
-            'LFE=0.3*LFE|'
+            'FL=0.3*FL|'
+            'FR=0.3*FR|'
+            'FC=0.6*FC|'
+            'LFE=0.2*LFE|'
             'BL=0.1*BL|'
             'BR=0.1*BR|'
             'SL=0.1*SL|'
@@ -176,8 +176,8 @@ def get_pan_filter(layout):
         # If the source has fewer channels, missing ones are treated as silence by ffmpeg.
         return (
             'pan=stereo|'
-            'FL=0.3*FL+0.8*FC+0.1*BL+0.1*SL+0.3*LFE|'
-            'FR=0.3*FR+0.8*FC+0.1*BR+0.1*SR+0.3*LFE'
+            'FL=0.3*FL+0.6*FC+0.1*BL+0.1*SL+0.3*LFE|'
+            'FR=0.3*FR+0.6*FC+0.1*BR+0.1*SR+0.3*LFE'
         )
 
     elif layout == 'Mono':
@@ -304,7 +304,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             '-30/-24|'
             '-27/-16|'
             '-20/-14|'
-            '-10/-10|'
+            '-10/-12|'
             '-5/-10|'
             '0/-10|'
             '10/-10|'
