@@ -47,9 +47,7 @@ def convert_all_videos_to_mkv(debug, input_folder, silent):
     if total_files == 0:
         return
 
-    pbar = tqdm(total=total_files, bar_format='\r{desc}{bar:8} {percentage:3.0f}% ', leave=False, disable=silent)
     for i, video_file in enumerate(video_files, start=1):
-        pbar.set_description(f'{GREY}[INFO]{RESET} Converting file {i} of {total_files} to MKV')
         if video_file.endswith('.mp4'):
             # If the function returns "True", then there are
             # tx3g subtitles in the mp4 file that needs to be converted.
@@ -61,8 +59,6 @@ def convert_all_videos_to_mkv(debug, input_folder, silent):
         else:
             output_file = os.path.splitext(video_file)[0] + '.mkv'
             convert_video_to_mkv(debug, video_file, output_file)
-        pbar.update(1)  # Update progress bar by one file
-    pbar.close()
 
 
 def format_tracks_as_blocks(json_data, line_width=80):
@@ -432,7 +428,15 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
     audio_format_preferences = parse_preferred_codecs(pref_audio_formats)
     audio_format_preferences_print = format_audio_preferences_print(audio_format_preferences)
-    disable_print = False
+
+    all_pref_settings_codecs = []
+    audio_preferences = parse_preferred_codecs(pref_audio_formats)
+    for transformation, codec, ch_str in audio_preferences:
+        all_pref_settings_codecs.append(codec)
+    disable_print = True if len(all_pref_settings_codecs) == 1 and "ORIG" in all_pref_settings_codecs else False
+
+    if all(not bool for bool in need_processing_audio):
+        disable_print = True
 
     # Calculate number of workers and internal threads
     num_workers = min(total_files, max_worker_threads // 1.7)
@@ -440,19 +444,13 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "FFMPEG"
-    description = f"Generate audio {print_multi_or_single(len(audio_format_preferences), 'format')}"
+    description = f"Process audio {print_multi_or_single(len(audio_format_preferences), 'format')}"
 
-    if pref_audio_formats.lower() == 'false':
-        disable_print = True
-
-    if all(not bool for bool in need_processing_audio):
-        disable_print = True
-
-    hide_cursor()
-
-    custom_print(logger, f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
-    for pref in audio_format_preferences_print:
-        custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
+    if not disable_print:
+        hide_cursor()
+        custom_print(logger, f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
+        for pref in audio_format_preferences_print:
+            custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
 
     if not disable_print:
         # Initialize progress

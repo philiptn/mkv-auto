@@ -476,6 +476,12 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     first_audio_track_found = False
     pref_codec_replaced_main = []
 
+    all_pref_settings_codecs = []
+    audio_preferences = parse_preferred_codecs(pref_audio_formats)
+    for transformation, codec, ch_str in audio_preferences:
+        all_pref_settings_codecs.append(codec)
+    only_keep_original_track = True if len(all_pref_settings_codecs) == 1 and "ORIG" in all_pref_settings_codecs else False
+
     all_track_names = []
     all_track_codecs = []
     all_track_ids = []
@@ -758,6 +764,17 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             tracks_ids_to_be_converted = original_audio_track_ids
             tracks_langs_to_be_converted = original_audio_track_languages
             tracks_names_to_be_converted = original_audio_track_names
+
+    # If the preferred audio formats only contains 'ORIG', then
+    # no tracks will need to be converted or extracted.
+    if only_keep_original_track and all_audio_track_ids:
+        pref_audio_formats_found = True
+        tracks_ids_to_be_converted = []
+        tracks_langs_to_be_converted = []
+        tracks_names_to_be_converted = []
+        other_tracks_ids = []
+        other_tracks_langs = []
+        other_tracks_names = []
 
     if debug:
         print(f"{BLUE}preferred audio codec found in all tracks{RESET}: {pref_audio_formats_found}")

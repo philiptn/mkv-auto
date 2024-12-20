@@ -22,6 +22,131 @@ GREEN = '\033[92m'
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
 
 
+# List of tags to exclude from replacement
+# https://support.plex.tv/articles/local-files-for-trailers-and-extras/
+excluded_tags = [
+    "-behindthescenes", "-deleted", "-featurette",
+    "interview", "-scene", "-short", "-trailer", "-other"
+]
+
+
+def process_extras(input_folder):
+    # Recursively walk through the directories, skipping those starting with '.'
+    for root, dirs, files in os.walk(input_folder):
+        # Modify dirs in-place to skip hidden directories
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        extras_files = []
+        normal_files = []
+
+        for f in files:
+            base, ext = os.path.splitext(f)
+
+            if ext.lower() not in ['.mkv', '.mp4', '.mov', '.avi', '.srt']:
+                continue
+
+            # Check if the filename ends with any of the excluded tags
+            if any(base.lower().endswith(tag) for tag in excluded_tags):
+                extras_files.append(f)
+            else:
+                normal_files.append(f)
+
+        # If there are no extras or no normal files in this directory, no action needed
+        if not extras_files or not normal_files:
+            continue
+
+        # We have extras and also recognized normal files;
+        # Let's see what kind of media we have in normal_files.
+        # We'll try to identify if it's a TV show or a movie by using reformat_filename() in names_only mode.
+        # We only need one representative file to determine the type and name.
+        identified_media = None
+        for nf in normal_files:
+            result = reformat_filename(nf, names_only=True)
+            if result['media_type'] in ['movie', 'movie_hdr', 'tv_show', 'tv_show_hdr']:
+                identified_media = result
+                break
+
+        if not identified_media:
+            # Couldn't identify any normal file as movie or TV show, skip renaming extras
+            continue
+
+        media_type = identified_media['media_type']
+        media_name = identified_media['media_name']
+
+        # If it's a TV show, we'll rename extras as S00Exx.
+        # If it's a movie, we just put "Movie (Year) - extras name"
+        # We'll number the extras for TV shows incrementally.
+        extras_counter = 1
+
+        for ef in extras_files:
+            old_full_path = os.path.join(root, ef)
+            base, ext = os.path.splitext(ef)
+
+            # Extract the extra tag part from the filename to put it into the new name
+            matching_tag = None
+            for tag in excluded_tags:
+                if base.lower().endswith(tag):
+                    matching_tag = tag
+                    break
+
+            # The portion before the tag:
+            extras_title = base
+            if matching_tag:
+                extras_title = base[: -len(matching_tag)]
+            extras_title = extras_title.strip()
+
+            # Convert underscores or dots to spaces
+            extras_title = extras_title.replace('.', ' ').replace('_', ' ')
+            extras_title = to_sentence_case(extras_title)
+
+            if 'tv_show' in media_type:
+                # TV show extras:
+                episode_num = f"{extras_counter:02d}"
+                new_filename = f"{media_name} - S00E{episode_num} - {extras_title}{matching_tag}{ext}"
+                extras_counter += 1
+            else:
+                # Movie extras:
+                new_filename = f"{media_name} - {extras_title}{matching_tag}{ext}"
+
+            new_full_path = os.path.join(root, new_filename)
+
+            # Rename the file
+            if not os.path.exists(new_full_path):
+                os.rename(old_full_path, new_full_path)
+
+
+def restore_extras(filenames_mkv_only, dirpath):
+    tv_pattern = re.compile(r"^(.*?) - S00E\d+ - (.+)$")
+    movie_pattern = re.compile(r"^(.*?) - (.+)$")
+
+    for fname in filenames_mkv_only:
+        input_file_with_path = os.path.join(dirpath, fname)
+        if not os.path.isfile(input_file_with_path):
+            continue
+
+        base, ext = os.path.splitext(fname)
+        # Try TV show pattern first
+        tv_match = tv_pattern.match(base)
+        if tv_match:
+            # Group 2 is the original filename part
+            original_base = tv_match.group(2)
+        else:
+            # Try movie pattern
+            movie_match = movie_pattern.match(base)
+            if movie_match:
+                original_base = movie_match.group(2)
+            else:
+                # Not matching our patterns, skip
+                continue
+
+        # Construct the original filename
+        original_filename = original_base + ext
+        original_path = os.path.join(dirpath, original_filename)
+
+        if not os.path.exists(original_path):
+            os.rename(input_file_with_path, original_path)
+
+
 # Function to remove ANSI color codes
 def remove_color_codes(text):
     ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
@@ -433,19 +558,20 @@ def show_cursor():
 
 
 def extract_season_episode(filename):
-    # Extracts season and episode number from filename
+    # Extract season and episode numbers from filenames with an S##E## pattern.
     match = re.search(r'[sS](\d{2})[eE](\d{2})', filename)
     return (int(match.group(1)), int(match.group(2))) if match else (None, None)
 
 
 def compact_names_list(names):
-    # Generates a preview of the filenames
+    # Return a shortened preview of a list of filenames.
     if len(names) > 5:
         return names[:2] + ["..."] + names[-2:]
     return names
 
 
 def compact_episode_list(episodes):
+    # Summarize consecutive episode numbers as ranges.
     episodes = sorted(episodes)
     ranges = []
     range_start = range_end = episodes[0]
@@ -462,66 +588,104 @@ def compact_episode_list(episodes):
 
 
 def print_media_info(logger, filenames):
-    # Remove SRT subtitles from count list
+    # Ignore subtitles.
     filenames = [f for f in filenames if not f.endswith('.srt')]
 
     tv_shows = defaultdict(lambda: defaultdict(set))
+    tv_shows_extras = defaultdict(list)
     tv_shows_hdr = defaultdict(lambda: defaultdict(set))
+    tv_shows_hdr_extras = defaultdict(list)
     movies = []
+    movie_extras = defaultdict(list)
     movies_hdr = []
+    movie_hdr_extras = defaultdict(list)
     uncategorized = []
 
     for filename in filenames:
         file_info = reformat_filename(filename, True)
-        if file_info["media_type"] == 'tv_show':
+        media_type = file_info["media_type"]
+        media_name = file_info["media_name"]
+        base, ext = os.path.splitext(filename)
+
+        # Determine if this is an extra by checking trailing excluded tags.
+        is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
+
+        if media_type in ['tv_show', 'tv_show_hdr']:
             season, episode = extract_season_episode(filename)
-            if season and episode:
-                show_name = file_info["media_name"]
-                tv_shows[show_name][season].add(episode)
-        elif file_info["media_type"] == 'tv_show_hdr':
-            season, episode = extract_season_episode(filename)
-            if season and episode:
-                show_name = file_info["media_name"]
-                tv_shows_hdr[show_name][season].add(episode)
-        elif file_info["media_type"] == 'movie':
-            movies.append(file_info["media_name"])
-        elif file_info["media_type"] == 'movie_hdr':
-            movies_hdr.append(file_info["media_name"])
+            if is_extra:
+                if media_type == 'tv_show':
+                    tv_shows_extras[media_name].append(filename)
+                else:
+                    tv_shows_hdr_extras[media_name].append(filename)
+            else:
+                if season and episode:
+                    if media_type == 'tv_show':
+                        tv_shows[media_name][season].add(episode)
+                    else:
+                        tv_shows_hdr[media_name][season].add(episode)
+                else:
+                    uncategorized.append(media_name)
+        elif media_type in ['movie', 'movie_hdr']:
+            if is_extra:
+                if media_type == 'movie':
+                    movie_extras[media_name].append(filename)
+                else:
+                    movie_hdr_extras[media_name].append(filename)
+            else:
+                if media_type == 'movie':
+                    movies.append(media_name)
+                else:
+                    movies_hdr.append(media_name)
         else:
-            uncategorized.append(file_info["media_name"])
+            uncategorized.append(media_name)
 
     if tv_shows:
-        print_no_timestamp(logger,
-                           f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show in sorted(tv_shows):
             for season, episodes in sorted(tv_shows[show].items()):
                 episode_list = compact_episode_list(episodes)
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+            if tv_shows_extras[show]:
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_extras[show])} "
+                                           f"{print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})")
+
     if tv_shows_hdr:
-        print_no_timestamp(logger,
-                           f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
         for show in sorted(tv_shows_hdr):
             for season, episodes in sorted(tv_shows_hdr[show].items()):
                 episode_list = compact_episode_list(episodes)
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+            if tv_shows_hdr_extras[show]:
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_hdr_extras[show])} "
+                                           f"{print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})")
+
     if movies:
         movies.sort()
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         for movie in movies:
-            print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+            if movie_extras[movie]:
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_extras[movie])} "
+                                           f"{print_multi_or_single(len(movie_extras[movie]), 'Extra')})")
+            else:
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+
     if movies_hdr:
         movies_hdr.sort()
-        print_no_timestamp(logger,
-                           f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
+        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
         for movie in movies_hdr:
-            print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+            if movie_hdr_extras[movie]:
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} "
+                                           f"{print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
+            else:
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+
     if uncategorized:
         uncategorized.sort()
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
-        for uncategorized_item in uncategorized:
-            print_no_timestamp(logger, f"  {BLUE}{uncategorized_item}{RESET}")
-    print_no_timestamp(logger,
-                       f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
+        for item in uncategorized:
+            print_no_timestamp(logger, f"  {BLUE}{item}{RESET}")
+
+    print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
     print_no_timestamp(logger, '')
 
 

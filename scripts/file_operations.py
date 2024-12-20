@@ -233,19 +233,39 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
     filename = os.path.basename(input_file_path)
     flatten_directories = True
 
+    # Step 1: Determine folder structure based on the current (possibly disguised) filename
     new_folders, new_filename = reformat_filename(filename, False)
-    if flatten_directories:
-        output_path = os.path.join(output_folder, new_folders, new_filename)
+
+    base, ext = os.path.splitext(filename)
+    pattern = re.compile(r"^(?P<prefix>.+? - (?:S00E\d+ - )?)(?P<original>.+)$", re.IGNORECASE)
+    match = pattern.match(base)
+    if match:
+        original_part = match.group('original')
+        # Check if this is indeed an extra by verifying it ends with an excluded tag
+        if any(original_part.lower().endswith(tag) for tag in excluded_tags):
+            # Restore the filename by removing the prefix
+            restored_filename = original_part + ext
+        else:
+            # Not an extra or doesn't end with excluded tag, no restore needed
+            restored_filename = filename
     else:
-        output_path = os.path.join(output_folder, new_folders, *folder_structure, new_filename)
-    # Create necessary subdirectories
+        # No match means no prefix was found, so it's not a processed extra
+        restored_filename = filename
+
+    # Step 3: Construct the output_path using the obtained folder structure from reformat_filename
+    # and the restored filename
+    if flatten_directories:
+        output_path = os.path.join(output_folder, new_folders, restored_filename)
+    else:
+        output_path = os.path.join(output_folder, new_folders, *folder_structure, restored_filename)
+
+    # Ensure directories exist
     directory_path = os.path.dirname(output_path)
-    # Ensure the path ends with a slash if not already present
     if not directory_path.endswith('/'):
         directory_path += '/'
     os.makedirs(os.path.dirname(directory_path), exist_ok=True)
 
-    # Move the file
+    # Step 4: Move the file
     shutil.move(input_file_path, output_path)
 
 
@@ -285,13 +305,6 @@ def get_total_mkv_files(path):
 
 
 def replace_tags_in_file(file_path, replacement):
-    # List of tags to exclude from replacement
-    # https://support.plex.tv/articles/local-files-for-trailers-and-extras/
-    excluded_tags = [
-        "-behindthescenes", "-deleted", "-featurette",
-        "interview", "-scene", "-short", "-trailer", "-other"
-    ]
-
     # Regular expression to match tags
     tag_regex = re.compile(r"-\w*(-sample)?(\.\w{2,3})?$", re.IGNORECASE)
 

@@ -12,13 +12,13 @@ removing and/or converting any audio or subtitle tracks from the source video.
 - Convert any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and Tesseract OCR
 - Convert Advanced SubStation Alpha (ASS) and MP4 (tx3g) subtitles to SRT using Python libraries and FFmpeg
 - Remove SDH (such as `[MAN COUGHING]` or `*DISTANT CHATTER*`) from SRT subtitles (default enabled)
-- Resynchronize subtitles to match the audio track of the video using ffsubsync (best effort)
+- Resynchronize external/downloaded subtitles to match the audio track of the video using ffsubsync
 - Unpack any `.rar` or `.zip` archives and convert `.mp4` or `.avi` files to MKV before processing the media
 - Remove any hidden Closed Captions (CC) from the video stream using FFmpeg 
 - Automatically categorize the media content type (TV Show/Movie, SDR/HDR) based on info in filename
 
 ### Processing example
-<img src="https://github.com/philiptn/mkv-auto/blob/dev/utilities/mkv-auto_mt_output.png?raw=true" width="600">
+<img src="https://github.com/philiptn/mkv-auto/blob/dev/resources/mkv-auto-output.png?raw=true" width="600">
 
 ## Prerequisites
 

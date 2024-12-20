@@ -116,6 +116,7 @@ def mkv_auto(args):
         input_dir = temp_dir
 
     extract_archives(logger, input_dir)
+    process_extras(input_dir)
     flatten_directories(input_dir)
 
     convert_all_videos_to_mkv(debug, input_dir, args.silent)
@@ -243,7 +244,9 @@ def mkv_auto(args):
                 if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
                     remove_sdh_process(logger, debug, max_workers, subtitle_files_to_process)
 
-            if any(audio_tracks_to_be_merged) or any(subtitle_tracks_to_be_merged) or remove_all_subtitles:
+            if (any(any(value for value in d.values()) for d in audio_tracks_to_be_merged) or
+                    any(any(value for value in d.values()) for d in subtitle_tracks_to_be_merged) or
+                    remove_all_subtitles):
                 repack_mkv_tracks_process(logger, debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
 
             move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
