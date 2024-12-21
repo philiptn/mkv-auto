@@ -144,12 +144,12 @@ def get_pan_filter(layout):
         # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
         return (
             'pan=5.1|'
-            'FL=0.3*FL|'
-            'FR=0.3*FR|'
+            'FL=0.4*FL|'
+            'FR=0.4*FR|'
             'FC=0.6*FC|'
-            'LFE=0.2*LFE|'
-            'BL=0.1*BL|'
-            'BR=0.1*BR'
+            'LFE=0.3*LFE|'
+            'BL=0.3*BL|'
+            'BR=0.3*BR'
         )
 
     elif layout == '7.1':
@@ -158,14 +158,14 @@ def get_pan_filter(layout):
         # keep LFE as is, and reduce the volume of surrounds and sides.
         return (
             'pan=7.1|'
-            'FL=0.3*FL|'
-            'FR=0.3*FR|'
+            'FL=0.4*FL|'
+            'FR=0.4*FR|'
             'FC=0.6*FC|'
-            'LFE=0.2*LFE|'
-            'BL=0.1*BL|'
-            'BR=0.1*BR|'
-            'SL=0.1*SL|'
-            'SR=0.1*SR'
+            'LFE=0.3*LFE|'
+            'BL=0.3*BL|'
+            'BR=0.3*BR|'
+            'SL=0.3*SL|'
+            'SR=0.3*SR'
         )
 
     elif layout == 'Stereo':
@@ -176,8 +176,8 @@ def get_pan_filter(layout):
         # If the source has fewer channels, missing ones are treated as silence by ffmpeg.
         return (
             'pan=stereo|'
-            'FL=0.3*FL+0.6*FC+0.1*BL+0.1*SL+0.3*LFE|'
-            'FR=0.3*FR+0.6*FC+0.1*BR+0.1*SR+0.3*LFE'
+            'FL=0.4*FL+0.6*FC+0.3*BL+0.3*SL+0.3*LFE|'
+            'FR=0.4*FR+0.6*FC+0.3*BR+0.3*SR+0.3*LFE'
         )
 
     elif layout == 'Mono':
