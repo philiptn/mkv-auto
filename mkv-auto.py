@@ -205,9 +205,11 @@ def mkv_auto(args):
 
                 if not all(sub == ['none'] or sub == [] for sub in all_missing_subs_langs):
                     if any(file.endswith('.srt') for file in filenames):
-                        total_external_subs, all_missing_subs_langs = process_external_subs(logger, debug, max_workers, dirpath, filenames_before_retag, all_missing_subs_langs)
+                        total_external_subs, all_missing_subs_langs = process_external_subs(
+                            logger, debug, max_workers, dirpath, filenames_before_retag, all_missing_subs_langs
+                        )
                         if not all(sub is None for sub in total_external_subs):
-                            all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, total_external_subs)]
+                            all_subtitle_files = merge_subtitles_with_priority(all_subtitle_files, total_external_subs)
 
                 if not all(sub == ['none'] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs:
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers, filenames_mkv_only, dirpath, total_external_subs,
