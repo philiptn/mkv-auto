@@ -714,6 +714,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     # but place it last in the list. Unless a preferred codec has replaced a track above it,
     # then don't add the first audio track id
     if first_audio_track_id not in all_audio_track_ids and not pref_codec_replaced_main:
+        if not default_audio_track:
+            default_audio_track = first_audio_track_id
         all_audio_track_ids.append(first_audio_track_id)
         all_audio_track_langs.append(first_audio_track_lang)
         all_audio_track_names.append(first_audio_track_name)
