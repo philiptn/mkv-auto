@@ -155,3 +155,6 @@ tmp/
 
 # Subliminal user config
 subliminal.toml
+
+# Identifier files
+.Identifier
