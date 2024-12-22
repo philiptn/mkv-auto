@@ -190,13 +190,21 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
 
     redo_casing = check_config(config, 'subtitles', 'redo_casing')
 
+    # Remove any color tags (html) in subtitle
+    with open(input_file, 'r', encoding='utf-8') as file:
+        cleaned_content = re.sub(r'<font[^>]*>|</font>', '', file.read())
+    with open(f"{input_file}_tmp.srt", 'w', encoding='utf-8') as file:
+        file.write(cleaned_content)
+    os.remove(input_file)
+    shutil.move(f"{input_file}_tmp.srt", input_file)
+
     if redo_casing:
         command = ["mono", subtitleedit, "/convert", input_file,
-                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI", "/RemoveFormatting", "/RedoCasing",
+                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI", "/RedoCasing",
                    f"/outputfilename:{input_file}_tmp.srt"]
     else:
         command = ["mono", subtitleedit, "/convert", input_file,
-                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI", "/RemoveFormatting",
+                   "srt", "/SplitLongLines", "/encoding:utf-8", "/RemoveTextForHI",
                    f"/outputfilename:{input_file}_tmp.srt"]
 
     if debug:
@@ -402,6 +410,43 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
                 # Exceeded the maximum number of retries, raise an exception
                 raise Exception(f"Error executing FFsubsync command: {stderr}")
             time.sleep(retry_delay)  # Wait before retrying
+
+
+def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
+    updated_subs = []
+
+    for built_in, external in zip(all_subtitle_files, total_external_subs):
+        # Convert subtitle lists to dictionaries based on their language codes for comparison
+        built_in_dict = {}
+        for sub in built_in:
+            try:
+                lang_code = pycountry.languages.get(alpha_3=sub).alpha_2
+            except:
+                lang_code = sub[:-1]
+            built_in_dict[lang_code] = sub
+
+        external_dict = {}
+        for sub in external:
+            try:
+                lang_code = pycountry.languages.get(alpha_3=sub).alpha_2
+            except:
+                lang_code = sub[:-1]
+            external_dict[lang_code] = sub
+
+        # Prioritize external subtitles if they match built-in language codes
+        for lang_code in external_dict:
+            if lang_code in built_in_dict:
+                built_in_dict[lang_code] = external_dict[lang_code]
+
+        # Add unmatched external subtitles
+        for lang_code, sub in external_dict.items():
+            if lang_code not in built_in_dict:
+                built_in_dict[lang_code] = sub
+
+        # Combine updated subtitle list
+        updated_subs.append(list(built_in_dict.values()))
+
+    return updated_subs
 
 
 def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_filetypes, subs_languages, subs_forced, subs_names):
