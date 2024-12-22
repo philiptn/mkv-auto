@@ -101,7 +101,7 @@ def process_extras(input_folder):
 
             if 'tv_show' in media_type:
                 # TV show extras:
-                episode_num = f"{extras_counter:02d}"
+                episode_num = f"{extras_counter:03d}"
                 new_filename = f"{media_name} - S00E{episode_num} - {extras_title}{matching_tag}{ext}"
                 extras_counter += 1
             else:
