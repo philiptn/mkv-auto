@@ -542,106 +542,115 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                     original_audio_track_codecs.append(audio_codec)
 
                 if preferred_audio_codec in audio_codec.upper():
-                    if (not remove_commentary and commentary_tracks_found) or (
-                            "Original" in all_track_names[total_audio_tracks - 1]) \
-                            or (pref_audio_track_languages.count(track_language) == 0):
-                        # If the previous selected audio track language (not in pref codec) is the same matched
-                        # language, then it should be removed, as a new replacement in the preferred codec has been found.
-                        if audio_track_languages:
-                            if audio_track_languages[-1] == track_language:
-                                pref_default_audio_track = track["id"]
-                                default_audio_track_set = True
-                                removed_audio_track_ids.append(audio_track_ids[-1])
-                                audio_track_ids.pop()
-                                removed_audio_track_languages.append(audio_track_languages[-1])
-                                audio_track_languages.pop()
-                                removed_audio_track_names.append(audio_track_names[-1])
-                                audio_track_names.pop()
-                                removed_audio_track_codecs.append(audio_track_codecs[-1])
-                                audio_track_codecs.pop()
-                                pref_codec_replaced_main.append(track_language)
+                    if not (remove_commentary and commentary_tracks_found):
+                        if (len(all_track_names) > total_audio_tracks + 1 or
+                            pref_audio_track_languages.count(track_language) == 0 or
+                                audio_track_languages.count(track_language) == 0):
 
-                        pref_audio_track_ids.append(track["id"])
-                        pref_audio_track_languages.append(track_language)
-                        pref_audio_track_names.append(track_name)
-                        audio_track_codecs.append(audio_codec.upper())
+                            # Only keep unique audio tracks that
+                            # match language, differentiate based on name
+                            add_track = False
+                            if len(all_track_names) >= total_audio_tracks + 1:
+                                if not total_audio_tracks <= len(all_track_names):
+                                    if track_name != all_track_names[total_audio_tracks + 1]:
+                                        add_track = True
+                            elif (pref_audio_track_languages.count(track_language) == 0 or
+                                  audio_track_languages.count(track_language) == 0 or
+                                  unmatched_audio_track_languages.count(track_language) == 0):
+                                add_track = True
 
-                        if not default_audio_track_set:
-                            pref_default_audio_track = track["id"]
-                            default_audio_track_set = True
-
-                        if remove_commentary and "commentary" in track_name.lower():
-                            pref_audio_track_ids.remove(track["id"])
-                            pref_audio_track_languages.remove(track_language)
-                            pref_audio_track_names.remove(track_name)
-                            audio_track_codecs.remove(audio_codec.upper())
-                            # If all the tracks have now been removed due
-                            # to if statement above, re-add it
-                            if not audio_track_codecs and removed_audio_track_codecs:
-                                audio_track_ids.append(removed_audio_track_ids[-1])
-                                audio_track_languages.append(removed_audio_track_languages[-1])
-                                audio_track_names.append(removed_audio_track_names[-1])
-                                audio_track_codecs.append(removed_audio_track_codecs[-1])
-                            else:
-                                default_audio_track_set = False
-
-                elif preferred_audio_codec not in audio_codec.upper():
-                    if ((not remove_commentary and commentary_tracks_found)
-                        or (audio_track_languages.count(track_language) == 0 and pref_audio_track_languages.count(
-                                track_language) == 0)) \
-                            or ("Original" in all_track_names[total_audio_tracks - 1]):
-
-                        # If the next audio track is an original audio track that has previously been
-                        # converted, it does not need to be converted again, but simply kept. Therefore, will
-                        # be added as a "preferred audio codec" even though it may not be.
-                        if "Original" in all_track_names[total_audio_tracks - 1] and len(all_track_names) > 1:
-                            if all_track_codecs[total_audio_tracks - 2].upper() != preferred_audio_codec:
-                                if audio_track_ids:
-                                    audio_track_ids.pop()
-                                    audio_track_languages.pop()
-                                    audio_track_names.pop()
-                                    audio_track_codecs.pop()
-
-                                audio_track_ids.append(all_track_ids[total_audio_tracks - 1])
-                                audio_track_languages.append(all_track_langs[total_audio_tracks - 1])
-                                audio_track_names.append(all_track_names[total_audio_tracks - 1])
-                                audio_track_codecs.append(all_track_codecs[total_audio_tracks - 1])
-
-                            else:
+                            if add_track:
                                 pref_audio_track_ids.append(track["id"])
                                 pref_audio_track_languages.append(track_language)
                                 pref_audio_track_names.append(track_name)
-                                audio_track_codecs.append(preferred_audio_codec)
+                                audio_track_codecs.append(audio_codec.upper())
 
-                        else:
-                            audio_track_ids.append(track["id"])
-                            audio_track_languages.append(track_language)
-                            audio_track_names.append(track_name)
-                            audio_track_codecs.append(audio_codec.upper())
+                                if not default_audio_track_set:
+                                    pref_default_audio_track = track["id"]
+                                    default_audio_track_set = True
 
-                        if not default_audio_track_set:
-                            default_audio_track = track["id"]
-                            default_audio_track_set = True
+                                if remove_commentary and "commentary" in track_name.lower():
+                                    pref_audio_track_ids.remove(track["id"])
+                                    pref_audio_track_languages.remove(track_language)
+                                    pref_audio_track_names.remove(track_name)
+                                    audio_track_codecs.remove(audio_codec.upper())
+                                    # If all the tracks have now been removed due
+                                    # to if statement above, re-add it
+                                    if not audio_track_codecs and removed_audio_track_codecs:
+                                        audio_track_ids.append(removed_audio_track_ids[-1])
+                                        audio_track_languages.append(removed_audio_track_languages[-1])
+                                        audio_track_names.append(removed_audio_track_names[-1])
+                                        audio_track_codecs.append(removed_audio_track_codecs[-1])
+                                    else:
+                                        default_audio_track_set = False
 
-                        # Removes commentary track if main track(s) is already added, and if pref is set to true
-                        if remove_commentary and "commentary" in track_name.lower():
-                            audio_track_ids.remove(track["id"])
-                            audio_track_languages.remove(track_language)
-                            audio_track_names.remove(track_name)
-                            audio_track_codecs.remove(audio_codec.upper())
-                            default_audio_track_set = False
+                elif preferred_audio_codec not in audio_codec.upper():
+                    if not (remove_commentary and commentary_tracks_found):
+                        if (len(all_track_names) > total_audio_tracks + 1 or
+                                pref_audio_track_languages.count(track_language) == 0 or
+                                audio_track_languages.count(track_language) == 0):
+
+                            # Only keep unique audio tracks that
+                            # match language, differentiate based on name
+                            add_track = False
+                            if len(all_track_names) >= total_audio_tracks + 1:
+                                if not total_audio_tracks <= len(all_track_names):
+                                    if track_name != all_track_names[total_audio_tracks + 1]:
+                                        add_track = True
+                            elif (pref_audio_track_languages.count(track_language) == 0 or
+                                  audio_track_languages.count(track_language) == 0 or
+                                  unmatched_audio_track_languages.count(track_language) == 0):
+                                add_track = True
+
+                            if add_track:
+                                audio_track_ids.append(track["id"])
+                                audio_track_languages.append(track_language)
+                                audio_track_names.append(track_name)
+                                audio_track_codecs.append(audio_codec.upper())
+
+                                if not default_audio_track_set:
+                                    default_audio_track = track["id"]
+                                    default_audio_track_set = True
+
+                                # Removes commentary track if main track(s) is already added, and if pref is set to true
+                                if remove_commentary and "commentary" in track_name.lower():
+                                    audio_track_ids.remove(track["id"])
+                                    audio_track_languages.remove(track_language)
+                                    audio_track_names.remove(track_name)
+                                    audio_track_codecs.remove(audio_codec.upper())
+                                    default_audio_track_set = False
 
             else:
-                unmatched_audio_track_ids.append(track["id"])
-                unmatched_audio_track_languages.append(track_language)
-                unmatched_audio_track_names.append(track_name)
-                unmatched_audio_track_codecs.append(audio_codec)
+                if (len(all_track_names) >= total_audio_tracks + 1 or
+                    pref_audio_track_languages.count(track_language) == 0 or
+                        audio_track_languages.count(track_language) == 0):
 
-                if 'original' in track_name.lower():
-                    unmatched_original_audio_track_ids.append(track["id"])
-                    unmatched_original_audio_track_names.append(track_name)
-                    unmatched_original_audio_track_languages.append(track_language)
-                    unmatched_original_audio_track_codecs.append(audio_codec)
+                    # Only keep unique audio tracks that
+                    # match language, differentiate based on name
+                    add_track = False
+                    if total_audio_tracks <= len(all_track_names):
+                        if len(all_track_names) == total_audio_tracks:
+                            next_track_index = total_audio_tracks - 2
+                        else:
+                            next_track_index = total_audio_tracks
+                        if track_name != all_track_names[next_track_index]:
+                            add_track = True
+                    elif (pref_audio_track_languages.count(track_language) == 0 or
+                          audio_track_languages.count(track_language) == 0 or
+                          unmatched_audio_track_languages.count(track_language) == 0):
+                        add_track = True
+
+                    if add_track:
+                        unmatched_audio_track_ids.append(track["id"])
+                        unmatched_audio_track_languages.append(track_language)
+                        unmatched_audio_track_names.append(track_name)
+                        unmatched_audio_track_codecs.append(audio_codec)
+
+                        if 'original' in track_name.lower():
+                            unmatched_original_audio_track_ids.append(track["id"])
+                            unmatched_original_audio_track_names.append(track_name)
+                            unmatched_original_audio_track_languages.append(track_language)
+                            unmatched_original_audio_track_codecs.append(audio_codec)
 
     all_audio_track_ids = pref_audio_track_ids + audio_track_ids
     all_audio_track_langs = pref_audio_track_languages + audio_track_languages
