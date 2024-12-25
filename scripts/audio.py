@@ -217,8 +217,8 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
 
     unique_id = str(uuid.uuid4())
 
-    # If original no transformation, just copy
-    if codec == 'ORIG' and transformation is None:
+    # If original no transformation or empty, just copy
+    if codec == 'ORIG' and transformation is None or codec == '':
         final_out_ext = extension
         final_out = f"{base}.{unique_id}.{lang}.{final_out_ext}"
         command = ["ffmpeg", "-i", file, "-c:a", "copy"] + custom_ffmpeg_options + [final_out]
@@ -278,10 +278,6 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
                 track_name = f"{track_names[index]}"
         else:
             track_name = "Original"
-    else:
-        # Default to AAC if nothing else
-        ffmpeg_final_opts += ['-c:a', 'aac', '-aq', '6', '-strict', '-2']
-        track_name = f"AAC {chosen_layout}"
 
     # Apply transformations
     if transformation == 'EOS':
