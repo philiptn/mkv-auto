@@ -309,7 +309,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             '0/-10|'
             '10/-10|'
             '20/-10'
-            ':gain=3'
+            ':gain=4'
         )
 
         pan_filter = get_pan_filter(chosen_layout)
