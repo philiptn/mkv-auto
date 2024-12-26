@@ -25,10 +25,10 @@ while true; do
             # Determine if debug mode is enabled
             DEBUG_FLAG=""
             if [[ "${DEBUG_MODE}" == "true" ]]; then
-                DEBUG_FLAG="--debug --service"
+                DEBUG_FLAG="--debug"
             fi
             # Run the Python script, ensure we capture real-time updates in user.ini
-            python3 -u mkv-auto.py --move --silent --temp_folder /mkv-auto/files/tmp --log_file $log_file --input_folder /mkv-auto/files/input --output_folder /mkv-auto/files/output $DEBUG_FLAG
+            python3 -u mkv-auto.py --service --move --silent --temp_folder /mkv-auto/files/tmp --log_file $log_file --input_folder /mkv-auto/files/input --output_folder /mkv-auto/files/output $DEBUG_FLAG
         fi
     fi
 
