@@ -200,7 +200,6 @@ def get_all_subtitle_languages(filename):
 
 
 def get_main_audio_track_language(file_info):
-    main_audio_track_lang = None
     # Get the main audio language
     for track in file_info['tracks']:
         if track['type'] == 'audio':
@@ -209,7 +208,7 @@ def get_main_audio_track_language(file_info):
                     language = pycountry.languages.get(alpha_3=value)
                     if language:
                         main_audio_track_lang = language.name
-                    return main_audio_track_lang
+                        return main_audio_track_lang
 
 
 def remove_all_mkv_track_tags(debug, filename):
@@ -224,6 +223,10 @@ def remove_all_mkv_track_tags(debug, filename):
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
+        print(f"{RESET}")
     result.check_returncode()
 
 
@@ -433,7 +436,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     audio_preferences = parse_preferred_codecs(pref_audio_formats)
     for transformation, codec, ch_str in audio_preferences:
         all_pref_settings_codecs.append(codec)
-    disable_print = True if len(all_pref_settings_codecs) == 1 and "ORIG" in all_pref_settings_codecs else False
+    disable_print = True if len(all_pref_settings_codecs) == 1 and "ORIG" or "" in all_pref_settings_codecs else False
 
     if all(not bool for bool in need_processing_audio):
         disable_print = True
@@ -1387,6 +1390,10 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
+        print(f"{RESET}")
     result.check_returncode()
 
     os.remove(filename)
@@ -1662,6 +1669,10 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         print(f"{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
+        print(f"{RESET}")
     result.check_returncode()
 
     os.remove(filename)

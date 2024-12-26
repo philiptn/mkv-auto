@@ -489,6 +489,10 @@ def extract_subtitle(debug, filename, track, output_filetype, language, forced, 
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
+        print(f"{RESET}")
     result.check_returncode()
 
     return subtitle_filename
@@ -627,7 +631,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 return original_subtitle, final_subtitle, language, track_id, name, forced, replacements, original_extension
 
         if file.endswith('.sup') or file.endswith('.sub'):
-            update_tesseract_lang_xml(language, subtitleedit_settings)
+            update_tesseract_lang_xml(debug, language, subtitleedit_settings)
 
             command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
 
@@ -756,7 +760,9 @@ def get_subtitle_tracks_metadata_lists_worker(file):
     return language, track_id, name, forced, original_extension
 
 
-def update_tesseract_lang_xml(new_language, settings_file):
+def update_tesseract_lang_xml(debug, new_language, settings_file):
+    if debug:
+        print(f"{GREY}[UTC {get_timestamp()}] [OCR DEBUG] {GREEN}Updated SubtitleEdit OCR language to '{new_language}'\n")
     # Parse XML file
     tree = ET.parse(settings_file)
     root = tree.getroot()
@@ -820,14 +826,8 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         if track['type'] == 'subtitles':
             all_sub_filetypes.append(track['codec'])
 
-    # Get the main audio language
-    for track in file_info['tracks']:
-        if track['type'] == 'audio':
-            for key, value in track["properties"].items():
-                if key == 'language':
-                    language = pycountry.languages.get(alpha_3=value)
-                    if language:
-                        main_audio_track_lang = language.name
+    # Get main audio track language
+    main_audio_track_lang = get_main_audio_track_language(file_info)
 
     # Check for matching subs languages
     for track in file_info["tracks"]:
