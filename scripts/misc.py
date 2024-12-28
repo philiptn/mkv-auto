@@ -179,7 +179,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
     sys.stdout.write('\033[F')  # ANSI escape sequence to move cursor up one line
     sys.stdout.flush()
 
-    if current == total:
+    if current == total and current != 1:
         sys.stdout.write('\033[E')  # Move to the next line after the final progress message
         sys.stdout.flush()
 
