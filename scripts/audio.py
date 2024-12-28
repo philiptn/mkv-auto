@@ -206,6 +206,13 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     # Limit the chosen channel based on what the source actually is
     chosen_channels = min(int(source_channels), int(chosen_channels))
 
+    # OPUS only supports up to Stereo audio
+    if codec == "OPUS":
+        chosen_channels = min(2, chosen_channels)
+    # AC3 and EAC3 only supports up to 5.1 audio
+    elif codec == "AC3" or codec == "EAC3":
+        chosen_channels = min(6, chosen_channels)
+
     if chosen_channels == 6:
         chosen_layout = '5.1'
     elif chosen_channels == 8:
@@ -253,6 +260,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     final_out = f"{base}.{unique_id}.{lang}.{final_out_ext}"
 
     ffmpeg_final_opts = []
+    track_name = ''
 
     # Codec settings
     if codec == 'AAC':
@@ -263,10 +271,16 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         track_name = f"DTS {chosen_layout}"
     elif codec == 'AC3':
         ffmpeg_final_opts += ['-c:a', 'ac3', '-strict', '-2']
-        track_name = f"AC3 {chosen_layout}"
+        track_name = f"Dolby Digital {chosen_layout}"
+    elif codec == 'EAC3':
+        ffmpeg_final_opts += ['-c:a', 'eac3', '-strict', '-2']
+        track_name = f"Dolby Digital Plus {chosen_layout}"
     elif codec == 'OPUS':
         ffmpeg_final_opts += ['-c:a', 'opus', '-strict', '-2']
-        track_name = f"OPUS {chosen_layout}"
+        track_name = f"Opus {chosen_layout}"
+    elif codec == 'WAV':
+        ffmpeg_final_opts += ['-c:a', 'pcm_s16le', '-strict', '-2']
+        track_name = f"PCM {chosen_layout}"
     elif codec == 'ORIG':
         ffmpeg_final_opts += ['-c:a', 'copy']
         if track_names[index]:
@@ -339,7 +353,12 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     final_cmd = ["ffmpeg", "-i", temp_wav] + ffmpeg_final_opts + custom_ffmpeg_options + [final_out]
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(final_cmd)}{RESET}")
-    subprocess.run(final_cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(final_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stderr}")
+        print(f"{RESET}")
+    result.check_returncode()
 
     os.remove(temp_wav)
 

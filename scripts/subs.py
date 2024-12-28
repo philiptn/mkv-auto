@@ -926,7 +926,8 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                     track_language = 'eng'
                     # Remove 'eng' from missing subs lang, as it was
                     # previously set as "und".
-                    missing_subs_langs.remove('eng')
+                    if 'eng' in missing_subs_langs:
+                        missing_subs_langs.remove('eng')
                     pref_subs_langs.append('eng')
 
                 if subs_track_languages.count(track_language) == 0 and not forced_track:

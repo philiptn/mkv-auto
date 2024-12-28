@@ -245,7 +245,18 @@ def format_audio_preferences_print(audio_format_preferences):
     # Define mappings for better readability in the output
     audio_label_map = {
         'EOS': 'Even-Out-Sound',
-        'ORIG': 'Original audio',
+        'ORIG': 'Original Audio',
+        'AC3': 'Dolby Digital',
+        'EAC3': 'Dolby Digital Plus',
+        'WAV': 'PCM',
+    }
+
+    codec_label_map = {
+        'EOS': 'Even-Out-Sound',
+        'ORIG': 'Original Audio',
+        'AC3': 'Dolby Digital',
+        'EAC3': 'Dolby Digital Plus',
+        'WAV': 'PCM',
     }
 
     # Initialize an empty list to store the formatted strings
@@ -258,12 +269,10 @@ def format_audio_preferences_print(audio_format_preferences):
         # Handle the label mapping
         if label in audio_label_map:
             label_text = audio_label_map[label]
+        elif codec in codec_label_map:
+            label_text = codec_label_map[codec]
         elif label:
             label_text = label  # If not in map, use the raw label
-        elif codec == 'ORIG':
-            label_text = audio_label_map['ORIG']
-        elif codec == 'EOS':
-            label_text = audio_label_map['EOS']
         else:
             label_text = None
 
