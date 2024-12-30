@@ -138,7 +138,7 @@ def detect_source_channels_and_layout(debug, file):
         return None, None
 
 
-def get_pan_filter(layout):
+def get_pan_filter(source_channels, layout):
     if layout in ('5.1', '5.1(side)'):
         # Channels: FL, FR, FC, LFE, BL, BR
         # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
@@ -174,16 +174,24 @@ def get_pan_filter(layout):
         # If original source had more channels, this mixes them into FL/FR.
         # For simplicity assume FL, FR, FC, BL, BR, SL, SR, LFE might exist and need mixing.
         # If the source has fewer channels, missing ones are treated as silence by ffmpeg.
-        return (
-            'pan=stereo|'
-            'FL=0.4*FL+0.6*FC+0.3*BL+0.3*SL+0.3*LFE|'
-            'FR=0.4*FR+0.6*FC+0.3*BR+0.3*SR+0.3*LFE'
-        )
+        if source_channels > 2:
+            return (
+                'pan=stereo|'
+                'FL=0.4*FL+0.6*FC+0.3*BL+0.3*SL+0.3*LFE|'
+                'FR=0.4*FR+0.6*FC+0.3*BR+0.3*SR+0.3*LFE'
+            )
+        else:
+            return (
+                'pan=stereo|'
+                'FL=0.6*FL|'
+                'FR=0.6*FR'
+            )
 
     elif layout == 'Mono':
-        # For mono, just take a strong center channel presence.
-        # If FC exists, use it. Otherwise combine FL and FR.
-        return 'pan=mono|FC=0.5*FL+0.5*FR+1.0*FC'
+        if source_channels > 2:
+            return 'pan=mono|FC=0.4*FL+0.4*FR+0.6*FC'
+        else:
+            return 'pan=mono|FC=0.6*FL+0.6*FR'
 
     else:
         return None
@@ -322,7 +330,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             ':gain=4'
         )
 
-        pan_filter = get_pan_filter(chosen_layout)
+        pan_filter = get_pan_filter(source_channels, chosen_layout)
         if pan_filter:
             eos_filter = f'[0:a]{compand_filter},{pan_filter}'
             ffmpeg_final_opts += ["-filter_complex", eos_filter]
