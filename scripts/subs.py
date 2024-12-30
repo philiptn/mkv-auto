@@ -183,9 +183,14 @@ def detect_language_of_subtitle(subtitle_path):
 
 
 def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
-    base_and_lang_with_id, _, original_extension = input_file.rpartition('.')
-    base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-    base, _, track_id = base_with_id.rpartition('.')
+    base_lang_id_name_forced, _, original_extension = input_file.rpartition('.')
+    base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
+    base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
+    base_forced, _, name_encoded = base_name_forced.rpartition('_')
+    name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
+        "'") else name_encoded
+    name = base64.b64decode(name_encoded).decode("utf-8")
+    base, _, forced = base_forced.rpartition('_')
     replacements = []
 
     redo_casing = check_config(config, 'subtitles', 'redo_casing')
@@ -245,7 +250,9 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
     subtitle_tmp = f"{input_file}_tmp.srt"
-    if lang == 'en':
+    if debug:
+        print(f'\n{GREY}[UTC {get_timestamp()}] [SDH DEBUG]{GREEN} Current language is set to "{language}"{RESET}')
+    if language == 'eng':
         current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
         replacements = replacements + current_replacements
         current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', input_file)

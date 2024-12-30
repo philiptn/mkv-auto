@@ -99,7 +99,7 @@ def channels_to_int(ch):
         return None
 
 
-def detect_source_channels_and_layout(file):
+def detect_source_channels_and_layout(debug, file):
     try:
         # Use ffprobe to extract audio stream data in JSON format
         command_probe = [
@@ -131,7 +131,7 @@ def detect_source_channels_and_layout(file):
             if layout in channel_layout:
                 return num_channels, label
 
-        return None, None  # Default if no match found
+        return channels, None  # Default if no match found
 
     except (subprocess.SubprocessError, json.JSONDecodeError) as e:
         print(f"Error processing file: {e}")
@@ -195,7 +195,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
     base, _, original_track_id = base_with_id.rpartition('.')
 
-    source_channels, source_layout = detect_source_channels_and_layout(file)
+    source_channels, source_layout = detect_source_channels_and_layout(debug, file)
     chosen_channels = channels_to_int(ch_str) if ch_str else None
     if chosen_channels is None and source_channels is not None:
         chosen_channels = source_channels
@@ -374,7 +374,7 @@ def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_n
     custom_ffmpeg_options = []
 
     if debug:
-        print()
+        print(f"{GREY}[UTC {get_timestamp()}] [AUDIO DEBUG] {RESET}Audio format preferences:\n\n{GREEN}{preferences}{RESET}\n")
 
     # Store futures by (track_index, preference_index) for ordering later
     futures_map = {}
@@ -398,6 +398,9 @@ def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_n
             except Exception as e:
                 if debug:
                     print(f"Error processing track {track_idx}, preference {pref_idx}: {e}")
+                    traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                    print(f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
+                    raise
 
     if not results_map:
         return (), (), (), ()
