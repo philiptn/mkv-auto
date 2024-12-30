@@ -297,7 +297,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     if transformation == 'EOS':
         compand_filter = (
             'compand='
-            'attacks=0.05:'
+            'attacks=0:'
             'decays=0.3:'
             'soft-knee=6:'
             'points='
