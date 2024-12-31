@@ -10,6 +10,7 @@ import logging
 import sys
 import time
 import pycountry
+import threading
 
 # ANSI color codes
 BLUE = '\033[94m'
@@ -21,6 +22,52 @@ GREEN = '\033[92m'
 
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
 
+
+class ContinuousSpinner:
+    def __init__(self, interval=0.1, frames=None):
+        # Spinners
+        # ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        # ["-", "\\", "|", "/"]
+        self.frames = frames or ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = None
+        self._idx = 0
+        self._make_line = lambda: ""  # function returning the line text (excluding spinner)
+
+    def set_line_func(self, func):
+        # func should be a callable returning the line text (timestamp included, etc.)
+        self._make_line = func
+
+    def start(self):
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+
+    def stop(self, final_line=""):
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join()
+        if final_line:
+            sys.stdout.write(f"\r{final_line}\n")
+        else:
+            sys.stdout.write("\r \n")
+        sys.stdout.flush()
+
+    def _spin(self):
+        while not self._stop_event.is_set():
+            frame = self.frames[self._idx]
+            # Call the function that includes real-time UTC
+            line_text = self._make_line()
+            sys.stdout.write(f"\r{line_text}{frame}")
+            sys.stdout.flush()
+            time.sleep(self.interval)
+            self._idx = (self._idx + 1) % len(self.frames)
+
+
+SPINNER = None
 
 # List of tags to exclude from replacement
 # https://support.plex.tv/articles/local-files-for-trailers-and-extras/
@@ -155,41 +202,77 @@ def remove_color_codes(text):
 
 # Function to print dynamic progress, only updating the last line
 def print_with_progress(logger, current, total, header, description="Processing"):
-    progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done)"
+    global SPINNER
+    if current == 0:
+        SPINNER = ContinuousSpinner(interval=0.15)
+        SPINNER.start()
 
-    # Print the progress message followed by a newline, then return to the start of the previous line
-    sys.stdout.write(progress_message + '\n')
-    sys.stdout.write('\033[F')  # ANSI escape sequence to move cursor up one line
-    sys.stdout.flush()
+    def line_func():
+        return (
+            f"{YELLOW}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{description} ({current}/{total}) "
+        )
 
-    if current == total:
-        sys.stdout.write('\033[E')  # Move to the next line after the final progress message
-        sys.stdout.flush()
+    if SPINNER:
+        SPINNER.set_line_func(line_func)
 
-        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total} Done)")
-        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total} Done)")
-        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total} Done)")
+    if current == total and SPINNER is not None:
+        final_line = (
+            f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{description} ({current}/{total}) ✔"
+        )
+        SPINNER.stop(final_line)
+        SPINNER = None
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) ✔")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) ✔")
+        logger.info(f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) ✔")
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
-    progress_message = f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {current} of {total}:"
+    global SPINNER
+    if current == 0:
+        SPINNER = ContinuousSpinner(interval=0.15)
+        SPINNER.start()
 
-    # Print the progress message followed by a newline, then return to the start of the previous line
-    sys.stdout.write(progress_message + '\n')
-    sys.stdout.write('\033[F')  # ANSI escape sequence to move cursor up one line
-    sys.stdout.flush()
+    def line_func():
+        return (
+            f"{YELLOW}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{description} {current} of {total} "
+        )
 
-    if current == total and current != 1:
-        sys.stdout.write('\033[E')  # Move to the next line after the final progress message
-        sys.stdout.flush()
+    if SPINNER:
+        SPINNER.set_line_func(line_func)
 
-        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total}:")
-        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total}:")
-        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {current} of {total}:")
+    if current == total and SPINNER is not None:
+        final_line = (
+            f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{description} {current} of {total} ✔"
+        )
+        SPINNER.stop(final_line)
+        SPINNER = None
+
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} ✔")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} ✔")
+        logger.color(
+            f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{description} {current} of {total} ✔"
+        )
 
 
 def custom_print(logger, message):
     message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
+    # Print the message to the console with color
+    sys.stdout.write(message_with_timestamp + "\n")
+    # Log the message without color to the plain text log
+    plain_message = remove_color_codes(message_with_timestamp)
+    logger.info(plain_message)
+    logger.debug(plain_message)
+    # Log the message with color to the color log
+    logger.color(message_with_timestamp)
+
+
+def custom_print_green(logger, message):
+    message_with_timestamp = f"{GREEN}[UTC {get_timestamp()}]{RESET} {message}"
     # Print the message to the console with color
     sys.stdout.write(message_with_timestamp + "\n")
     # Log the message without color to the plain text log
@@ -357,7 +440,7 @@ def get_main_audio_track_language_3_letter(file_info):
 def get_timestamp():
     """Return the current UTC timestamp in the desired format."""
     current_time = datetime.utcnow()
-    return current_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    return current_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def flatten_directories(directory):
@@ -649,7 +732,7 @@ def print_media_info(logger, filenames):
             uncategorized.append(media_name)
 
     if tv_shows:
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
+        print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show in sorted(tv_shows):
             for season, episodes in sorted(tv_shows[show].items()):
                 episode_list = compact_episode_list(episodes)
@@ -659,7 +742,7 @@ def print_media_info(logger, filenames):
                                            f"{print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})")
 
     if tv_shows_hdr:
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
+        print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
         for show in sorted(tv_shows_hdr):
             for season, episodes in sorted(tv_shows_hdr[show].items()):
                 episode_list = compact_episode_list(episodes)
@@ -670,7 +753,7 @@ def print_media_info(logger, filenames):
 
     if movies:
         movies.sort()
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
+        print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         for movie in movies:
             if movie_extras[movie]:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_extras[movie])} "
@@ -680,7 +763,7 @@ def print_media_info(logger, filenames):
 
     if movies_hdr:
         movies_hdr.sort()
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
+        print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
         for movie in movies_hdr:
             if movie_hdr_extras[movie]:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} "
@@ -690,11 +773,11 @@ def print_media_info(logger, filenames):
 
     if uncategorized:
         uncategorized.sort()
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
+        print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} {len(uncategorized)} Unknown Media:")
         for item in uncategorized:
             print_no_timestamp(logger, f"  {BLUE}{item}{RESET}")
 
-    print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
+    print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
     print_no_timestamp(logger, '')
 
 

@@ -73,46 +73,46 @@ def mkv_auto(args):
     hide_cursor()
 
     if not move_files:
-        print_with_progress_files(logger, 1, total_files, header='INFO', description='Copying file')
+        print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
         total_mkv_files = get_total_mkv_files(temp_dir)
 
         if total_mkv_files:
             if not done_info['skipped_files']:
-                custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                     f"Successfully copied {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
+                custom_print_green(logger, f"{GREEN}[INFO]{RESET} "
+                                           f"Successfully copied {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
             else:
                 if done_info['skipped_files'] < total_files:
-                    custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                         f"Successfully copied {total_files - done_info['skipped_files']} "
-                                         f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['copied_files_gib']:.2f} GB) to TEMP.")
-                custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
-                                     f"had to be skipped due to insufficient storage capacity.")
-                custom_print(logger, f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
-                                     f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                                     f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
+                    custom_print_green(logger, f"{GREEN}[INFO]{RESET} "
+                                               f"Successfully copied {total_files - done_info['skipped_files']} "
+                                               f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['copied_files_gib']:.2f} GB) to TEMP.")
+                custom_print_green(logger, f"{GREEN}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
+                                           f"had to be skipped due to insufficient storage capacity.")
+                custom_print_green(logger, f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                                           f"{total_files} {print_multi_or_single(total_files, 'file')}), "
+                                           f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
     if move_files and not debug or move_files and args.service:
-        print_with_progress_files(logger, 1, total_files, header='INFO', description='Moving file')
+        print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
         done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
         total_mkv_files = get_total_mkv_files(temp_dir)
 
         if total_mkv_files:
             if not done_info['skipped_files']:
-                custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                     f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
+                custom_print_green(logger, f"{GREY}[INFO]{RESET} "
+                                           f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
             else:
                 if done_info['skipped_files'] < total_files:
-                    custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                         f"Successfully moved {total_files - done_info['skipped_files']} "
-                                         f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
-                custom_print(logger,
-                             f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
-                             f"had to be skipped due to insufficient storage capacity.")
-                custom_print(logger,
-                             f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
-                             f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                             f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
+                    custom_print_green(logger, f"{GREY}[INFO]{RESET} "
+                                               f"Successfully moved {total_files - done_info['skipped_files']} "
+                                               f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
+                custom_print_green(logger,
+                                   f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
+                                   f"had to be skipped due to insufficient storage capacity.")
+                custom_print_green(logger,
+                                   f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                                   f"{total_files} {print_multi_or_single(total_files, 'file')}), "
+                                   f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
 
     extract_archives(logger, input_dir)
@@ -188,7 +188,7 @@ def mkv_auto(args):
                     custom_print(logger, f"{RED}[ERROR]{RESET} Remove this file from the input folder and try again.\n")
                     exit(1)
 
-        custom_print(logger, f"{GREY}[INFO]{RESET} Using {max_workers} CPU threads for processing.")
+        custom_print_green(logger, f"{GREEN}[INFO]{RESET} Using {max_workers} CPU threads for processing.")
         start_time = time.time()
 
         try:
@@ -257,17 +257,17 @@ def mkv_auto(args):
             processing_time = end_time - start_time
 
             print_no_timestamp(logger, '')
-            print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} "
+            print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} "
                                        f"{'successfully ' if not any(sub for sub in errored_ocr_list) else ''}processed.")
-            print_no_timestamp(logger, f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
+            print_no_timestamp(logger, f"{GREEN}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
             if not args.service:
                 show_cursor()
 
         except Exception as e:
             # If anything were to fail, move files to output folder
-            custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
+            custom_print_green(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
                                  f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
-            custom_print(logger, traceback.print_tb(e.__traceback__))
+            custom_print_green(logger, traceback.print_tb(e.__traceback__))
             move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
             print_no_timestamp(logger, '')
             if not args.service:
