@@ -234,7 +234,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
         SPINNER = None
         logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) {CHECK}")
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) {CHECK}")
-        logger.info(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) {DONE}{CHECK}{RESET}")
+        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) {DONE}{CHECK}{RESET}")
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
@@ -264,7 +264,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
         logger.color(
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {current} of {total} {DONE}✔{RESET}"
+            f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
         )
 
 
