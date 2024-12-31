@@ -183,15 +183,15 @@ def get_pan_filter(source_channels, layout):
         else:
             return (
                 'pan=stereo|'
-                'FL=0.6*FL|'
-                'FR=0.6*FR'
+                'FL=0.7*FL|'
+                'FR=0.7*FR'
             )
 
     elif layout == 'Mono':
         if source_channels > 2:
             return 'pan=mono|FC=0.4*FL+0.4*FR+0.6*FC'
         else:
-            return 'pan=mono|FC=0.6*FL+0.6*FR'
+            return 'pan=mono|FC=0.7*FL+0.7*FR'
 
     else:
         return None

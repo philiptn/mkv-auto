@@ -451,9 +451,9 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
 
     if not disable_print:
         hide_cursor()
-        custom_print_green(logger, f"{GREEN}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
+        custom_print(logger, f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
         for pref in audio_format_preferences_print:
-            custom_print_green(logger, f"{GREEN}[AUDIO]{RESET} {pref}")
+            custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
 
     if not disable_print:
         # Initialize progress
@@ -956,10 +956,10 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     unique_vals_print = ", ".join(set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist))
 
     if success_len or failed_len:
-        custom_print_green(logger, f"{GREEN}[SUBLIMINAL]{RESET} "
+        custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
-        custom_print_green(logger, f"{GREEN}[SUBLIMINAL]{RESET} "
-                             f"Success: {success_len}, Unavailable: {failed_len}")
+        custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
+                             f"{GREEN}✔  {success_len}{RESET} {RED}✘ {failed_len}{RESET}")
 
     return all_downloaded_subs
 
