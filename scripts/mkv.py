@@ -959,7 +959,7 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
-                             f"{GREEN}✔  {success_len}{RESET} {RED}✘ {failed_len}{RESET}")
+                             f"{GREEN}{CHECK_BOLD}  {success_len}{RESET}  {RED}{CROSS} {failed_len}{RESET}")
 
     return all_downloaded_subs
 

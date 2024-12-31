@@ -25,6 +25,9 @@ WHITE = '\033[97m'
 
 ACTIVE = GREY
 DONE = GREY
+CHECK = '✓'
+CHECK_BOLD = '✔'
+CROSS = '✘'
 
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
 
@@ -225,13 +228,13 @@ def print_with_progress(logger, current, total, header, description="Processing"
     if current == total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} ({current}/{total}) {DONE}✔{RESET}"
+            f"{description} ({current}/{total}) {DONE}{CHECK}{RESET}"
         )
         SPINNER.stop(final_line)
         SPINNER = None
-        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) ✔")
-        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) ✔")
-        logger.info(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) {DONE}✔{RESET}")
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) {CHECK}")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) {CHECK}")
+        logger.info(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) {DONE}{CHECK}{RESET}")
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
@@ -252,13 +255,13 @@ def print_with_progress_files(logger, current, total, header, description="Proce
     if current == total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {current} of {total} {DONE}✔{RESET}"
+            f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
         )
         SPINNER.stop(final_line)
         SPINNER = None
 
-        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} ✔")
-        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} ✔")
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
         logger.color(
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
             f"{description} {current} of {total} {DONE}✔{RESET}"

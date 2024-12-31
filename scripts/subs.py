@@ -313,14 +313,19 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
             base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
             base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
             base_forced, _, name_encoded = base_name_forced.rpartition('_')
-            name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith("'") else name_encoded
+            name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
+                "'") else name_encoded
             name = base64.b64decode(name_encoded).decode("utf-8")
             base, _, forced = base_forced.rpartition('_')
 
+            output_subtitle = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.srt"
+            subtitle_tmp = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"
+
             if name:
-                original_name_b64 = base64.b64encode(name.encode("utf-8")).decode("utf-8")
+                original_name_b64 = name_encoded
             else:
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
+                name = 'Original'
 
             if forced != '0' and bool(forced):
                 output_name = f'non-{main_audio_track_lang} dialogue'
