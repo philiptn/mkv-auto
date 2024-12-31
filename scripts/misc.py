@@ -61,7 +61,7 @@ class ContinuousSpinner:
             frame = self.frames[self._idx]
             # Call the function that includes real-time UTC
             line_text = self._make_line()
-            sys.stdout.write(f"\r{line_text}{frame}")
+            sys.stdout.write(f"\r{line_text}{YELLOW}{frame}{RESET}")
             sys.stdout.flush()
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)
@@ -219,13 +219,13 @@ def print_with_progress(logger, current, total, header, description="Processing"
     if current == total and SPINNER is not None:
         final_line = (
             f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} ({current}/{total}) ✔"
+            f"{description} ({current}/{total}) {GREEN}✔{RESET}"
         )
         SPINNER.stop(final_line)
         SPINNER = None
         logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) ✔")
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) ✔")
-        logger.info(f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) ✔")
+        logger.info(f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) {GREEN}✔{RESET}")
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
@@ -246,7 +246,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
     if current == total and SPINNER is not None:
         final_line = (
             f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {current} of {total} ✔"
+            f"{description} {current} of {total} {GREEN}✔{RESET}"
         )
         SPINNER.stop(final_line)
         SPINNER = None
@@ -255,7 +255,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} ✔")
         logger.color(
             f"{GREEN}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {current} of {total} ✔"
+            f"{description} {current} of {total} {GREEN}✔{RESET}"
         )
 
 
