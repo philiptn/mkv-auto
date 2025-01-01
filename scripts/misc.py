@@ -209,6 +209,10 @@ def remove_color_codes(text):
     return ansi_escape.sub('', text)
 
 
+def is_non_empty_file(filepath):
+    return os.path.isfile(filepath) and os.path.getsize(filepath) > 0
+
+
 # Function to print dynamic progress, only updating the last line
 def print_with_progress(logger, current, total, header, description="Processing"):
     global SPINNER

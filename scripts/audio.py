@@ -146,7 +146,7 @@ def get_pan_filter(source_channels, layout):
             'pan=5.1|'
             'FL=0.4*FL|'
             'FR=0.4*FR|'
-            'FC=0.6*FC|'
+            'FC=0.7*FC|'
             'LFE=0.3*LFE|'
             'BL=0.3*BL|'
             'BR=0.3*BR'
@@ -160,7 +160,7 @@ def get_pan_filter(source_channels, layout):
             'pan=7.1|'
             'FL=0.4*FL|'
             'FR=0.4*FR|'
-            'FC=0.6*FC|'
+            'FC=0.7*FC|'
             'LFE=0.3*LFE|'
             'BL=0.3*BL|'
             'BR=0.3*BR|'
@@ -177,21 +177,21 @@ def get_pan_filter(source_channels, layout):
         if source_channels > 2:
             return (
                 'pan=stereo|'
-                'FL=0.4*FL+0.6*FC+0.3*BL+0.3*SL+0.3*LFE|'
-                'FR=0.4*FR+0.6*FC+0.3*BR+0.3*SR+0.3*LFE'
+                'FL=0.3*FL+0.6*FC+0.2*BL+0.2*SL+0.2*LFE|'
+                'FR=0.3*FR+0.6*FC+0.2*BR+0.2*SR+0.2*LFE'
             )
         else:
             return (
                 'pan=stereo|'
-                'FL=0.7*FL|'
-                'FR=0.7*FR'
+                'FL=0.6*FL|'
+                'FR=0.6*FR'
             )
 
     elif layout == 'Mono':
         if source_channels > 2:
-            return 'pan=mono|FC=0.4*FL+0.4*FR+0.6*FC'
+            return 'pan=mono|FC=0.3*FL+0.3*FR+0.6*FC'
         else:
-            return 'pan=mono|FC=0.7*FL+0.7*FR'
+            return 'pan=mono|FC=0.6*FL+0.6*FR'
 
     else:
         return None
@@ -304,30 +304,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     # Apply transformations
     if transformation == 'EOS':
         compand_filter = (
-            'compand='
-            'attacks=0:'
-            'decays=0.3:'
-            'soft-knee=6:'
-            'points='
-            '-110/-110|'
-            '-100/-105|'
-            '-90/-95|'
-            '-80/-90|'
-            '-75/-85|'
-            '-70/-65|'
-            '-60/-55|'
-            '-50/-40|'
-            '-45/-35|'
-            '-35/-28|'
-            '-30/-24|'
-            '-27/-16|'
-            '-20/-14|'
-            '-10/-12|'
-            '-5/-10|'
-            '0/-10|'
-            '10/-10|'
-            '20/-10'
-            ':gain=4'
+            'compand=attacks=0:decays=0.3:soft-knee=6:points=-110.00/-110.00|-100.00/-105.00|-88.88/-98.04|-80.00/-90.00|-75.00/-85.00|-63.89/-68.04|-51.56/-51.73|-42.14/-39.32|-34.35/-27.25|-31.43/-22.64|-27.54/-18.38|-24.29/-15.90|-20.07/-13.77|-13.91/-12.51|-6.12/-11.25|1.02/-10.71|10.00/-10.00|20.00/-10.00:gain=0'
         )
 
         pan_filter = get_pan_filter(source_channels, chosen_layout)
