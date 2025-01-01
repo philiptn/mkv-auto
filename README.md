@@ -79,12 +79,12 @@ Tip: If you want to continuously monitor the progress of mkv-auto-service you ca
 ````bash
 # If you are logged in to the machine that is running the mkv-auto-service
 # Press CTRL+C to exit the view
-alias mkv-auto-logs='docker logs -f mkv-auto-service"'
+alias mkv-auto-logs='docker attach --sig-proxy=false mkv-auto-service"'
 
 # If you want to check the progress, but you are on another machine. Replace "ubuntu-desktop"
 # with the machine/host that is running the mkv-auto-service container.
 mkv-auto-logs() {
-    ssh -t ubuntu-desktop 'docker logs -f mkv-auto-service'
+    ssh -t ubuntu-desktop 'docker attach --sig-proxy=false mkv-auto-service'
 }
 ````
 

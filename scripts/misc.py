@@ -214,7 +214,6 @@ def print_with_progress(logger, current, total, header, description="Processing"
     global SPINNER
     if current == 0:
         SPINNER = ContinuousSpinner(interval=0.15)
-        SPINNER.start()
 
     def line_func():
         return (
@@ -224,6 +223,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
     if SPINNER:
         SPINNER.set_line_func(line_func)
+        SPINNER.start()
 
     if current == total and SPINNER is not None:
         final_line = (
@@ -241,7 +241,6 @@ def print_with_progress_files(logger, current, total, header, description="Proce
     global SPINNER
     if current == 0:
         SPINNER = ContinuousSpinner(interval=0.15)
-        SPINNER.start()
 
     def line_func():
         return (
@@ -251,6 +250,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
 
     if SPINNER:
         SPINNER.set_line_func(line_func)
+        SPINNER.start()
 
     if current == total and SPINNER is not None:
         final_line = (
