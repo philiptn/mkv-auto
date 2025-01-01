@@ -1121,7 +1121,7 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
         if mkv_video_codec != 'MPEG-1/2':
             remove_cc_hidden_in_file(debug, input_file_with_path)
 
-    if file_tag.lower() != "default":
+    if file_tag.lower() != "default" and not input_file.lower().startswith('snapchat'):
         updated_filename = replace_tags_in_file(input_file, file_tag)
         updated_filename_with_path = os.path.join(dirpath, updated_filename)
         shutil.move(input_file_with_path, updated_filename_with_path)
