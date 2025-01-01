@@ -225,7 +225,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
         SPINNER.set_line_func(line_func)
         SPINNER.start()
 
-    if current == total and SPINNER is not None:
+    if current >= total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
             f"{description} ({current}/{total}) {DONE}{CHECK}{RESET}"
@@ -252,7 +252,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
         SPINNER.set_line_func(line_func)
         SPINNER.start()
 
-    if current == total and SPINNER is not None:
+    if current >= total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
             f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
