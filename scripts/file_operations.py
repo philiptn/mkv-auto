@@ -103,7 +103,7 @@ def copy_file_with_progress(src_file, dst_file):
             fdst.write(chunk)
 
 
-def move_directory_contents(logger, source_directory, destination_directory, file_counter=[0], total_files=0):
+def move_directory_contents(logger, source_directory, destination_directory, file_counter=[1], total_files=0):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
@@ -167,7 +167,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     }
 
 
-def copy_directory_contents(logger, source_directory, destination_directory, file_counter=[0], total_files=0):
+def copy_directory_contents(logger, source_directory, destination_directory, file_counter=[1], total_files=0):
 
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)

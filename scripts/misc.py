@@ -239,7 +239,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
     global SPINNER
-    if current == 0:
+    if current == 1:
         SPINNER = ContinuousSpinner(interval=0.15)
 
     def line_func():

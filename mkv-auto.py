@@ -73,7 +73,7 @@ def mkv_auto(args):
     hide_cursor()
 
     if not move_files:
-        print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
+        print_with_progress_files(logger, 1, total_files, header='INFO', description='Copying file')
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
         total_mkv_files = get_total_mkv_files(temp_dir)
 
@@ -93,7 +93,7 @@ def mkv_auto(args):
                                      f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
         input_dir = temp_dir
     if move_files and not debug or move_files and args.service:
-        print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
+        print_with_progress_files(logger, 1, total_files, header='INFO', description='Moving file')
         done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
         total_mkv_files = get_total_mkv_files(temp_dir)
 
