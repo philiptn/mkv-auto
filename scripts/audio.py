@@ -289,6 +289,9 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     elif codec == 'WAV':
         ffmpeg_final_opts += ['-c:a', 'pcm_s16le', '-strict', '-2']
         track_name = f"PCM {chosen_layout}"
+    elif codec == 'FLAC':
+        ffmpeg_final_opts += ['-c:a', 'flac', '-strict', '-2']
+        track_name = f"FLAC {chosen_layout}"
     elif codec == 'ORIG':
         ffmpeg_final_opts += ['-c:a', 'copy']
         if track_names[index]:

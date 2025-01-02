@@ -41,3 +41,7 @@ pycountry==23.12.11
 # For downloading external subtitles
 # https://pypi.org/project/subliminal/
 subliminal==2.2.1
+
+# For mapping language codes to flag emojis
+# https://pypi.org/project/emoji-country-flag/
+emoji-country-flag==2.0.1

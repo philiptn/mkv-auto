@@ -24,11 +24,13 @@ CYAN = '\033[96m'
 MAGENTA = '\033[95m'
 WHITE = '\033[97m'
 
+# Unicode symbols
 ACTIVE = RESET
 DONE = RESET
 CHECK = '✓'
 CHECK_BOLD = '✔'
 CROSS = '✘'
+RIGHT_ARROW = '➝'
 
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
 

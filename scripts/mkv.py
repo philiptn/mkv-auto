@@ -10,6 +10,7 @@ import pycountry
 import concurrent.futures
 import base64
 from collections import defaultdict
+import flag
 
 from scripts.misc import *
 from scripts.audio import *
@@ -947,13 +948,27 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     success_len = len((set(f"'{item}'" for sublist in all_downloaded_subs for item in sublist)))
     failed_len = len((set(f"'{item}'" for sublist in all_failed_downloads for item in sublist)))
     truly_missing_subs_count = len((set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist)))
-    unique_vals_print = ", ".join(set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist))
+
+    unique_items = set(item for sublist in all_truly_missing_subs_langs for item in sublist)
+    flag_map = {item: flag.flagize(f':{item.upper()}:') for item in unique_items}
+
+    colors = [GREY]
+    if len(unique_items) > len(colors):
+        color_cycle = (colors * ((len(unique_items) // len(colors)) + 1))[:len(unique_items)]
+    else:
+        color_cycle = random.sample(colors, len(unique_items))
+    color_map = dict(zip(unique_items, color_cycle))
+
+    unique_vals_print = " ".join(
+        f"{color_map[item]}|{RESET}{flag_map[item]}{color_map[item]}|{RESET}"
+        for item in unique_items
+    )
 
     if success_len or failed_len:
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
-                             f"{GREEN}{CHECK_BOLD}  {success_len}{RESET}  {RED}{CROSS} {failed_len}{RESET}")
+                             f"{GREEN}{CHECK} {success_len}{RESET}  {RED}{CROSS} {failed_len}{RESET}")
 
     return all_downloaded_subs
 
