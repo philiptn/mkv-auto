@@ -89,21 +89,7 @@ def get_free_space(directory):
     return shutil.disk_usage(directory).free
 
 
-def move_file_with_progress(src_file, dst_file):
-    shutil.move(src_file, dst_file)
-
-
-def copy_file_with_progress(src_file, dst_file):
-    chunk_size = 1024 * 1024  # e.g., copy in 1 MB chunks
-    with open(src_file, 'rb') as fsrc, open(dst_file, 'wb') as fdst:
-        while True:
-            chunk = fsrc.read(chunk_size)
-            if not chunk:
-                break
-            fdst.write(chunk)
-
-
-def move_directory_contents(logger, source_directory, destination_directory, file_counter=[1], total_files=0):
+def move_directory_contents(logger, source_directory, destination_directory, file_counter=[0], total_files=0):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
@@ -139,8 +125,8 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
             if available_space >= required_space:
                 available_space -= required_space
                 moved_file_sizes += file_size
+                shutil.move(s, d)
                 file_counter[0] += 1
-                move_file_with_progress(s, d)
                 print_with_progress_files(logger, file_counter[0], total_files, header='INFO', description='Moving file')
             else:
                 skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
@@ -168,7 +154,6 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
 
 
 def copy_directory_contents(logger, source_directory, destination_directory, file_counter=[1], total_files=0):
-
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
@@ -201,9 +186,10 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
             if available_space >= required_space:
                 available_space -= required_space
                 copied_file_sizes += file_size
+                shutil.copy(s, d)
                 file_counter[0] += 1
-                copy_file_with_progress(s, d)
-                print_with_progress_files(logger, file_counter[0], total_files, header='INFO', description='Copying file')
+                print_with_progress_files(logger, file_counter[0], total_files, header='INFO',
+                                          description='Copying file')
             else:
                 skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
 
@@ -278,18 +264,18 @@ def safe_delete_dir(directory_path):
         pass
 
 
-def get_total_mkv_files(path):
+def wait_for_stable_files(path):
     def is_file_stable(file_path):
         """Check if a file's size is stable (indicating it is fully copied)."""
         initial_size = os.path.getsize(file_path)
-        time.sleep(0.5)
+        time.sleep(1.5)
         new_size = os.path.getsize(file_path)
         return initial_size == new_size
 
-    # Get a list of .mkv files to check
+    # Get a list of files to check
     mkv_files = [os.path.join(dirpath, f)
                  for dirpath, _, filenames in os.walk(path)
-                 for f in filenames if f.endswith('.mkv') and not f.startswith('.')]
+                 for f in filenames if not f.startswith('.')]
 
     stable_files = set()
 

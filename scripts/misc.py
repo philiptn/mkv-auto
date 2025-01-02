@@ -12,6 +12,7 @@ import time
 import pycountry
 import threading
 
+
 # ANSI color codes
 BLUE = '\033[94m'
 RESET = '\033[0m'  # Reset to default terminal color
@@ -62,7 +63,7 @@ class ContinuousSpinner:
         if final_line:
             sys.stdout.write(f"\r{final_line}\n")
         else:
-            sys.stdout.write("\r \n")
+            sys.stdout.write("\r")
         sys.stdout.flush()
 
     def _spin(self):
@@ -242,14 +243,15 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
+    current_print = (current + 1) if current < total else current
     global SPINNER
-    if current == 1:
+    if current == 0:
         SPINNER = ContinuousSpinner(interval=0.15)
 
     def line_func():
         return (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {current} of {total} "
+            f"{description} {current_print} of {total} "
         )
 
     if SPINNER:
@@ -259,16 +261,16 @@ def print_with_progress_files(logger, current, total, header, description="Proce
     if current >= total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
+            f"{description} {current_print} of {total} {DONE}{CHECK}{RESET}"
         )
         SPINNER.stop(final_line)
         SPINNER = None
 
-        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
-        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current_print} of {total} {CHECK}")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current_print} of {total} {CHECK}")
         logger.color(
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
+            f"{description} {current_print} of {total} {DONE}{CHECK}{RESET}"
         )
 
 
