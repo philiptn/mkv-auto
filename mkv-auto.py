@@ -74,7 +74,7 @@ def mkv_auto(args):
 
     if not move_files:
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
-        wait_for_stable_files(input_dir)
+        total_files = wait_for_stable_files(input_dir)
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
 
         if not done_info['skipped_files']:
@@ -93,7 +93,7 @@ def mkv_auto(args):
         input_dir = temp_dir
     if move_files and not debug or move_files and args.service:
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
-        wait_for_stable_files(input_dir)
+        total_files = wait_for_stable_files(input_dir)
         done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
 
         if not done_info['skipped_files']:

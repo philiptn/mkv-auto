@@ -5,6 +5,7 @@ import rarfile
 import zipfile
 from datetime import datetime
 import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from scripts.misc import *
 from scripts.logger import *
 
@@ -153,7 +154,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     }
 
 
-def copy_directory_contents(logger, source_directory, destination_directory, file_counter=[1], total_files=0):
+def copy_directory_contents(logger, source_directory, destination_directory, file_counter=[0], total_files=0):
     if not os.path.exists(destination_directory):
         os.makedirs(destination_directory)
 
@@ -268,24 +269,39 @@ def wait_for_stable_files(path):
     def is_file_stable(file_path):
         """Check if a file's size is stable (indicating it is fully copied)."""
         initial_size = os.path.getsize(file_path)
-        time.sleep(1.5)
+        time.sleep(2.5)
         new_size = os.path.getsize(file_path)
         return initial_size == new_size
 
-    # Get a list of files to check
-    mkv_files = [os.path.join(dirpath, f)
-                 for dirpath, _, filenames in os.walk(path)
-                 for f in filenames if not f.startswith('.')]
-
     stable_files = set()
 
-    # Continuously check each file until all are stable
-    while len(stable_files) < len(mkv_files):
-        for file_path in mkv_files:
+    while True:
+        # Get the current list of files to check
+        files = []
+        for dirpath, dirnames, filenames in os.walk(path):
+            # Modify dirnames in-place to skip directories starting with a dot
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            files.extend(os.path.join(dirpath, f) for f in filenames if not f.startswith('.'))
+
+        def process_file(file_path):
             if file_path in stable_files:
-                continue  # Skip already stable files
+                return None  # Skip already stable files
             if is_file_stable(file_path):
-                stable_files.add(file_path)  # Mark file as stable
+                return file_path  # Return stable file
+            return None
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {executor.submit(process_file, file): file for file in files if file not in stable_files}
+
+            for future in as_completed(future_to_file):
+                result = future.result()
+                if result:
+                    stable_files.add(result)
+
+        if len(stable_files) >= len(files):
+            break  # Exit if all files are stable
+        else:
+            time.sleep(1)
 
     return len(stable_files)
 

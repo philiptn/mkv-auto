@@ -216,6 +216,7 @@ def is_non_empty_file(filepath):
 
 # Function to print dynamic progress, only updating the last line
 def print_with_progress(logger, current, total, header, description="Processing"):
+    hide_cursor()
     global SPINNER
     if current == 0:
         SPINNER = ContinuousSpinner(interval=0.15)
@@ -243,6 +244,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
+    hide_cursor()
     current_print = (current + 1) if current < total else current
     global SPINNER
     if current == 0:
