@@ -486,7 +486,6 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    show_cursor()
     return all_ready_audio_tracks, all_ready_subtitle_tracks
 
 
@@ -614,7 +613,6 @@ def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, 
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    show_cursor()
     return all_subtitle_files
 
 
@@ -719,7 +717,6 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     if all_errored_ocr_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_ocr_count} "
                              f"{print_multi_or_single(all_errored_ocr_count, 'subtitle')} failed to be converted to SRT.")
-    show_cursor()
     return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed,
             all_missing_subs_langs, all_errored_ocr, main_audio_track_langs_list)
 
@@ -855,7 +852,6 @@ def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_proc
     if all_replacements_list_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
                              f"{all_replacements_list_count} {print_multi_or_single(all_replacements_list_count, 'word')} in subtitle tracks.")
-    show_cursor()
     return all_replacements_list_count
 
 
@@ -947,7 +943,6 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    show_cursor()
 
     success_len = len((set(f"'{item}'" for sublist in all_downloaded_subs for item in sublist)))
     failed_len = len((set(f"'{item}'" for sublist in all_failed_downloads for item in sublist)))
@@ -1049,7 +1044,6 @@ def resync_sub_process(logger, debug, max_worker_threads, input_files, dirpath, 
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    show_cursor()
     return result
 
 
@@ -1101,8 +1095,6 @@ def remove_clutter_process(logger, debug, max_worker_threads, input_files, dirpa
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-
-    show_cursor()
     return all_updated_input_files
 
 
@@ -1165,7 +1157,6 @@ def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, di
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    show_cursor()
 
 
 def repack_mkv_tracks_process_worker(debug, input_file, dirpath, audio_tracks, subtitle_tracks):
@@ -1218,7 +1209,6 @@ def process_external_subs(logger, debug, max_worker_threads, dirpath, input_file
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    show_cursor()
     return subtitle_tracks_to_be_processed, updated_all_missing_subs_langs
 
 
@@ -1323,7 +1313,6 @@ def move_files_to_output_process(logger, debug, max_worker_threads, input_files,
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    show_cursor()
 
 
 def move_files_to_output_process_worker(debug, input_file, dirpath, all_dirnames, output_dir):
