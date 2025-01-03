@@ -144,12 +144,12 @@ def get_pan_filter(source_channels, layout):
         # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
         return (
             'pan=5.1|'
-            'FL=0.4*FL|'
-            'FR=0.4*FR|'
+            'FL=0.3*FL|'
+            'FR=0.3*FR|'
             'FC=0.7*FC|'
-            'LFE=0.3*LFE|'
-            'BL=0.3*BL|'
-            'BR=0.3*BR'
+            'LFE=0.2*LFE|'
+            'BL=0.2*BL|'
+            'BR=0.2*BR'
         )
 
     elif layout == '7.1':
@@ -158,14 +158,14 @@ def get_pan_filter(source_channels, layout):
         # keep LFE as is, and reduce the volume of surrounds and sides.
         return (
             'pan=7.1|'
-            'FL=0.4*FL|'
-            'FR=0.4*FR|'
+            'FL=0.3*FL|'
+            'FR=0.3*FR|'
             'FC=0.7*FC|'
-            'LFE=0.3*LFE|'
-            'BL=0.3*BL|'
-            'BR=0.3*BR|'
-            'SL=0.3*SL|'
-            'SR=0.3*SR'
+            'LFE=0.2*LFE|'
+            'BL=0.2*BL|'
+            'BR=0.2*BR|'
+            'SL=0.2*SL|'
+            'SR=0.2*SR'
         )
 
     elif layout == 'Stereo':
@@ -177,21 +177,21 @@ def get_pan_filter(source_channels, layout):
         if source_channels > 2:
             return (
                 'pan=stereo|'
-                'FL=0.3*FL+0.6*FC+0.2*BL+0.2*SL+0.2*LFE|'
-                'FR=0.3*FR+0.6*FC+0.2*BR+0.2*SR+0.2*LFE'
+                'FL=0.3*FL+0.7*FC+0.2*BL+0.2*SL+0.2*LFE|'
+                'FR=0.3*FR+0.7*FC+0.2*BR+0.2*SR+0.2*LFE'
             )
         else:
             return (
                 'pan=stereo|'
-                'FL=0.6*FL|'
-                'FR=0.6*FR'
+                'FL=0.7*FL|'
+                'FR=0.7*FR'
             )
 
     elif layout == 'Mono':
         if source_channels > 2:
             return 'pan=mono|FC=0.3*FL+0.3*FR+0.6*FC'
         else:
-            return 'pan=mono|FC=0.6*FL+0.6*FR'
+            return 'pan=mono|FC=0.7*FL+0.7*FR'
 
     else:
         return None
@@ -307,7 +307,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     # Apply transformations
     if transformation == 'EOS':
         compand_filter = (
-            'compand=attacks=0:decays=0.3:soft-knee=6:points=-110.00/-110.00|-100.00/-105.00|-88.88/-98.04|-80.00/-90.00|-75.00/-85.00|-63.89/-68.04|-51.56/-51.73|-42.14/-39.32|-34.35/-27.25|-31.43/-22.64|-27.54/-18.38|-24.29/-15.90|-20.07/-13.77|-13.91/-12.51|-6.12/-11.25|1.02/-10.71|10.00/-10.00|20.00/-10.00:gain=0'
+            'compand=attacks=0:decays=0.3:soft-knee=6:points=-110.00/-110.00|-100.00/-105.00|-88.88/-98.04|-80.00/-90.00|-75.00/-85.00|-63.89/-68.04|-51.56/-51.73|-42.14/-39.32|-34.35/-27.25|-31.43/-22.64|-27.54/-18.38|-24.29/-15.90|-20.07/-13.77|-13.58/-10.18|-5.15/-8.04|2.64/-6.96|10.76/-5.36|20.17/-4.29:gain=0'
         )
 
         pan_filter = get_pan_filter(source_channels, chosen_layout)
