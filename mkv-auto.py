@@ -105,11 +105,11 @@ def mkv_auto(args):
     else:
         print_with_progress_files(logger, total_files, total_files, header='INFO', description='Copying file')
 
-    if not done_info['skipped_files'] and total_files:
+    if done_info['skipped_files'] == 0 and total_files > 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
                              f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
     else:
-        if done_info['skipped_files'] and total_files > 0:
+        if done_info['skipped_files'] > 0 and total_files > 0:
             custom_print(logger, f"{GREY}[INFO]{RESET} "
                                  f"Successfully moved {total_files - done_info['skipped_files']} "
                                  f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
