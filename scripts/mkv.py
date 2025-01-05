@@ -382,7 +382,7 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, max_worker_threads, inp
                 input_file = input_files[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -407,8 +407,7 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
 
     (wanted_audio_tracks, default_audio_track, needs_processing_audio,
      pref_audio_formats_found, track_ids_to_be_converted,
-     track_langs_to_be_converted, other_track_ids, other_track_langs,
-     track_names_to_be_converted, other_track_names) = get_wanted_audio_tracks(
+     track_langs_to_be_converted, track_names_to_be_converted) = get_wanted_audio_tracks(
         debug, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
 
     (wanted_subs_tracks, default_subs_track,
@@ -479,7 +478,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
                 input_file = input_files[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -494,10 +493,6 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
 
     input_file = os.path.join(dirpath, input_file)
 
-    extracted_other_audio_files = []
-    extracted_other_audio_langs = []
-    extracted_other_audio_names = []
-    extracted_audio_extensions = []
     ready_audio_extensions = []
     ready_audio_langs = []
     ready_track_ids = []
@@ -512,45 +507,26 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
 
     (wanted_audio_tracks, default_audio_track, needs_processing_audio,
      pref_audio_formats_found, track_ids_to_be_converted,
-     track_langs_to_be_converted, other_track_ids, other_track_langs,
-     track_names_to_be_converted, other_track_names) = get_wanted_audio_tracks(
+     track_langs_to_be_converted, track_names_to_be_converted) = get_wanted_audio_tracks(
         False, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
 
     # Generating audio tracks if preferred codec not found in all audio tracks
     if needs_processing_audio:
-
         if debug:
             print('')
 
-        if other_track_ids:
-            (extracted_other_audio_files, extracted_other_audio_langs,
-             extracted_other_audio_names,
-             extracted_audio_extensions) = extract_audio_tracks_in_mkv(internal_threads, debug, input_file,
-                                                                       other_track_ids,
-                                                                       other_track_langs,
-                                                                       other_track_names)
+        (extracted_for_convert_audio_files,
+         extracted_for_convert_audio_langs,
+         extracted_for_convert_audio_names,
+         extracted_audio_extensions) = extract_audio_tracks_in_mkv(internal_threads, debug, input_file,
+                                                                   track_ids_to_be_converted,
+                                                                   track_langs_to_be_converted,
+                                                                   track_names_to_be_converted)
 
-        if track_langs_to_be_converted:
-            (extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
-             extracted_for_convert_audio_names,
-             extracted_audio_extensions) = extract_audio_tracks_in_mkv(internal_threads, debug, input_file,
-                                                                       track_ids_to_be_converted,
-                                                                       track_langs_to_be_converted,
-                                                                       track_names_to_be_converted)
-
-            (ready_audio_extensions, ready_audio_langs,
-             ready_track_names, ready_track_ids) = encode_audio_tracks(
-                internal_threads, debug, extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
-                extracted_for_convert_audio_names, pref_audio_formats, extracted_other_audio_files,
-                extracted_other_audio_langs, extracted_other_audio_names, other_track_ids)
-        else:
-            ready_audio_extensions = extracted_audio_extensions
-            ready_audio_langs = extracted_other_audio_langs
-            ready_track_ids = other_track_ids
-            ready_track_names = other_track_names
-
-            if debug:
-                print('')
+        (ready_audio_extensions, ready_audio_langs,
+         ready_track_names, ready_track_ids) = encode_audio_tracks(
+            internal_threads, debug, extracted_for_convert_audio_files, extracted_for_convert_audio_langs,
+            extracted_for_convert_audio_names, pref_audio_formats)
 
     # Dummy subtitle metadata needs to be returned for
     # rest of the pipeline to function properly
@@ -606,7 +582,7 @@ def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, 
                 input_file = input_files[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -700,7 +676,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
                 subtitle_files = subtitle_files_list[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -778,7 +754,7 @@ def get_subtitle_tracks_metadata_for_repack(logger, subtitle_files_list, max_wor
                 subtitle_files = subtitle_files_list[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
                 print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
@@ -842,7 +818,7 @@ def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_proc
                 subtitle_files = subtitle_files_to_process_list[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
                 print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
@@ -935,7 +911,7 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
                 subtitle_lang = all_truly_missing_subs_langs[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -1050,7 +1026,7 @@ def resync_sub_process(logger, debug, max_worker_threads, input_files, dirpath, 
                 subtitle_files = subtitle_files_to_process_list[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -1103,7 +1079,7 @@ def remove_clutter_process(logger, debug, max_worker_threads, input_files, dirpa
                 input_file = input_files[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -1163,7 +1139,7 @@ def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, di
                 subtitle_tracks = subtitle_tracks_list[index]
 
                 # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
                 print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
@@ -1466,19 +1442,43 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             has_orig.add((t['codec'], t['lang']))
 
     filtered_tracks = []
-    seen_normal = set()
-
     for t in all_tracks:
         key = (t['codec'], t['lang'])
         if t['is_eos'] or t['is_orig']:
-            # Always keep EOS and ORIG
+            # Always keep EOS and ORIG tracks
             filtered_tracks.append(t)
         else:
             # Normal track
             # Only exclude if there's an ORIG track of the same codec/lang
-            if key not in has_orig and key not in seen_normal:
+            if key not in has_orig:
                 filtered_tracks.append(t)
-                seen_normal.add(key)
+
+    for t in filtered_tracks:
+        print(t)
+
+    def reorder_tracks(tracks, preferences):
+        def match(track, pref):
+            transformation, codec, _ = pref
+            if transformation == "EOS":
+                return track.get("is_eos", False)
+            if transformation is None:
+                if codec == "ORIG":
+                    return track.get("is_orig", False)
+                return track.get("codec", "").lower() == codec.lower()
+            return False
+
+        def pref_index(track):
+            for i, pref in enumerate(preferences):
+                if match(track, pref):
+                    return i
+            return len(preferences)
+
+        return sorted(tracks, key=pref_index)
+
+    # Apply sorting
+    pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
+    preferences = parse_preferred_codecs(pref_audio_formats)
+    filtered_tracks = reorder_tracks(filtered_tracks, preferences)
 
     # Extract final lists
     audio_track_names = [t['name'] for t in filtered_tracks]
@@ -1505,26 +1505,6 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
     final_audio_track_ids = []
     final_audio_track_names = []
 
-    # If the first preferred language is found in the audio languages,
-    # reorder the list to place the preferred language first
-    if audio_languages:
-        # Function to get the priority of each language
-        def get_priority(lang):
-            try:
-                return pref_audio_langs.index(lang)
-            except ValueError:
-                return len(pref_audio_langs)
-
-        paired = zip(audio_languages, audio_filetypes, audio_track_ids, audio_track_names)
-        sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
-        sorted_audio_languages, sorted_audio_filetypes, sorted_audio_track_ids, sorted_audio_track_names = zip(
-            *sorted_paired)
-
-        final_audio_languages = list(sorted_audio_languages)
-        final_audio_filetypes = list(sorted_audio_filetypes)
-        final_audio_track_ids = list(sorted_audio_track_ids)
-        final_audio_track_names = list(sorted_audio_track_names)
-
     # Initialize first_pref_audio_index to -1 (indicating no match found yet)
     first_pref_audio_index = -1
     # Iterate through pref_audio_langs to find the first matching language in audio_languages
@@ -1533,17 +1513,18 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             first_pref_audio_index = i
             break
 
-    # Reorder audio filetypes to priority list
-    if final_audio_filetypes:
-        filetype_priority = final_audio_filetypes[0]
-        def get_priority(filetype):
+    # If the first preferred language is found in the audio languages,
+    # reorder the list to place the preferred language first
+    if audio_languages:
+        # Function to get the priority of each language
+        def get_priority_langs(lang):
             try:
-                return filetype_priority.index(filetype)
+                return pref_audio_langs.index(lang)
             except ValueError:
-                return len(filetype_priority)  # Default priority for unknown file types
+                return len(pref_audio_langs)
 
         paired = zip(audio_languages, audio_filetypes, audio_track_ids, audio_track_names)
-        sorted_paired = sorted(paired, key=lambda x: get_priority(x[1]))
+        sorted_paired = sorted(paired, key=lambda x: get_priority_langs(x[0]))
         sorted_audio_languages, sorted_audio_filetypes, sorted_audio_track_ids, sorted_audio_track_names = zip(
             *sorted_paired)
 
@@ -1555,14 +1536,14 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
     # If the first preferred language is found in the sub languages,
     # reorder the list to place the preferred language first
     if sub_languages:
-        def get_priority(lang):
+        def get_priority_sub_langs(lang):
             try:
                 return pref_subs_langs.index(lang)
             except ValueError:
                 return len(pref_subs_langs)
 
         paired = zip(sub_languages, sub_filetypes, sub_track_ids, sub_track_names, sub_track_forced)
-        sorted_paired = sorted(paired, key=lambda x: get_priority(x[0]))
+        sorted_paired = sorted(paired, key=lambda x: get_priority_sub_langs(x[0]))
         sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names, sorted_sub_track_forced = zip(*sorted_paired)
 
         final_sub_languages = list(sorted_sub_languages)
@@ -1574,14 +1555,14 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
     # Reorder sub filetypes to priority list
     filetype_priority = pref_subs_ext
     if sub_filetypes:
-        def get_priority(filetype):
+        def get_priority_sub_filetypes(filetype):
             try:
                 return filetype_priority.index(filetype)
             except ValueError:
                 return len(filetype_priority)  # Default priority for unknown file types
 
         paired = zip(final_sub_languages, final_sub_filetypes, final_sub_track_ids, final_sub_track_names, final_sub_track_forced)
-        sorted_paired = sorted(paired, key=lambda x: get_priority(x[1]))
+        sorted_paired = sorted(paired, key=lambda x: get_priority_sub_filetypes(x[1]))
         sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names, sorted_sub_track_forced = zip(*sorted_paired)
 
         final_sub_languages = list(sorted_sub_languages)
