@@ -77,49 +77,51 @@ def mkv_auto(args):
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
         total_files = wait_for_stable_files(input_dir)
         done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
-        input_dir = temp_dir
     else:
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
         total_files = wait_for_stable_files(input_dir)
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
-        input_dir = temp_dir
 
-    extract_archives(logger, input_dir)
-    process_extras(input_dir)
-    flatten_directories(input_dir)
+    extract_archives(logger, temp_dir)
+    process_extras(temp_dir)
+    flatten_directories(temp_dir)
 
-    convert_all_videos_to_mkv(debug, input_dir, args.silent)
-    rename_others_file_to_folder(input_dir)
+    convert_all_videos_to_mkv(debug, temp_dir, args.silent)
+    rename_others_file_to_folder(temp_dir)
 
     if remove_samples:
-        remove_sample_files_and_dirs(input_dir)
+        remove_sample_files_and_dirs(temp_dir)
 
-    fix_episodes_naming(input_dir)
-    remove_ds_store(input_dir)
-    remove_wsl_identifiers(input_dir)
+    fix_episodes_naming(temp_dir)
+    remove_ds_store(temp_dir)
+    remove_wsl_identifiers(temp_dir)
 
-    total_files = wait_for_stable_files(input_dir)
+    if move_files:
+        total_files_input = wait_for_stable_files(input_dir)
+    else:
+        total_files_input = 0
+    total_files = wait_for_stable_files(temp_dir)
 
     if move_files:
         print_with_progress_files(logger, total_files, total_files, header='INFO', description='Moving file')
     else:
         print_with_progress_files(logger, total_files, total_files, header='INFO', description='Copying file')
 
-    if done_info['skipped_files'] == 0 and total_files > 0:
+    if done_info['skipped_files'] == 0 and total_files_input == 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
                              f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
     else:
-        if done_info['skipped_files'] > 0 and total_files > 0:
+        if done_info['skipped_files'] > 0 and total_files_input == 0:
             custom_print(logger, f"{GREY}[INFO]{RESET} "
                                  f"Successfully moved {total_files - done_info['skipped_files']} "
                                  f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
-        custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
-                     f"had to be skipped due to insufficient storage capacity.")
-        custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
-                     f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                     f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
+            custom_print(logger,
+                         f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
+                         f"had to be skipped due to insufficient storage capacity.")
+            custom_print(logger,
+                         f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                         f"{total_files} {print_multi_or_single(total_files, 'file')}), "
+                         f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
 
     if total_files == 0:
         if not args.silent:
@@ -131,7 +133,7 @@ def mkv_auto(args):
 
     dirpaths = []
 
-    for dirpath, dirnames, filenames in os.walk(input_dir):
+    for dirpath, dirnames, filenames in os.walk(temp_dir):
         dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
 
         # Skip directories or files starting with '.'
@@ -148,7 +150,7 @@ def mkv_auto(args):
         # Ignore files that start with a dot
         filenames = [f for f in filenames if not f.startswith('.')]
         # Extract the directory path relative to the input directory
-        relative_dir_path = os.path.relpath(dirpath, input_dir)
+        relative_dir_path = os.path.relpath(dirpath, temp_dir)
         # Split the relative path into individual directories
         all_dirnames = relative_dir_path.split(os.sep)
         total_external_subs = []
