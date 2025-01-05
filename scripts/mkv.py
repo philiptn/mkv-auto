@@ -377,18 +377,8 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, max_worker_threads, inp
                 if missing_subs_langs is not None:
                     all_missing_subs_langs[index] = missing_subs_langs
             except Exception as e:
-                # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
+                raise CorruptedFile
 
-                # Print the error and traceback
-                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
-                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
-                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
-                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
-                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
-                raise
     return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
 
 
@@ -826,9 +816,6 @@ def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_proc
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
-    if all_replacements_list_count:
-        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
-                             f"{all_replacements_list_count} {print_multi_or_single(all_replacements_list_count, 'word')} in subtitle tracks.")
     return all_replacements_list_count
 
 
@@ -1370,9 +1357,7 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        print('')
-        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
-        print(f"{RESET}")
+        os.remove(temp_filename)
     result.check_returncode()
 
     os.remove(filename)

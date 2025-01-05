@@ -719,7 +719,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             if file.endswith('.sub'):
                 if forced != '0' and bool(forced):
                     os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
-                              f"{base}_0_'{original_name_b64}'_{track_id}_{language}.idx")
+                              f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
                 else:
                     os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
                               f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
@@ -731,10 +731,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             else:
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
                 name = 'Original'
-            if forced != '0' and bool(forced):
-                original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
-            else:
-                original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
+            original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
             os.rename(file, original_subtitle)
     finally:
         # Clean up the temporary directory

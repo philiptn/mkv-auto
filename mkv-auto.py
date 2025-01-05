@@ -51,7 +51,8 @@ def mkv_auto(args):
     if args.temp_dir:
         temp_dir = args.temp_dir
 
-    if os.path.exists(temp_dir):
+    clear_temp_txt_file = os.path.join(temp_dir, '.clear-temp.txt')
+    if os.path.exists(temp_dir) and os.path.exists(clear_temp_txt_file):
         try:
             shutil.rmtree(temp_dir)
         except:
@@ -103,7 +104,7 @@ def mkv_auto(args):
         custom_print(logger, f"{GREY}[INFO]{RESET} "
                              f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
     else:
-        if done_info['skipped_files'] < total_files and total_files > 0:
+        if done_info['skipped_files'] and total_files > 0:
             custom_print(logger, f"{GREY}[INFO]{RESET} "
                                  f"Successfully moved {total_files - done_info['skipped_files']} "
                                  f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
@@ -247,13 +248,26 @@ def mkv_auto(args):
             if not args.service:
                 show_cursor()
 
+            if not os.path.exists(clear_temp_txt_file):
+                with open(clear_temp_txt_file, "w") as file:
+                    file.write(str(filenames_mkv_only))
+
         except Exception as e:
-            # If anything were to fail, move files to output folder
-            custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
-                                 f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
-            custom_print(logger, traceback.print_tb(e.__traceback__))
-            move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
-            print_no_timestamp(logger, '')
+            if os.path.exists(clear_temp_txt_file):
+                os.remove(clear_temp_txt_file)
+            if isinstance(e, CorruptedFile):
+                partial_str = 'copied' if not move_files else 'moved'
+                custom_print(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
+                                     f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...\n")
+                exit(1)
+            else:
+                # If anything were to fail, move files to output folder
+                custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
+                                     f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
+                custom_print(logger, traceback.print_tb(e.__traceback__))
+                move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+                print_no_timestamp(logger, '')
+                exit(1)
             if not args.service:
                 show_cursor()
     exit(0)
