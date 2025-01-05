@@ -100,6 +100,11 @@ def mkv_auto(args):
 
     total_files = wait_for_stable_files(input_dir)
 
+    if move_files:
+        print_with_progress_files(logger, total_files, total_files, header='INFO', description='Moving file')
+    else:
+        print_with_progress_files(logger, total_files, total_files, header='INFO', description='Copying file')
+
     if not done_info['skipped_files'] and total_files:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
                              f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
