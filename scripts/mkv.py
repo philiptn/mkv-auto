@@ -1453,9 +1453,6 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             if key not in has_orig:
                 filtered_tracks.append(t)
 
-    for t in filtered_tracks:
-        print(t)
-
     def reorder_tracks(tracks, preferences):
         def match(track, pref):
             transformation, codec, _ = pref
