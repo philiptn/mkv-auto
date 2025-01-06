@@ -73,14 +73,37 @@ def mkv_auto(args):
 
     hide_cursor()
 
-    if move_files:
-        print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
-        total_files = wait_for_stable_files(input_dir)
-        done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
-    else:
-        print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
-        total_files = wait_for_stable_files(input_dir)
-        done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
+    done = False
+    while not done:
+        if move_files:
+            print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
+            total_files = wait_for_stable_files(input_dir)
+            done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
+        else:
+            print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
+            total_files = wait_for_stable_files(input_dir)
+            done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
+
+        for dirpath, dirnames, filenames in os.walk(temp_dir):
+            filenames = [f for f in filenames if not f.startswith('.')]
+            filenames = [f for f in filenames if f.endswith('.mkv') or f.endswith('.srt')]
+            if filenames:
+                if done_info['skipped_files'] == 0:
+                    custom_print(logger, f"{GREY}[INFO]{RESET} "
+                                         f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
+                else:
+                    if done_info['skipped_files'] > 0:
+                        custom_print(logger, f"{GREY}[INFO]{RESET} "
+                                             f"Successfully moved {total_files - done_info['skipped_files']} "
+                                             f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
+                        custom_print(logger,
+                                     f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
+                                     f"had to be skipped due to insufficient storage capacity.")
+                        custom_print(logger,
+                                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                                     f"{total_files} {print_multi_or_single(total_files, 'file')}), "
+                                     f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
+                done = True
 
     extract_archives(logger, temp_dir)
     process_extras(temp_dir)
@@ -135,22 +158,6 @@ def mkv_auto(args):
 
         if not filenames:
             exit(0)
-
-        if done_info['skipped_files'] == 0:
-            custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                 f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
-        else:
-            if done_info['skipped_files'] > 0:
-                custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                     f"Successfully moved {total_files - done_info['skipped_files']} "
-                                     f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
-                custom_print(logger,
-                             f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
-                             f"had to be skipped due to insufficient storage capacity.")
-                custom_print(logger,
-                             f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
-                             f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                             f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
 
         print_media_info(logger, filenames)
 

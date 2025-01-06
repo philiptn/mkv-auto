@@ -391,6 +391,7 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, max_worker_threads, inp
 def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
 
     input_file = os.path.join(dirpath, input_file)
+    check_integrity_of_mkv(input_file)
 
     # Get file info using mkvinfo
     file_info, pretty_file_info = get_mkv_info(debug, input_file, False)
@@ -1357,6 +1358,18 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
 
     os.remove(filename)
     shutil.move(temp_filename, filename)
+
+
+def check_integrity_of_mkv(filename):
+    base, extension = os.path.splitext(filename)
+    new_base = base + "_tmp"
+    temp_filename = new_base + extension
+
+    command = ["mkvmerge", "--output", temp_filename, filename]
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    os.remove(temp_filename)
+    result.check_returncode()
 
 
 def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
