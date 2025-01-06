@@ -187,9 +187,8 @@ def mkv_auto(args):
             errored_ocr_list = []
             all_downloaded_subs = []
 
-            filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
-
             need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath)
+            filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
             audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath, need_processing_audio)
 
             if any(need_processing_subs):
@@ -266,6 +265,10 @@ def mkv_auto(args):
                 partial_str = 'copied' if not move_files else 'moved'
                 custom_print(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
                                      f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...\n")
+                total_files_input = wait_for_stable_files(input_dir)
+                if not total_files_input:
+                    for file in filenames_mkv_only:
+                        shutil.move(os.path.join(dirpath, file), temp_dir)
                 exit(1)
             else:
                 # If anything were to fail, move files to output folder
