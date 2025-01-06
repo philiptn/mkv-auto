@@ -742,7 +742,7 @@ def print_media_info(logger, filenames):
                     movies_hdr.append(media_name)
         else:
             uncategorized.append(media_name)
-
+    print_no_timestamp(logger, '')
     if tv_shows:
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show in sorted(tv_shows):
