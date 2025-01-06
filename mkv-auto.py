@@ -102,16 +102,17 @@ def mkv_auto(args):
         total_files_input = 0
     total_files = wait_for_stable_files(temp_dir)
 
-    if move_files:
-        print_with_progress_files(logger, total_files, total_files, header='INFO', description='Moving file')
-    else:
-        print_with_progress_files(logger, total_files, total_files, header='INFO', description='Copying file')
+    if total_files_input == 0:
+        if move_files:
+            print_with_progress_files(logger, total_files, total_files, header='INFO', description='Moving file')
+        else:
+            print_with_progress_files(logger, total_files, total_files, header='INFO', description='Copying file')
 
     if done_info['skipped_files'] == 0 and total_files_input == 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
                              f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
     else:
-        if done_info['skipped_files'] > 0 and total_files_input == 0:
+        if done_info['skipped_files'] > 0 and total_files_input > 0:
             custom_print(logger, f"{GREY}[INFO]{RESET} "
                                  f"Successfully moved {total_files - done_info['skipped_files']} "
                                  f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
@@ -259,8 +260,6 @@ def mkv_auto(args):
                     file.write(str(filenames_mkv_only))
 
         except Exception as e:
-            if os.path.exists(clear_temp_txt_file):
-                os.remove(clear_temp_txt_file)
             if isinstance(e, CorruptedFile):
                 partial_str = 'copied' if not move_files else 'moved'
                 custom_print(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
@@ -272,6 +271,8 @@ def mkv_auto(args):
                 exit(1)
             else:
                 # If anything were to fail, move files to output folder
+                if os.path.exists(clear_temp_txt_file):
+                    os.remove(clear_temp_txt_file)
                 custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
                                      f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
                 custom_print(logger, traceback.print_tb(e.__traceback__))
