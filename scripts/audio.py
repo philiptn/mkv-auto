@@ -641,9 +641,12 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             tracks_langs_to_be_converted = unmatched_audio_track_languages
             tracks_names_to_be_converted = unmatched_audio_track_names
 
+    # If there is no audio tracks at all, no processing is needed
+    if first_audio_track_id == -1:
+        needs_processing = False
     # If the first audio track in the media is not matched,
     # and none other have matched, add it, but place it last in the list.
-    if not all_audio_track_ids and first_audio_track_id not in all_audio_track_ids:
+    if not all_audio_track_ids and first_audio_track_id not in all_audio_track_ids and first_audio_track_id != -1:
         if not default_audio_track:
             default_audio_track = first_audio_track_id
         all_audio_track_ids.append(first_audio_track_id)
