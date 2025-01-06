@@ -218,6 +218,9 @@ https://github.com/pycountry/pycountry
 Diaoul and ratoaq2 for subliminal (automatic downloading of subtitles)  
 https://github.com/Diaoul/subliminal
 
+cuzi for emoji-country-flag (displaying country flags as emojis in terminal)  
+https://github.com/cvzi/flag
+
 ## Donations
 This utility is completely free to use, but if you want to support me and my work you can buy me a coffee using the link below:  
 

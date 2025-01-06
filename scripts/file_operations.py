@@ -298,6 +298,12 @@ def wait_for_stable_files(path):
                 if result:
                     stable_files.add(result)
 
+        files = []
+        for dirpath, dirnames, filenames in os.walk(path):
+            # Modify dirnames in-place to skip directories starting with a dot
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            files.extend(os.path.join(dirpath, f) for f in filenames if not f.startswith('.'))
+
         if len(stable_files) >= len(files):
             break  # Exit if all files are stable
         else:
