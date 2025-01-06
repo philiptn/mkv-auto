@@ -306,8 +306,6 @@ def wait_for_stable_files(path):
 
         if len(stable_files) >= len(files):
             break  # Exit if all files are stable
-        else:
-            time.sleep(1)
 
     return len(stable_files)
 
