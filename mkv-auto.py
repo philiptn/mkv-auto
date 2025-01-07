@@ -88,9 +88,13 @@ def mkv_auto(args):
 
         for dirpath, dirnames, filenames in os.walk(temp_dir):
             filenames = [f for f in filenames if not f.startswith('.')]
-            filenames = [f for f in filenames if f.endswith('.mkv') or f.endswith('.srt')]
 
             if filenames:
+                if move_files:
+                    print_final_spin_files(logger, total_files, header='INFO', description='Moving file')
+                else:
+                    print_final_spin_files(logger, total_files, header='INFO', description='Copying file')
+
                 if done_info['skipped_files'] == 0:
                     custom_print(logger, f"{GREY}[INFO]{RESET} "
                                          f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
