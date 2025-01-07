@@ -73,14 +73,16 @@ def mkv_auto(args):
 
     hide_cursor()
 
+    if move_files:
+        print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
+    else:
+        print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
     done = False
     while not done:
         if move_files:
-            print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
             total_files = wait_for_stable_files(input_dir)
             done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
         else:
-            print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
             total_files = wait_for_stable_files(input_dir)
             done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
 
