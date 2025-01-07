@@ -84,8 +84,6 @@ def mkv_auto(args):
             total_files = wait_for_stable_files(input_dir)
             done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
 
-        total_files = wait_for_stable_files(input_dir)
-
         for dirpath, dirnames, filenames in os.walk(temp_dir):
             filenames = [f for f in filenames if not f.startswith('.')]
             filenames = [f for f in filenames if f.endswith('.mkv') or f.endswith('.srt')]

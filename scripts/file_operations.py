@@ -298,11 +298,20 @@ def wait_for_stable_files(path):
                 if result:
                     stable_files.add(result)
 
+        # Check again
         files = []
         for dirpath, dirnames, filenames in os.walk(path):
             # Modify dirnames in-place to skip directories starting with a dot
             dirnames[:] = [d for d in dirnames if not d.startswith('.')]
             files.extend(os.path.join(dirpath, f) for f in filenames if not f.startswith('.'))
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {executor.submit(process_file, file): file for file in files if file not in stable_files}
+
+            for future in as_completed(future_to_file):
+                result = future.result()
+                if result:
+                    stable_files.add(result)
 
         if len(stable_files) >= len(files):
             break  # Exit if all files are stable
