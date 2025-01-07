@@ -595,7 +595,17 @@ def reformat_filename(filename, names_only):
     hdr_pattern = re.compile(r"2160p", re.IGNORECASE)
     non_hdr_pattern = re.compile(r"h264|x264", re.IGNORECASE)
 
+    # Regular expression to detect editions: {edition-Director's Cut}, etc.
+    edition_pattern = re.compile(r"{edition-(.*?)}", re.IGNORECASE)
+
+    # Check for HDR
     is_hdr = hdr_pattern.search(filename) and not non_hdr_pattern.search(filename)
+
+    # Try to find an edition in the filename
+    edition_match = edition_pattern.search(filename)
+    edition_name = None
+    if edition_match:
+        edition_name = edition_match.group(1).strip()
 
     tv_match1 = tv_show_pattern1.match(filename)
     tv_match2 = tv_show_pattern2.match(filename)
@@ -610,7 +620,14 @@ def reformat_filename(filename, names_only):
         folder = tv_hdr_folder if is_hdr else tv_folder
 
         media_type = 'tv_show_hdr' if is_hdr else 'tv_show'
-        media_name = f"{showname} ({year})" if year else showname
+
+        # Build the base media name
+        base_name = f"{showname} ({year})" if year else showname
+        # Append edition if found
+        if edition_name:
+            media_name = f"{base_name} ({edition_name})"
+        else:
+            media_name = base_name
 
         if names_only:
             return {
@@ -618,8 +635,11 @@ def reformat_filename(filename, names_only):
                 'media_name': media_name
             }
         else:
-            # Format the filename
-            return os.path.join(folder, f"{showname} ({year})") if year else os.path.join(folder, showname), filename
+            return (
+                os.path.join(folder, media_name),
+                filename
+            )
+
     elif tv_match2:
         # TV show with season range
         showname = tv_match2.group(1).replace('.', ' ')
@@ -629,7 +649,14 @@ def reformat_filename(filename, names_only):
         folder = tv_hdr_folder if is_hdr else tv_folder
 
         media_type = 'tv_show_hdr' if is_hdr else 'tv_show'
-        media_name = f"{showname} ({year})" if year else showname
+
+        # Build the base media name
+        base_name = f"{showname} ({year})" if year else showname
+        # Append edition if found
+        if edition_name:
+            media_name = f"{base_name} ({edition_name})"
+        else:
+            media_name = base_name
 
         if names_only:
             return {
@@ -637,8 +664,11 @@ def reformat_filename(filename, names_only):
                 'media_name': media_name
             }
         else:
-            # Format the filename
-            return os.path.join(folder, f"{showname} ({year})") if year else os.path.join(folder, showname), filename
+            return (
+                os.path.join(folder, media_name),
+                filename
+            )
+
     elif movie_match:
         # Movie
         title = movie_match.group(1).replace('.', ' ')
@@ -648,7 +678,18 @@ def reformat_filename(filename, names_only):
         folder = movie_hdr_folder if is_hdr else movie_folder
 
         media_type = 'movie_hdr' if is_hdr else 'movie'
-        media_name = f"{title} ({year})" if year else title
+
+        # Build the base media name
+        if year:
+            base_name = f"{title} ({year})"
+        else:
+            base_name = title
+
+        # Append edition if found
+        if edition_name:
+            media_name = f"{base_name} ({edition_name})"
+        else:
+            media_name = base_name
 
         if names_only:
             return {
@@ -656,17 +697,25 @@ def reformat_filename(filename, names_only):
                 'media_name': media_name
             }
         else:
-            # Format the filename
-            return os.path.join(folder, f"{title} ({year})") if year else os.path.join(folder, title), filename
+            return (
+                os.path.join(folder, media_name),
+                filename
+            )
     else:
+        media_type = 'other'
+        if edition_name:
+            name_only, ext = os.path.splitext(filename)
+            media_name = f"{name_only} ({edition_name}){ext}"
+        else:
+            media_name = filename
+
         if names_only:
             return {
-                'media_type': 'other',
-                'media_name': filename
+                'media_type': media_type,
+                'media_name': media_name
             }
         else:
-            # Unidentified file
-            return others_folder, filename
+            return others_folder, media_name
 
 
 # Function to hide the cursor

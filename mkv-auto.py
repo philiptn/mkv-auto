@@ -260,6 +260,8 @@ def mkv_auto(args):
 
         except Exception as e:
             if isinstance(e, CorruptedFile):
+                if os.path.exists(clear_temp_txt_file):
+                    os.remove(clear_temp_txt_file)
                 partial_str = 'copied' if not move_files else 'moved'
                 custom_print(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
                                      f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...\n")
@@ -270,8 +272,6 @@ def mkv_auto(args):
                 exit(1)
             else:
                 # If anything were to fail, move files to output folder
-                if os.path.exists(clear_temp_txt_file):
-                    os.remove(clear_temp_txt_file)
                 custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
                                      f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
                 custom_print(logger, traceback.print_tb(e.__traceback__))
