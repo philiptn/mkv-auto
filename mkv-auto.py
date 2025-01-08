@@ -78,9 +78,10 @@ def mkv_auto(args):
     else:
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
 
+    done_info = {'skipped_files': 0}
     if move_files:
         remaining_files = wait_for_stable_files(input_dir)
-        while remaining_files:
+        while remaining_files or done_info['skipped_files'] > 0:
             files_in_temp = count_files(temp_dir)
             all_files = remaining_files + files_in_temp
             done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)

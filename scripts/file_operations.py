@@ -142,7 +142,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
             actual_file_sizes += file_size
             all_required_space += required_space
 
-            if available_space >= required_space:
+            if available_space >= all_required_space:
                 available_space -= required_space
                 moved_file_sizes += file_size
                 os.makedirs(os.path.dirname(d), exist_ok=True)
@@ -211,7 +211,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
             actual_file_sizes += file_size
             all_required_space += required_space
 
-            if available_space >= required_space:
+            if available_space >= all_required_space:
                 available_space -= required_space
                 copied_file_sizes += file_size
                 os.makedirs(os.path.dirname(d), exist_ok=True)
