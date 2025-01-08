@@ -76,6 +76,15 @@ def count_files(directory):
     return total_files
 
 
+def remove_empty_dirs(path):
+    for root, dirs, files in os.walk(path, topdown=False):
+        if not dirs and not files:
+            try:
+                os.rmdir(root)
+            except OSError:
+                pass
+
+
 def count_bytes(directory):
     total_bytes = 0
     for dirpath, dirnames, filenames in os.walk(directory):
@@ -96,53 +105,58 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
 
     initial_available_space = get_free_space(destination_directory)
     available_space = initial_available_space
-    skipped_files_counter = [0]  # Counter for skipped files
-    all_required_space = -1
-    actual_file_sizes = -1
-    moved_file_sizes = -1
+    skipped_files_counter = [0]
+    all_required_space = 0.0
+    actual_file_sizes = 0.0
+    moved_file_sizes = 0.0
 
-    # Function to move a single file or directory
-    def move_item(s, d):
-        nonlocal available_space
-        nonlocal actual_file_sizes
-        nonlocal all_required_space
-        nonlocal moved_file_sizes
+    items = []
+    for root, dirs, files in os.walk(source_directory):
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+        files[:] = [f for f in files if not f.startswith('.')]
+
+        for d in dirs:
+            rel_path = os.path.relpath(os.path.join(root, d), source_directory)
+            items.append(rel_path)
+        for f in files:
+            rel_path = os.path.relpath(os.path.join(root, f), source_directory)
+            items.append(rel_path)
+
+    def sort_key(rel_path):
+        depth = len(rel_path.split(os.sep))
+        return -depth, rel_path.lower()
+
+    items.sort(key=sort_key)
+
+    def move_item(rel_path):
+        nonlocal available_space, actual_file_sizes, all_required_space, moved_file_sizes
+        s = os.path.join(source_directory, rel_path)
+        d = os.path.join(destination_directory, rel_path)
 
         if os.path.isdir(s):
             if not os.path.exists(d):
                 os.makedirs(d)
-            for item in os.listdir(s):
-                next_source = os.path.join(s, item)
-                next_destination = os.path.join(d, item)
-                move_item(next_source, next_destination)
-            if not os.listdir(s):
-                os.rmdir(s)
         else:
             file_size = os.path.getsize(s)
-            required_space = file_size * 3.5  # 350% of the original file size
+            required_space = file_size * 3.5
             actual_file_sizes += file_size
             all_required_space += required_space
 
             if available_space >= required_space:
                 available_space -= required_space
                 moved_file_sizes += file_size
+                os.makedirs(os.path.dirname(d), exist_ok=True)
                 shutil.move(s, d)
                 file_counter[0] += 1
-                print_with_progress_files(logger, file_counter[0], total_files, header='INFO', description='Moving file')
+                print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file')
             else:
-                skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
+                skipped_files_counter[0] += 1
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        futures = []
-        for item in os.listdir(source_directory):
-            if item.startswith('.'):  # Skip files or folders starting with a dot
-                continue
-            s = os.path.join(source_directory, item)
-            d = os.path.join(destination_directory, item)
-            future = executor.submit(move_item, s, d)
-            futures.append(future)
-
+        futures = [executor.submit(move_item, item) for item in items]
         concurrent.futures.wait(futures)
+
+    remove_empty_dirs(source_directory)
 
     return {
         "total_files": total_files,
@@ -150,7 +164,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": initial_available_space / (1024 ** 3),
         "moved_files_gib": moved_file_sizes / (1024 ** 3),
-        "skipped_files": skipped_files_counter[0]  # Return the number of skipped files
+        "skipped_files": skipped_files_counter[0]
     }
 
 
@@ -160,50 +174,55 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
     initial_available_space = get_free_space(destination_directory)
     available_space = initial_available_space
-    skipped_files_counter = [0]  # Counter for skipped files
-    all_required_space = -1
-    actual_file_sizes = -1
-    copied_file_sizes = -1
+    skipped_files_counter = [0]
+    all_required_space = 0.0
+    actual_file_sizes = 0.0
+    copied_file_sizes = 0.0
 
-    def copy_item(s, d):
-        nonlocal available_space
-        nonlocal actual_file_sizes
-        nonlocal all_required_space
-        nonlocal copied_file_sizes
+    items = []
+    for root, dirs, files in os.walk(source_directory):
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+        files[:] = [f for f in files if not f.startswith('.')]
+
+        for d in dirs:
+            rel_path = os.path.relpath(os.path.join(root, d), source_directory)
+            items.append(rel_path)
+        for f in files:
+            rel_path = os.path.relpath(os.path.join(root, f), source_directory)
+            items.append(rel_path)
+
+    def sort_key(rel_path):
+        depth = len(rel_path.split(os.sep))
+        return (-depth, rel_path.lower())
+
+    items.sort(key=sort_key)
+
+    def copy_item(rel_path):
+        nonlocal available_space, actual_file_sizes, all_required_space, copied_file_sizes
+        s = os.path.join(source_directory, rel_path)
+        d = os.path.join(destination_directory, rel_path)
 
         if os.path.isdir(s):
             if not os.path.exists(d):
                 os.makedirs(d)
-            for item in os.listdir(s):
-                next_source = os.path.join(s, item)
-                next_destination = os.path.join(d, item)
-                copy_item(next_source, next_destination)
         else:
             file_size = os.path.getsize(s)
-            required_space = file_size * 3.5  # 350% of the original file size
+            required_space = file_size * 3.5
             actual_file_sizes += file_size
             all_required_space += required_space
 
             if available_space >= required_space:
                 available_space -= required_space
                 copied_file_sizes += file_size
+                os.makedirs(os.path.dirname(d), exist_ok=True)
                 shutil.copy(s, d)
                 file_counter[0] += 1
-                print_with_progress_files(logger, file_counter[0], total_files, header='INFO',
-                                          description='Copying file')
+                print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file')
             else:
-                skipped_files_counter[0] += 1  # Increment skipped files counter if space is insufficient
+                skipped_files_counter[0] += 1
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        futures = []
-        for item in os.listdir(source_directory):
-            if item.startswith('.'):  # Skip files or folders starting with a dot
-                continue
-            s = os.path.join(source_directory, item)
-            d = os.path.join(destination_directory, item)
-            future = executor.submit(copy_item, s, d)
-            futures.append(future)
-
+        futures = [executor.submit(copy_item, item) for item in items]
         concurrent.futures.wait(futures)
 
     return {
@@ -212,7 +231,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": initial_available_space / (1024 ** 3),
         "copied_files_gib": copied_file_sizes / (1024 ** 3),
-        "skipped_files": skipped_files_counter[0]  # Return the number of skipped files
+        "skipped_files": skipped_files_counter[0]
     }
 
 
@@ -299,6 +318,7 @@ def wait_for_stable_files(path):
                     stable_files.add(result)
 
         # Check again
+        time.sleep(2.5)
         files = []
         for dirpath, dirnames, filenames in os.walk(path):
             # Modify dirnames in-place to skip directories starting with a dot

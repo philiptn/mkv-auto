@@ -1341,8 +1341,7 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
                audio, audio_tracks_str,
                audio_default_track, default_audio_track_str] + [
                   subs, subtitle_tracks,
-                  subs_default_track, default_subs_track_str] + [
-                  filename]
+                  subs_default_track, default_subs_track_str] + [filename]
     # Remove empty entries
     command = [arg for arg in command if arg]
 

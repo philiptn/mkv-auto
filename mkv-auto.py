@@ -77,40 +77,40 @@ def mkv_auto(args):
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
     else:
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
-    done = False
-    while not done:
-        if move_files:
-            total_files = wait_for_stable_files(input_dir)
-            done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
-        else:
-            total_files = wait_for_stable_files(input_dir)
-            done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=total_files)
 
-        for dirpath, dirnames, filenames in os.walk(temp_dir):
-            filenames = [f for f in filenames if not f.startswith('.')]
+    if move_files:
+        remaining_files = wait_for_stable_files(input_dir)
+        while remaining_files:
+            files_in_temp = count_files(temp_dir)
+            all_files = remaining_files + files_in_temp
+            done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)
+            remaining_files = wait_for_stable_files(input_dir)
+    else:
+        remaining_files = wait_for_stable_files(input_dir)
+        done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=remaining_files)
 
-            if filenames:
-                if move_files:
-                    print_final_spin_files(logger, total_files, header='INFO', description='Moving file')
-                else:
-                    print_final_spin_files(logger, total_files, header='INFO', description='Copying file')
+    total_files = count_files(temp_dir)
 
-                if done_info['skipped_files'] == 0:
-                    custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                         f"Successfully moved {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
-                else:
-                    if done_info['skipped_files'] > 0:
-                        custom_print(logger, f"{GREY}[INFO]{RESET} "
-                                             f"Successfully moved {total_files - done_info['skipped_files']} "
-                                             f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
-                        custom_print(logger,
-                                     f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
-                                     f"had to be skipped due to insufficient storage capacity.")
-                        custom_print(logger,
-                                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
-                                     f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                                     f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
-                done = True
+    if move_files:
+        print_final_spin_files(logger, total_files, header='INFO', description='Moving file')
+    else:
+        print_final_spin_files(logger, total_files, header='INFO', description='Copying file')
+
+    method = 'moved' if move_files else 'copied'
+    if done_info['skipped_files'] == 0:
+        custom_print(logger, f"{GREY}[INFO]{RESET} "
+                             f"Successfully {method} {done_info['actual_file_sizes_gb']:.2f} GB to TEMP.")
+    elif done_info['skipped_files'] > 0:
+        custom_print(logger, f"{GREY}[INFO]{RESET} "
+                             f"Successfully {method} {total_files - done_info['skipped_files']} "
+                             f"{print_multi_or_single(total_files - done_info['skipped_files'], 'file')} ({done_info['moved_files_gib']:.2f} GB) to TEMP.")
+        custom_print(logger,
+                     f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
+                     f"had to be skipped due to insufficient storage capacity.")
+        custom_print(logger,
+                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                     f"{total_files} {print_multi_or_single(total_files, 'file')}), "
+                     f"only {done_info['available_space_gib']:.2f} GB is available in TEMP.")
 
     extract_archives(logger, temp_dir)
     process_extras(temp_dir)
@@ -263,23 +263,24 @@ def mkv_auto(args):
                 if os.path.exists(clear_temp_txt_file):
                     os.remove(clear_temp_txt_file)
                 partial_str = 'copied' if not move_files else 'moved'
-                custom_print(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
-                                     f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...\n")
+                print_no_timestamp(logger, '')
+                print_no_timestamp(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
+                                     f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...")
                 total_files_input = wait_for_stable_files(input_dir)
                 if not total_files_input:
                     for file in filenames_mkv_only:
                         shutil.move(os.path.join(dirpath, file), temp_dir)
-                exit(1)
             else:
                 # If anything were to fail, move files to output folder
                 custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
                                      f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
                 custom_print(logger, traceback.print_tb(e.__traceback__))
                 move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
-                print_no_timestamp(logger, '')
-                exit(1)
+
+            print_no_timestamp(logger, '')
             if not args.service:
                 show_cursor()
+            exit(1)
     exit(0)
 
 
