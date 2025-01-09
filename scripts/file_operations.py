@@ -162,7 +162,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
         "total_files": total_files,
         "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
-        "available_space_gib": available_space / (1024 ** 3),
+        "available_space_gib": initial_available_space / (1024 ** 3),
         "moved_files_gib": moved_file_sizes / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
     }
