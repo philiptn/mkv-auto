@@ -1107,9 +1107,8 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             break
 
     # Remove any subtitles that do not match the main audio language
-    if main_audio_language_subs_only:
-        main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
-        # Filter each subtitle list to only include items matching `main_audio_track_lang`
+    main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
+    if main_audio_language_subs_only and main_audio_track_lang in subs_track_languages:
         if subs_track_languages:
             filtered_subs = [
                 (lang, filetype, forced, track_id, name)
