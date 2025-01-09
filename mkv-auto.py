@@ -111,8 +111,8 @@ def mkv_auto(args):
                      f"had to be skipped due to insufficient storage capacity.")
         custom_print(logger,
                      f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB woulb be needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
-                     f"{total_files} {print_multi_or_single(total_files, 'file')}), "
-                     f"only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
+                     f"{total_files} {print_multi_or_single(total_files, 'file')}),")
+        custom_print(logger, f"{GREY}[INFO]{RESET} only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
 
     extract_archives(logger, temp_dir)
     process_extras(temp_dir)
