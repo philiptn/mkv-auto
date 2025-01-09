@@ -78,8 +78,6 @@ Tip: If you want to continuously monitor the progress of mkv-auto-service you ca
 
 ````bash
 # If you are logged in to the machine that is running the mkv-auto-service
-# The 'mkvslr' alias (mkv-auto-service-logs-realtime) will display the unbuffered console stream 
-# (including the animated spinner etc.), but it cannot show history back in time.
 # Press CTRL+C repeatedly to exit the view
 alias mkvsl='docker logs mkv-auto-service && docker attach --sig-proxy=false mkv-auto-service'
 
