@@ -81,16 +81,12 @@ Tip: If you want to continuously monitor the progress of mkv-auto-service you ca
 # The 'mkvslr' alias (mkv-auto-service-logs-realtime) will display the unbuffered console stream 
 # (including the animated spinner etc.), but it cannot show history back in time.
 # Press CTRL+C repeatedly to exit the view
-alias mkvslr='docker attach --sig-proxy=false mkv-auto-service"'
-alias mkvsl='docker logs -f mkv-auto-service"'
+alias mkvsl='docker logs mkv-auto-service && docker attach --sig-proxy=false mkv-auto-service'
 
 # If you want to check the progress, but you are on another machine. Replace "ubuntu-desktop"
 # with the machine/host that is running the mkv-auto-service container.
-mkvslr() {
-    ssh -t ubuntu-desktop 'docker attach --sig-proxy=false mkv-auto-service'
-}
 mkvsl() {
-    ssh -t ubuntu-desktop 'docker logs -f mkv-auto-service'
+    ssh -t ubuntu-desktop 'docker logs mkv-auto-service && docker attach --sig-proxy=false mkv-auto-service'
 }
 ````
 
@@ -110,7 +106,6 @@ To run the utility like a program using Docker, this can be done by using one of
 6. Check the `output/` folder for the finished files.
 
 If you would like to change the default behaviour of mkv-auto, make a copy of `defaults.ini` and rename it to `user.ini`. Adjust the settings to match your preferences. The same applies to the Subliminal [config](https://github.com/Diaoul/subliminal/blob/main/docs/config.toml), make a copy of `subliminal_defaults.toml` and name it `subliminal.toml`.
-
 
 #### Linux
 1. Make sure you have Docker Engine installed.
