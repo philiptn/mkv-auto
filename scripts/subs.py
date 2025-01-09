@@ -613,7 +613,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
 
 
 def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
-    limit_ocr_languages = check_config(config, 'subtitles', 'limit_ocr_languages')
+    ocr_languages = check_config(config, 'subtitles', 'ocr_languages')
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
     temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
@@ -635,8 +635,8 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
         base, _, forced = base_forced.rpartition('_')
 
         if file.endswith('.sup') or file.endswith('.sub'):
-            if limit_ocr_languages[0].lower() != 'none':
-                if language not in limit_ocr_languages:
+            if ocr_languages[0].lower() != 'all':
+                if language not in ocr_languages:
                     if is_non_empty_file(file):
                         final_subtitle = ''
                         original_subtitle = file

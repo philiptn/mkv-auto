@@ -165,12 +165,12 @@ def get_pan_filter(source_channels, layout):
         # Similar logic as before: boost FC, mix some FC into FL/FR, reduce surrounds.
         return (
             'pan=5.1|'
-            'FL=0.3*FL|'
-            'FR=0.3*FR|'
+            'FL=0.5*FL|'
+            'FR=0.5*FR|'
             'FC=0.7*FC|'
-            'LFE=0.2*LFE|'
-            'BL=0.2*BL|'
-            'BR=0.2*BR'
+            'LFE=0.3*LFE|'
+            'BL=0.3*BL|'
+            'BR=0.3*BR'
         )
 
     elif layout == '7.1':
@@ -179,14 +179,14 @@ def get_pan_filter(source_channels, layout):
         # keep LFE as is, and reduce the volume of surrounds and sides.
         return (
             'pan=7.1|'
-            'FL=0.3*FL|'
-            'FR=0.3*FR|'
+            'FL=0.5*FL|'
+            'FR=0.5*FR|'
             'FC=0.7*FC|'
-            'LFE=0.2*LFE|'
-            'BL=0.2*BL|'
-            'BR=0.2*BR|'
-            'SL=0.2*SL|'
-            'SR=0.2*SR'
+            'LFE=0.3*LFE|'
+            'BL=0.3*BL|'
+            'BR=0.3*BR|'
+            'SL=0.3*SL|'
+            'SR=0.3*SR'
         )
 
     elif layout == 'Stereo':
@@ -198,8 +198,8 @@ def get_pan_filter(source_channels, layout):
         if source_channels > 2:
             return (
                 'pan=stereo|'
-                'FL=0.3*FL+0.7*FC+0.2*BL+0.2*SL+0.2*LFE|'
-                'FR=0.3*FR+0.7*FC+0.2*BR+0.2*SR+0.2*LFE'
+                'FL=0.5*FL+0.7*FC+0.3*BL+0.3*SL+0.3*LFE|'
+                'FR=0.5*FR+0.7*FC+0.3*BR+0.3*SR+0.3*LFE'
             )
         else:
             return (
@@ -210,7 +210,7 @@ def get_pan_filter(source_channels, layout):
 
     elif layout == 'Mono':
         if source_channels > 2:
-            return 'pan=mono|FC=0.3*FL+0.3*FR+0.6*FC'
+            return 'pan=mono|FC=0.5*FL+0.5*FR+0.7*FC'
         else:
             return 'pan=mono|FC=0.7*FL+0.7*FR'
 
