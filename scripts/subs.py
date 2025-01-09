@@ -820,6 +820,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
     forced_subtitles_priority = check_config(config, 'subtitles', 'forced_subtitles_priority')
     main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
+    download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
 
     total_subs_tracks = 0
     pref_subs_langs = pref_langs
@@ -845,9 +846,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     needs_sdh_removal = False
     needs_convert = False
     needs_processing = False
-    srt_ass_track_removed = []
-    main_audio_track_lang = None
-
     missing_subs_langs = []
 
     # Get all subtitle codecs
@@ -1108,7 +1106,8 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
 
     # Remove any subtitles that do not match the main audio language
     main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
-    if main_audio_language_subs_only and main_audio_track_lang in subs_track_languages:
+    if (main_audio_language_subs_only and main_audio_track_lang in subs_track_languages
+            or main_audio_language_subs_only and download_missing_subs):
         if subs_track_languages:
             filtered_subs = [
                 (lang, filetype, forced, track_id, name)
