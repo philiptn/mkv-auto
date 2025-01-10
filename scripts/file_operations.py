@@ -138,7 +138,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
                 os.makedirs(d)
         else:
             file_size = os.path.getsize(s)
-            required_space = file_size * 3.5
+            required_space = file_size * 2.5
             actual_file_sizes += file_size
             all_required_space += required_space
 
@@ -207,7 +207,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
                 os.makedirs(d)
         else:
             file_size = os.path.getsize(s)
-            required_space = file_size * 3.5
+            required_space = file_size * 2.5
             actual_file_sizes += file_size
             all_required_space += required_space
 

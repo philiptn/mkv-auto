@@ -70,7 +70,7 @@ class ContinuousSpinner:
         if final_line:
             sys.stdout.write(f"\r{final_line}\n")
         else:
-            sys.stdout.write("\r \n")
+            sys.stdout.write("\n")
         sys.stdout.flush()
 
     def _spin(self):

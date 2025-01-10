@@ -1641,12 +1641,7 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
 
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        print('')
-        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
-        print(f"{RESET}")
-    result.check_returncode()
+    subprocess.run(command, capture_output=True, text=True)
 
     os.remove(filename)
     shutil.move(temp_filename, filename)

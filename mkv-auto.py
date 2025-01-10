@@ -51,8 +51,7 @@ def mkv_auto(args):
     if args.temp_dir:
         temp_dir = args.temp_dir
 
-    clear_temp_txt_file = os.path.join(temp_dir, '.clear-temp.txt')
-    if os.path.exists(temp_dir) and os.path.exists(clear_temp_txt_file):
+    if os.path.exists(temp_dir):
         try:
             shutil.rmtree(temp_dir)
         except:
@@ -110,9 +109,9 @@ def mkv_auto(args):
                      f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                      f"had to be skipped due to insufficient storage capacity.")
         custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB woulb be needed in total (350% of {done_info['actual_file_sizes_gb']:.2f} GB, "
-                     f"{total_files} {print_multi_or_single(total_files, 'file')}),")
-        custom_print(logger, f"{GREY}[INFO]{RESET} only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
+                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (250% of {done_info['actual_file_sizes_gb']:.2f} GB, "
+                     f"{total_files} {print_multi_or_single(total_files, 'file')}).")
+        custom_print(logger, f"{GREY}[INFO]{RESET} Only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
 
     extract_archives(logger, temp_dir)
     process_extras(temp_dir)
@@ -256,14 +255,8 @@ def mkv_auto(args):
             if not args.service:
                 show_cursor()
 
-            if not os.path.exists(clear_temp_txt_file):
-                with open(clear_temp_txt_file, "w") as file:
-                    file.write(str(filenames_mkv_only))
-
         except Exception as e:
             if isinstance(e, CorruptedFile):
-                if os.path.exists(clear_temp_txt_file):
-                    os.remove(clear_temp_txt_file)
                 partial_str = 'copied' if not move_files else 'moved'
                 print_no_timestamp(logger, '')
                 print_no_timestamp(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
