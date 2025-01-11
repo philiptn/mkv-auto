@@ -499,9 +499,9 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     audio_preferences = parse_preferred_codecs(pref_audio_formats)
     for transformation, codec, ch_str in audio_preferences:
         all_pref_settings_codecs.append(codec)
-    only_keep_original_track = True if len(all_pref_settings_codecs) == 1 and "ORIG" in all_pref_settings_codecs else False
+    copy_all_audio_tracks = True if len(all_pref_settings_codecs) == 1 and "COPY" in all_pref_settings_codecs else False
 
-    if len(all_pref_settings_codecs) == 1 and "ORIG" in all_pref_settings_codecs:
+    if len(all_pref_settings_codecs) == 1 and "COPY" in all_pref_settings_codecs:
         pref_audio_formats_found = True
     else:
         pref_audio_formats_found = False
@@ -691,9 +691,9 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             tracks_langs_to_be_converted = original_audio_track_languages
             tracks_names_to_be_converted = original_audio_track_names
 
-    # If the preferred audio formats only contains 'ORIG', then
+    # If the preferred audio formats only contains 'COPY', then
     # no tracks will need to be converted or extracted.
-    if only_keep_original_track and all_audio_track_ids:
+    if copy_all_audio_tracks and all_audio_track_ids:
         pref_audio_formats_found = True
         tracks_ids_to_be_converted = []
         tracks_langs_to_be_converted = []

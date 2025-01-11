@@ -432,7 +432,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     audio_preferences = parse_preferred_codecs(pref_audio_formats)
     for transformation, codec, ch_str in audio_preferences:
         all_pref_settings_codecs.append(codec)
-    disable_print = True if len(all_pref_settings_codecs) == 1 and ("ORIG" or "") in all_pref_settings_codecs else False
+    disable_print = True if len(all_pref_settings_codecs) == 1 and ("COPY" or "") in all_pref_settings_codecs else False
 
     if all(not bool for bool in need_processing_audio):
         disable_print = True
