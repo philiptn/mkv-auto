@@ -108,7 +108,6 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     skipped_files_counter = [0]
     all_required_space = 0.0
     actual_file_sizes = 0.0
-    moved_file_sizes = 0.0
 
     items = []
     for root, dirs, files in os.walk(source_directory):
@@ -129,7 +128,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     items.sort(key=sort_key)
 
     def move_item(rel_path):
-        nonlocal available_space, actual_file_sizes, all_required_space, moved_file_sizes
+        nonlocal available_space, actual_file_sizes, all_required_space
         s = os.path.join(source_directory, rel_path)
         d = os.path.join(destination_directory, rel_path)
 
@@ -139,12 +138,11 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
         else:
             file_size = os.path.getsize(s)
             required_space = file_size * 3.5
-            actual_file_sizes += file_size
             all_required_space += required_space
 
             if available_space >= all_required_space:
                 available_space -= file_size
-                moved_file_sizes += file_size
+                actual_file_sizes += file_size
                 os.makedirs(os.path.dirname(d), exist_ok=True)
                 shutil.move(s, d)
                 file_counter[0] += 1
@@ -163,7 +161,6 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
         "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": initial_available_space / (1024 ** 3),
-        "moved_files_gib": moved_file_sizes / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
     }
 
@@ -177,7 +174,6 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     skipped_files_counter = [0]
     all_required_space = 0.0
     actual_file_sizes = 0.0
-    copied_file_sizes = 0.0
 
     items = []
     for root, dirs, files in os.walk(source_directory):
@@ -198,7 +194,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     items.sort(key=sort_key)
 
     def copy_item(rel_path):
-        nonlocal available_space, actual_file_sizes, all_required_space, copied_file_sizes
+        nonlocal available_space, actual_file_sizes, all_required_space
         s = os.path.join(source_directory, rel_path)
         d = os.path.join(destination_directory, rel_path)
 
@@ -208,12 +204,11 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
         else:
             file_size = os.path.getsize(s)
             required_space = file_size * 3.5
-            actual_file_sizes += file_size
             all_required_space += required_space
 
             if available_space >= all_required_space:
                 available_space -= file_size
-                copied_file_sizes += file_size
+                actual_file_sizes += file_size
                 os.makedirs(os.path.dirname(d), exist_ok=True)
                 shutil.copy(s, d)
                 file_counter[0] += 1
@@ -230,7 +225,6 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
         "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": available_space / (1024 ** 3),
-        "copied_files_gib": copied_file_sizes / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
     }
 

@@ -377,14 +377,10 @@ def resync_srt_subs(max_threads, debug, input_file, subtitle_files):
 def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, retry_delay):
     base_lang_id_name_forced, _, original_extension = subtitle_filename.rpartition('.')
     base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-    try:
-        full_language = pycountry.languages.get(alpha_3=language).name
-    except:
-        full_language = ''
     base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-    base_forced, _, name = base_name_forced.rpartition('_')
-    # Remove starting and ending single-quotes
-    name_encoded = name[1:-1] if name.startswith("'") and name.endswith("'") else name
+    base_forced, _, name_encoded = base_name_forced.rpartition('_')
+    name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
+        "'") else name_encoded
     name = base64.b64decode(name_encoded).decode("utf-8")
     base, _, forced = base_forced.rpartition('_')
 
@@ -725,13 +721,9 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                               f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
         else:
             final_subtitle = ''
-            if name:
-                original_name_b64 = ''
-                name = ''
-            else:
-                original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
-                name = 'Original'
-            original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
+            name = pycountry.languages.get(alpha_2=language).name
+            name_b64 = base64.b64encode(name.encode("utf-8")).decode("utf-8")
+            original_subtitle = f"{base}_{forced}_'{name_b64}'_{track_id}_{language}.{original_extension}"
             os.rename(file, original_subtitle)
     finally:
         # Clean up the temporary directory

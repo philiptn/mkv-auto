@@ -363,7 +363,8 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, max_worker_threads, inp
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
-        futures = {executor.submit(trim_audio_and_subtitles_in_mkv_files_worker, debug, input_file, dirpath): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(trim_audio_and_subtitles_in_mkv_files_worker, debug, input_file, dirpath): index for
+                   index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -389,7 +390,6 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, max_worker_threads, inp
 
 
 def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
-
     input_file = os.path.join(dirpath, input_file)
     check_integrity_of_mkv(input_file)
 
@@ -447,7 +447,8 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
 
     if not disable_print:
         hide_cursor()
-        custom_print(logger, f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
+        custom_print(logger,
+                     f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
         for pref in audio_format_preferences_print:
             custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
 
@@ -457,7 +458,8 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(generate_audio_tracks_in_mkv_files_worker, debug, input_file, dirpath, internal_threads): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(generate_audio_tracks_in_mkv_files_worker, debug, input_file, dirpath,
+                                   internal_threads): index for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
@@ -487,7 +489,6 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
 
 
 def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, internal_threads):
-
     input_file = os.path.join(dirpath, input_file)
 
     ready_audio_extensions = []
@@ -549,7 +550,8 @@ def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, 
     description = "Extract subtitles"
 
     # Disable tqdm if there are no subtitle tracks to extract
-    disable_print = True if all(check_if_subs_in_mkv(os.path.join(dirpath, file)) == False for file in input_files) else False
+    disable_print = True if all(
+        check_if_subs_in_mkv(os.path.join(dirpath, file)) == False for file in input_files) else False
 
     # Calculate number of workers and internal threads
     num_workers = min(total_files, max_worker_threads)
@@ -563,7 +565,9 @@ def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, 
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(extract_subs_in_mkv_process_worker, debug, input_file, dirpath, internal_threads): index for index, input_file in enumerate(input_files)}
+        futures = {
+            executor.submit(extract_subs_in_mkv_process_worker, debug, input_file, dirpath, internal_threads): index for
+            index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
@@ -646,7 +650,8 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(convert_to_srt_process_worker, debug, input_file, dirpath, internal_threads, subtitle_files_list[index]): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(convert_to_srt_process_worker, debug, input_file, dirpath, internal_threads,
+                                   subtitle_files_list[index]): index for index, input_file in enumerate(input_files)}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -737,7 +742,8 @@ def get_subtitle_tracks_metadata_for_repack(logger, subtitle_files_list, max_wor
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(return_subtitle_metadata_worker, subtitle_files_list[index], internal_threads): index for index, input_file in enumerate(subtitle_files_list)}
+        futures = {executor.submit(return_subtitle_metadata_worker, subtitle_files_list[index], internal_threads): index
+                   for index, input_file in enumerate(subtitle_files_list)}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             try:
                 index = futures[future]
@@ -799,7 +805,8 @@ def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_proc
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(remove_sdh_process_worker, debug, list, internal_threads): index for index, list in enumerate(subtitle_files_to_process_list)}
+        futures = {executor.submit(remove_sdh_process_worker, debug, list, internal_threads): index for index, list in
+                   enumerate(subtitle_files_to_process_list)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
@@ -837,7 +844,8 @@ def remove_sdh_process_worker(debug, input_subtitles, internal_threads):
     return all_replacements
 
 
-def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_files,  dirpath, total_external_subs, all_missing_subs_langs):
+def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_files, dirpath, total_external_subs,
+                                    all_missing_subs_langs):
     total_files = len(input_files)
 
     # If no sub languages are missing, and no external subs are found, skip this process
@@ -861,8 +869,10 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
             if lang != 'none':
                 if any(sub for sub in total_external_subs):
                     input_file_base = re.sub(r'^[^/]+/', '', input_files[index]).replace(".mkv", "")
-                    if any(input_file_base in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in total_external_subs for sub in sublist):
-                        if not any(lang[:-1] in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in total_external_subs for sub in sublist):
+                    if any(input_file_base in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in
+                           total_external_subs for sub in sublist):
+                        if not any(lang[:-1] in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in
+                                   total_external_subs for sub in sublist):
                             truly_missing_subs_langs.append(lang[:-1])
                 else:
                     truly_missing_subs_langs.append(lang[:-1])
@@ -887,7 +897,9 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     # Use ThreadPoolExecutor to handle multithreading
     # Max workers is set to 1 to throttle downloads with Subliminal
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, input_file, dirpath, all_truly_missing_subs_langs[index], internal_threads): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, input_file, dirpath,
+                                   all_truly_missing_subs_langs[index], internal_threads): index for index, input_file
+                   in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -971,10 +983,12 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
         return_code = process.returncode
 
         if debug:
-            print(f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}\n\n{stderr.decode('utf-8')}{RESET}")
+            print(
+                f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}\n\n{stderr.decode('utf-8')}{RESET}")
 
         if os.path.exists(os.path.join(dirpath, f"{mkv_base}.{lang}.srt")):
-            shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"), os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
+            shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"),
+                        os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
             downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
         else:
             failed_downloads.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
@@ -1094,7 +1108,8 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
     return updated_filename
 
 
-def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, dirpath, audio_tracks_list, subtitle_tracks_list):
+def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, dirpath, audio_tracks_list,
+                              subtitle_tracks_list):
     total_files = len(input_files)
     num_workers = min(total_files, max_worker_threads)
 
@@ -1108,7 +1123,9 @@ def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, di
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(repack_mkv_tracks_process_worker, debug, input_file, dirpath, audio_tracks_list[index], subtitle_tracks_list[index]): index for index, input_file in enumerate(input_files)}
+        futures = {
+            executor.submit(repack_mkv_tracks_process_worker, debug, input_file, dirpath, audio_tracks_list[index],
+                            subtitle_tracks_list[index]): index for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -1140,7 +1157,6 @@ def repack_mkv_tracks_process_worker(debug, input_file, dirpath, audio_tracks, s
 
 
 def process_external_subs(logger, debug, max_worker_threads, dirpath, input_files, all_missing_subs_langs):
-
     total_files = len(input_files)
     subtitle_tracks_to_be_processed = [None] * total_files
     updated_all_missing_subs_langs = [None] * total_files
@@ -1157,7 +1173,9 @@ def process_external_subs(logger, debug, max_worker_threads, dirpath, input_file
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(process_external_subs_worker, debug, input_file, dirpath, all_missing_subs_langs[index]): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(process_external_subs_worker, debug, input_file, dirpath,
+                                   all_missing_subs_langs[index]): index for index, input_file in
+                   enumerate(input_files)}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
@@ -1183,73 +1201,60 @@ def process_external_subs(logger, debug, max_worker_threads, dirpath, input_file
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
+
     return subtitle_tracks_to_be_processed, updated_all_missing_subs_langs
 
 
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
-    mkv_base, _, mkv_extension = input_file.rpartition('.')
-    base_path, mkv_base_name = os.path.split(mkv_base)
-    srt_pattern = re.compile(f"{re.escape(mkv_base_name)}(\\.[a-zA-Z]{{2,3}})?\\.srt$")
-    no_country_code_pattern = re.compile(f"{re.escape(mkv_base_name)}\\.srt$")
-    standalone_srt_file = False
-    file_tag = check_config(config, 'general', 'file_tag')
-    pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
+    # Regular expression to match season and episode (e.g., S01E01)
+    pattern = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
 
-    all_srt_files = []
-    all_langs_found = []
+    # Match the season and episode in the .mkv file name
+    match = pattern.search(input_file)
+    if not match:
+        print("No season and episode pattern found in the .mkv file name.")
+        return
+
+    season, episode = match.groups()
+    season_episode = f's{season}e{episode}'.lower()
+
+    all_langs = []
+    all_sub_files = []
     updated_missing_subs_langs = []
 
-    # Find all SRT files matching the patterns
-    srt_files = []
-    for file in os.listdir(dirpath):
-        full_path = os.path.join(dirpath, file)
-        if srt_pattern.match(file):
-            srt_files.append(full_path)
+    # List all subtitle files in the folder
+    subtitle_files = [f for f in os.listdir(dirpath) if f.split('.')[-1] in ['srt', 'ass', 'sup']]
 
-    # Process each matching SRT file
-    if srt_files:
-        for index, srt_file in enumerate(srt_files):
-            file_name = os.path.basename(srt_file)
-            if no_country_code_pattern.match(file_name) or standalone_srt_file:
-                lang_code, full_language = detect_language_of_subtitle(srt_file)
-                if file_tag != "default":
-                    mkv_with_ext = replace_tags_in_file(f"{mkv_base_name}.mkv", file_tag)
-                else:
-                    mkv_with_ext = f"{mkv_base_name}.mkv"
-                mkv_base_name, _, ext = mkv_with_ext.rpartition('.')
-                new_srt_file_name = os.path.join(dirpath, f"{mkv_base_name}_0_''_{index + 10}_.{full_language}.srt")
-                shutil.move(srt_file, new_srt_file_name)
-                srt_file = new_srt_file_name
-                all_srt_files.append(srt_file)
+    for index, subtitle in enumerate(subtitle_files):
+        if season_episode in subtitle.lower():
+            subtitle_path = os.path.join(dirpath, subtitle)
+
+            # Check if a language code is already in the subtitle filename
+            lang_match = re.search(r'\.([a-z]{2,3})\.', subtitle, re.IGNORECASE)
+            if lang_match:
+                lang_code = lang_match.group(1)
             else:
-                base_and_lang, _, original_extension = srt_file.rpartition('.')
-                base, _, lang = base_and_lang.rpartition('.')
-                if file_tag != "default":
-                    base_with_ext = replace_tags_in_file(f"{base}.mkv", file_tag)
-                else:
-                    base_with_ext = f"{base}.mkv"
-                base, _, ext = base_with_ext.rpartition('.')
-                if len(lang) > 2:
-                    if pref_subs_langs:
-                        if lang in pref_subs_langs:
-                            new_srt_file_name = os.path.join(dirpath, f"{base}_0_''_{index + 10}_{lang}.srt")
-                            all_srt_files.append(new_srt_file_name)
-                            all_langs_found.append(lang)
-                            shutil.move(srt_file, new_srt_file_name)
-                else:
-                    if pref_subs_langs:
-                        lang_3_letter = pycountry.languages.get(alpha_2=lang).alpha_3
-                        if lang_3_letter in pref_subs_langs:
-                            new_srt_file_name = os.path.join(dirpath, f"{base}_0_''_{index + 10}_{lang_3_letter}.srt")
-                            all_srt_files.append(new_srt_file_name)
-                            all_langs_found.append(lang_3_letter)
-                            shutil.move(srt_file, new_srt_file_name)
-        for lang in missing_subs_langs:
-            if not lang in all_langs_found:
-                updated_missing_subs_langs.append(lang)
-        if not updated_missing_subs_langs:
-            updated_missing_subs_langs.append('none')
-    return all_srt_files, updated_missing_subs_langs
+                # Detect the language of the subtitle file
+                lang_code, full_lang = detect_language_of_subtitle(subtitle_path)
+            all_langs.append(lang_code)
+
+            language = pycountry.languages.get(alpha_2=lang_code)
+            output_name_b64 = base64.b64encode(language.name.encode("utf-8")).decode("utf-8")
+
+            new_subtitle_name = f"{os.path.splitext(input_file)[0]}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
+            new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
+            all_sub_files.append(new_subtitle_path)
+
+            os.rename(subtitle_path, new_subtitle_path)
+            break
+
+    for lang in missing_subs_langs:
+        if lang not in all_langs:
+            updated_missing_subs_langs.append(lang)
+    if not updated_missing_subs_langs:
+        updated_missing_subs_langs.append('none')
+
+    return all_sub_files, updated_missing_subs_langs
 
 
 def move_files_to_output_process(logger, debug, max_worker_threads, input_files, dirpath, all_dirnames, output_dir):
@@ -1267,7 +1272,8 @@ def move_files_to_output_process(logger, debug, max_worker_threads, input_files,
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(move_files_to_output_process_worker, debug, input_file, dirpath, all_dirnames, output_dir): input_file for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(move_files_to_output_process_worker, debug, input_file, dirpath, all_dirnames,
+                                   output_dir): input_file for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -1533,7 +1539,8 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
 
         paired = zip(sub_languages, sub_filetypes, sub_track_ids, sub_track_names, sub_track_forced)
         sorted_paired = sorted(paired, key=lambda x: get_priority_sub_langs(x[0]))
-        sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names, sorted_sub_track_forced = zip(*sorted_paired)
+        sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names, sorted_sub_track_forced = zip(
+            *sorted_paired)
 
         final_sub_languages = list(sorted_sub_languages)
         final_sub_filetypes = list(sorted_sub_filetypes)
@@ -1550,9 +1557,11 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             except ValueError:
                 return len(filetype_priority)  # Default priority for unknown file types
 
-        paired = zip(final_sub_languages, final_sub_filetypes, final_sub_track_ids, final_sub_track_names, final_sub_track_forced)
+        paired = zip(final_sub_languages, final_sub_filetypes, final_sub_track_ids, final_sub_track_names,
+                     final_sub_track_forced)
         sorted_paired = sorted(paired, key=lambda x: get_priority_sub_filetypes(x[1]))
-        sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names, sorted_sub_track_forced = zip(*sorted_paired)
+        sorted_sub_languages, sorted_sub_filetypes, sorted_sub_track_ids, sorted_sub_track_names, sorted_sub_track_forced = zip(
+            *sorted_paired)
 
         final_sub_languages = list(sorted_sub_languages)
         final_sub_filetypes = list(sorted_sub_filetypes)
