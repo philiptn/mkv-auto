@@ -1219,7 +1219,8 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
         season_episode = None
 
     # Normalize the base name to handle spaces or dots consistently
-    base_name = re.sub(r'[\s\.]+', ' ', os.path.splitext(input_file)[0]).strip()
+    base, extension = os.path.splitext(input_file)
+    base_name_normalized = re.sub(r'[\s\.]+', ' ', os.path.splitext(input_file)[0]).strip()
 
     all_langs = []
     all_sub_files = []
@@ -1235,7 +1236,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
         subtitle_path = os.path.join(dirpath, subtitle)
 
         # Match based on season/episode or normalized base name
-        if (season_episode and season_episode in subtitle.lower()) or normalized_subtitle.startswith(base_name) or base_name in normalized_subtitle:
+        if (season_episode and season_episode in subtitle.lower()) or normalized_subtitle.startswith(base_name_normalized) or base_name_normalized in normalized_subtitle:
 
             # Check if a language code is already in the subtitle filename
             lang_match = re.search(r'\.([a-z]{2,3})\.', subtitle, re.IGNORECASE)
@@ -1252,8 +1253,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
             language = pycountry.languages.get(alpha_2=lang_code)
             output_name_b64 = base64.b64encode(language.name.encode("utf-8")).decode("utf-8")
 
-            normalized_base_name = base_name.replace(' ', '.')
-            new_subtitle_name = f"{normalized_base_name}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
+            new_subtitle_name = f"{base}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
             new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
             all_sub_files.append(new_subtitle_path)
             os.rename(subtitle_path, new_subtitle_path)
