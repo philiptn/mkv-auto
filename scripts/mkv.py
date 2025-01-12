@@ -1251,7 +1251,11 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
             all_langs.append(lang_code)
 
             language = pycountry.languages.get(alpha_2=lang_code)
-            output_name_b64 = base64.b64encode(language.name.encode("utf-8")).decode("utf-8")
+            if language.name:
+                language_name = language.name
+            else:
+                language_name = ''
+            output_name_b64 = base64.b64encode(language_name.encode("utf-8")).decode("utf-8")
 
             new_subtitle_name = f"{base}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
             new_subtitle_path = os.path.join(dirpath, new_subtitle_name)

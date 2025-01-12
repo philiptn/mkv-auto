@@ -721,7 +721,10 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                               f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
         else:
             final_subtitle = ''
-            name = pycountry.languages.get(alpha_2=language).name
+            if len(language) > 2:
+                name = pycountry.languages.get(alpha_3=language).name
+            else:
+                name = pycountry.languages.get(alpha_2=language).name
             name_b64 = base64.b64encode(name.encode("utf-8")).decode("utf-8")
             original_subtitle = f"{base}_{forced}_'{name_b64}'_{track_id}_{language}.{original_extension}"
             os.rename(file, original_subtitle)
