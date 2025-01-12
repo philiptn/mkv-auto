@@ -1211,12 +1211,15 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 
     # Match the season and episode in the .mkv file name
     match = pattern.search(input_file)
-    if not match:
-        print("No season and episode pattern found in the .mkv file name.")
-        return
+    if match:
+        season, episode = match.groups()
+        season_episode = f's{season}e{episode}'.lower()
+    else:
+        # If no season and episode pattern, use the base name of the file
+        season_episode = None
 
-    season, episode = match.groups()
-    season_episode = f's{season}e{episode}'.lower()
+    # Normalize the base name to handle spaces or dots consistently
+    base_name = re.sub(r'[\s\.]+', ' ', os.path.splitext(input_file)[0]).strip()
 
     all_langs = []
     all_sub_files = []
@@ -1226,27 +1229,34 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
     subtitle_files = [f for f in os.listdir(dirpath) if f.split('.')[-1] in ['srt', 'ass', 'sup']]
 
     for index, subtitle in enumerate(subtitle_files):
-        if season_episode in subtitle.lower():
-            subtitle_path = os.path.join(dirpath, subtitle)
+        # Normalize subtitle name for comparison
+        normalized_subtitle = re.sub(r'[\s\.]+', ' ', os.path.splitext(subtitle)[0]).strip()
+
+        subtitle_path = os.path.join(dirpath, subtitle)
+
+        # Match based on season/episode or normalized base name
+        if (season_episode and season_episode in subtitle.lower()) or normalized_subtitle.startswith(base_name) or base_name in normalized_subtitle:
 
             # Check if a language code is already in the subtitle filename
             lang_match = re.search(r'\.([a-z]{2,3})\.', subtitle, re.IGNORECASE)
             if lang_match:
-                lang_code = lang_match.group(1)
+                if len(lang_match.group(1)) > 2:
+                    lang_code = pycountry.languages.get(alpha_3=lang_match.group(1)).alpha_2
+                else:
+                    lang_code = lang_match.group(1)
             else:
-                # Detect the language of the subtitle file
-                lang_code, full_lang = detect_language_of_subtitle(subtitle_path)
+                # If no lang code, assume English
+                lang_code = 'en'
             all_langs.append(lang_code)
 
             language = pycountry.languages.get(alpha_2=lang_code)
             output_name_b64 = base64.b64encode(language.name.encode("utf-8")).decode("utf-8")
 
-            new_subtitle_name = f"{os.path.splitext(input_file)[0]}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
+            new_subtitle_name = f"{base_name}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
             new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
             all_sub_files.append(new_subtitle_path)
 
             os.rename(subtitle_path, new_subtitle_path)
-            break
 
     for lang in missing_subs_langs:
         if lang not in all_langs:
