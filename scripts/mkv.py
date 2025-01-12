@@ -1252,10 +1252,10 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
             language = pycountry.languages.get(alpha_2=lang_code)
             output_name_b64 = base64.b64encode(language.name.encode("utf-8")).decode("utf-8")
 
-            new_subtitle_name = f"{base_name}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
+            normalized_base_name = base_name.replace(' ', '.')
+            new_subtitle_name = f"{normalized_base_name}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
             new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
             all_sub_files.append(new_subtitle_path)
-
             os.rename(subtitle_path, new_subtitle_path)
 
     for lang in missing_subs_langs:
@@ -1660,7 +1660,13 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
 
-    subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=True, text=True)
+
+    if result.returncode != 0 and not os.path.exists(temp_filename):
+        print('')
+        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
+        print(f"{RESET}")
+        result.check_returncode()
 
     os.remove(filename)
     shutil.move(temp_filename, filename)
