@@ -327,7 +327,7 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
                 name = 'Original'
 
-            if forced != '0' and bool(forced):
+            if forced == '1':
                 output_name = f'non-{main_audio_track_lang} dialogue'
                 output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
                 original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
@@ -388,7 +388,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
 
     # If the subtitle track is a forced track,
     # skip resyncing as these have tendency to get out of sync
-    if forced != '0' and bool(forced) or f'non- Dialogue' in name:
+    if forced == '1' or f'non- Dialogue' in name:
         return
 
     command = ["ffs", input_file, "--max-offset-seconds", "10",
@@ -558,7 +558,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                 output_subtitles = output_subtitles + [output_subtitle]
                 updated_subtitle_languages = updated_subtitle_languages + [language, language]
                 all_track_ids = all_track_ids + [track_id, track_id]
-                if 'forced' in name.lower() or (forced != '0' and bool(forced)):
+                if 'forced' in name.lower() or (forced == '1'):
                     all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
                                                          name if name else "Original"]
                     # Enable forced only for the generated file, not original
@@ -570,7 +570,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                 updated_sub_filetypes = updated_sub_filetypes + ['srt']
                 updated_subtitle_languages = updated_subtitle_languages + [language]
                 all_track_ids = all_track_ids + [track_id]
-                if 'forced' in name.lower() or (forced != '0' and bool(forced)):
+                if 'forced' in name.lower() or (forced == '1'):
                     all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue']
                     all_track_forced = all_track_forced + [1]
                 else:
@@ -664,7 +664,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
                 name = 'Original'
 
-            if forced != '0' and bool(forced):
+            if forced == '1':
                 output_name = f'non-{main_audio_track_lang} dialogue'
                 output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
                 original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
@@ -713,7 +713,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
 
             # Also rename .idx file if processing VobSub subtitles
             if file.endswith('.sub'):
-                if forced != '0' and bool(forced):
+                if forced == '1':
                     os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
                               f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
                 else:

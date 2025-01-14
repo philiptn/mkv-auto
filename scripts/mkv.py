@@ -10,7 +10,6 @@ import pycountry
 import concurrent.futures
 import base64
 from collections import defaultdict
-import flag
 
 from scripts.misc import *
 from scripts.audio import *
@@ -862,7 +861,6 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     for index, input_file in enumerate(input_files):
         input_file_with_path = os.path.join(dirpath, input_file)
         mkv_base, _, mkv_extension = input_file_with_path.rpartition('.')
-        base_path, mkv_base_name = os.path.split(mkv_base)
 
         truly_missing_subs_langs = []
         for lang in all_missing_subs_langs[index]:
@@ -932,7 +930,6 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     truly_missing_subs_count = len((set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist)))
 
     unique_items = set(item for sublist in all_truly_missing_subs_langs for item in sublist)
-    flag_map = {item: flag.flagize(f':{item.upper()}:') for item in unique_items}
 
     colors = [GREY]
     if len(unique_items) > len(colors):
@@ -942,7 +939,7 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     color_map = dict(zip(unique_items, color_cycle))
 
     unique_vals_print = " ".join(
-        f"{color_map[item]}|{RESET}{flag_map[item]}{color_map[item]}|{RESET}"
+        f"{color_map[item]}|{RESET}{item.upper()}{color_map[item]}|{RESET}"
         for item in unique_items
     )
 
