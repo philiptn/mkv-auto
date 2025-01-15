@@ -187,21 +187,22 @@ def mkv_auto(args):
         try:
             errored_ocr_list = []
             all_downloaded_subs = []
+            subtitle_files_to_process = []
 
             need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath)
-            filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
             audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath, need_processing_audio)
 
             if any(need_processing_subs):
+                if any(file.endswith(('.srt', '.ass', '.sub', '.idx', '.sup')) for file in filenames):
+                    total_external_subs, all_missing_subs_langs = process_external_subs(
+                        logger, debug, max_workers, dirpath, filenames_before_retag, all_missing_subs_langs)
+
                 all_subtitle_files = extract_subs_in_mkv_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
 
-                if not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs):
-                    if any(file.endswith('.srt') for file in filenames):
-                        total_external_subs, all_missing_subs_langs = process_external_subs(
-                            logger, debug, max_workers, dirpath, filenames_before_retag, all_missing_subs_langs
-                        )
-                        if not all(sub is None for sub in total_external_subs):
-                            all_subtitle_files = merge_subtitles_with_priority(all_subtitle_files, total_external_subs)
+                if all_subtitle_files and total_external_subs:
+                    all_subtitle_files = merge_subtitles_with_priority(all_subtitle_files, total_external_subs)
+                elif not all_subtitle_files and total_external_subs:
+                    all_subtitle_files = total_external_subs
 
                 if not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs:
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers, filenames_mkv_only, dirpath, total_external_subs,
@@ -214,8 +215,9 @@ def mkv_auto(args):
                     if any(sub for sub in subtitle_files):
                         resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
 
-                (subtitle_tracks_to_be_merged, subtitle_files_to_process,
-                 all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
+                if all_subtitle_files:
+                    (subtitle_tracks_to_be_merged, subtitle_files_to_process,
+                     all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
 
                 if (not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs)
                         and any(sub for sub in errored_ocr_list) and download_missing_subs):
@@ -243,6 +245,7 @@ def mkv_auto(args):
                     remove_all_subtitles):
                 repack_mkv_tracks_process(logger, debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
 
+            filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
             move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
 
             end_time = time.time()

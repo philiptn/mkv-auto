@@ -10,7 +10,6 @@ import pycountry
 import concurrent.futures
 import base64
 from collections import defaultdict
-
 from scripts.misc import *
 from scripts.audio import *
 from scripts.subs import *
@@ -217,7 +216,7 @@ def remove_all_mkv_track_tags(debug, filename):
                '--set', 'flag-default=1', '-e', 'info', '-s', 'title=']
 
     if debug:
-        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing track tags in mkv...")
+        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing track tags in mkv...")
         print('')
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
@@ -1217,7 +1216,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 
     # Normalize the base name to handle spaces or dots consistently
     base, extension = os.path.splitext(input_file)
-    base_name_normalized = re.sub(r'[\s\.]+', ' ', os.path.splitext(input_file)[0]).strip()
+    base_name_normalized = re.sub(r'[\s\.]+', ' ', os.path.splitext(os.path.basename(input_file))[0]).strip()
 
     all_langs = []
     all_sub_files = []
@@ -1233,22 +1232,27 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
         subtitle_path = os.path.join(dirpath, subtitle)
 
         # Match based on season/episode or normalized base name
-        if (season_episode and season_episode in subtitle.lower()) or normalized_subtitle.startswith(base_name_normalized) or base_name_normalized in normalized_subtitle:
+        if (season_episode and season_episode in subtitle.lower()) or normalized_subtitle.startswith(
+                base_name_normalized) or base_name_normalized in normalized_subtitle:
 
             # Check if a language code is already in the subtitle filename
-            lang_match = re.search(r'\.([a-z]{2,3})\.', subtitle, re.IGNORECASE)
+            lang_match = re.search(r'\.([a-z]{2,3})\.[^.]+$', subtitle, re.IGNORECASE)
             if lang_match:
-                if len(lang_match.group(1)) > 2:
-                    lang_code = pycountry.languages.get(alpha_3=lang_match.group(1)).alpha_2
+                if len(lang_match.group(1)) == 2:
+                    try:
+                        # Convert to 3-letter code
+                        lang_code = pycountry.languages.get(alpha_2=lang_match.group(1)).alpha_3
+                    except:
+                        lang_code = lang_match.group(1)
                 else:
                     lang_code = lang_match.group(1)
             else:
                 # If no lang code, assume English
-                lang_code = 'en'
+                lang_code = 'eng'
             all_langs.append(lang_code)
 
-            language = pycountry.languages.get(alpha_2=lang_code)
-            if language.name:
+            language = pycountry.languages.get(alpha_3=lang_code)
+            if language:
                 language_name = language.name
             else:
                 language_name = ''

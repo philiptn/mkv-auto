@@ -549,6 +549,12 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                 track_language = 'nor'
 
             if track_language in pref_audio_langs:
+                if 'original' in track_name.lower():
+                    original_audio_track_ids.append(track["id"])
+                    original_audio_track_names.append(track_name)
+                    original_audio_track_languages.append(track_language)
+                    original_audio_track_codecs.append(audio_codec)
+
                 # Only keep unique audio tracks that
                 # match language, differentiate based on name
                 add_track = False
@@ -559,11 +565,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
                 if add_track:
                     total_audio_tracks += 1
-                    if 'original' in track_name.lower():
-                        original_audio_track_ids.append(track["id"])
-                        original_audio_track_names.append(track_name)
-                        original_audio_track_languages.append(track_language)
-                        original_audio_track_codecs.append(audio_codec)
 
                     audio_track_ids.append(track["id"])
                     audio_track_languages.append(track_language)
@@ -583,6 +584,12 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                         default_audio_track_set = False
 
             elif track_language not in pref_audio_langs and not audio_track_ids:
+                if 'original' in track_name.lower():
+                    unmatched_original_audio_track_ids.append(track["id"])
+                    unmatched_original_audio_track_names.append(track_name)
+                    unmatched_original_audio_track_languages.append(track_language)
+                    unmatched_original_audio_track_codecs.append(audio_codec)
+
                 # Only keep unique audio tracks that
                 # match language, differentiate based on name
                 add_track = False
@@ -593,12 +600,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
                 if add_track:
                     total_audio_tracks += 1
-                    if 'original' in track_name.lower():
-                        unmatched_original_audio_track_ids.append(track["id"])
-                        unmatched_original_audio_track_names.append(track_name)
-                        unmatched_original_audio_track_languages.append(track_language)
-                        unmatched_original_audio_track_codecs.append(audio_codec)
-
                     unmatched_audio_track_ids.append(track["id"])
                     unmatched_audio_track_languages.append(track_language)
                     unmatched_audio_track_names.append(track_name)
@@ -678,7 +679,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
     # If original tracks are found, only keep those
     if original_audio_track_ids or unmatched_original_audio_track_ids:
-        if unmatched_original_audio_track_ids:
+        if unmatched_original_audio_track_ids and not original_audio_track_ids:
             all_audio_track_ids = unmatched_original_audio_track_ids
             default_audio_track = unmatched_original_audio_track_ids[0]
             tracks_ids_to_be_converted = unmatched_original_audio_track_ids

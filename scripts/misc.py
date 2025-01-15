@@ -365,16 +365,14 @@ def format_audio_preferences_print(audio_format_preferences):
     # Iterate through the preferences and format them
     for preference in audio_format_preferences:
         label, codec, channels = preference
+        codec_label = codec
+        label_text = label
 
         # Handle the label mapping
         if label in audio_label_map:
             label_text = audio_label_map[label]
-        elif codec in codec_label_map:
-            label_text = codec_label_map[codec]
-        elif label:
-            label_text = label  # If not in map, use the raw label
-        else:
-            label_text = None
+        if codec in codec_label_map:
+            codec_label = codec_label_map[codec]
 
         # Handle codec and channel configurations
         if codec and channels:
@@ -389,13 +387,13 @@ def format_audio_preferences_print(audio_format_preferences):
                     formatted_preferences.append(f"{label_text} ({channel_text})")
                 else:
                     formatted_preferences.append(f"{codec} ({channel_text})")
-        elif codec and codec != 'ORIG':
+        elif codec == 'ORIG':
+            formatted_preferences.append(codec_label)
+        elif codec:
             if label_text:
-                formatted_preferences.append(f"{label_text} ({codec})")
+                formatted_preferences.append(f"{label_text} ({codec_label})")
             else:
                 formatted_preferences.append(f"{codec}")
-        elif label_text:  # Only add the label text if it's not empty
-            formatted_preferences.append(label_text)
 
     # Add numbering to the formatted preferences
     tree_lines = []
@@ -894,6 +892,7 @@ config = {
         'resync_subtitles': get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true",
         'keep_original_subtitles': get_config('subtitles', 'KEEP_ORIGINAL_SUBTITLES', variables_defaults).lower() == "true",
         'forced_subtitles_priority': get_config('subtitles', 'FORCED_SUBTITLES_PRIORITY', variables_defaults),
+        'prioritize_subtitles': get_config('subtitles', 'PRIORITIZE_SUBTITLES', variables_defaults),
         'download_missing_subs': get_config('subtitles', 'DOWNLOAD_MISSING_SUBS', variables_defaults).lower() == "true",
         'remove_all_subtitles': get_config('subtitles', 'REMOVE_ALL_SUBTITLES', variables_defaults).lower() == "true",
         'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY', variables_defaults).lower() == "true",

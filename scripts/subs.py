@@ -421,34 +421,54 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
 
 def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
     updated_subs = []
+    prioritize_subtitles = check_config(config, 'subtitles', 'prioritize_subtitles')
 
-    for built_in, external in zip(all_subtitle_files, total_external_subs):
+    max_len = max(len(all_subtitle_files), len(total_external_subs))
+
+    for i in range(max_len):
+        built_in = all_subtitle_files[i] if i < len(all_subtitle_files) else []
+        external = total_external_subs[i] if i < len(total_external_subs) else []
+
         # Convert subtitle lists to dictionaries based on their language codes for comparison
         built_in_dict = {}
         for sub in built_in:
-            try:
-                lang_code = pycountry.languages.get(alpha_3=sub).alpha_2
-            except:
-                lang_code = sub[:-1]
-            built_in_dict[lang_code] = sub
+            lang_match = re.search(r'\_([a-z]{2,3})\.[^.]+$', sub, re.IGNORECASE)
+            if lang_match:
+                lang = lang_match.group(1)
+                built_in_dict[lang] = sub
 
         external_dict = {}
         for sub in external:
-            try:
-                lang_code = pycountry.languages.get(alpha_3=sub).alpha_2
-            except:
-                lang_code = sub[:-1]
-            external_dict[lang_code] = sub
+            lang_match = re.search(r'\_([a-z]{2,3})\.[^.]+$', sub, re.IGNORECASE)
+            if lang_match:
+                lang = lang_match.group(1)
+                external_dict[lang] = sub
 
-        # Prioritize external subtitles if they match built-in language codes
-        for lang_code in external_dict:
-            if lang_code in built_in_dict:
-                built_in_dict[lang_code] = external_dict[lang_code]
+        # Prioritize subtitles based on the prioritize_subtitles variable
+        if prioritize_subtitles.lower() == "external":
+            # External subtitles overwrite internal if they match language codes
+            for lang_code in external_dict:
+                if lang_code in built_in_dict:
+                    built_in_dict[lang_code] = external_dict[lang_code]
 
-        # Add unmatched external subtitles
-        for lang_code, sub in external_dict.items():
-            if lang_code not in built_in_dict:
-                built_in_dict[lang_code] = sub
+            # Add unmatched external subtitles
+            for lang_code, sub in external_dict.items():
+                if lang_code not in built_in_dict:
+                    built_in_dict[lang_code] = sub
+
+        elif prioritize_subtitles.lower() == "internal":
+            # Internal subtitles overwrite external if they match language codes
+            for lang_code in built_in_dict:
+                if lang_code in external_dict:
+                    external_dict[lang_code] = built_in_dict[lang_code]
+
+            # Add unmatched internal subtitles
+            for lang_code, sub in built_in_dict.items():
+                if lang_code not in external_dict:
+                    external_dict[lang_code] = sub
+
+            # Swap the updated dictionary to built_in_dict for final combination
+            built_in_dict = external_dict
 
         # Combine updated subtitle list
         updated_subs.append(list(built_in_dict.values()))
@@ -553,6 +573,11 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
         all_replacements = replacements + all_replacements
         if output_subtitle and output_subtitle not in ('ERROR', 'SKIP'):
+            full_language = pycountry.languages.get(alpha_3=language)
+            if full_language:
+                full_language = full_language.name
+            else:
+                full_language = ''
             if keep_original_subtitles:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
                 output_subtitles = output_subtitles + [output_subtitle]
@@ -564,7 +589,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                     # Enable forced only for the generated file, not original
                     all_track_forced = all_track_forced + [1, 0]
                 else:
-                    all_track_names = all_track_names + ['', name if name else "Original"]
+                    all_track_names = all_track_names + [full_language, name if name else "Original"]
                     all_track_forced = all_track_forced + [forced, forced]
             else:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt']
@@ -574,7 +599,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                     all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue']
                     all_track_forced = all_track_forced + [1]
                 else:
-                    all_track_names = all_track_names + ['']
+                    all_track_names = all_track_names + [full_language]
                     all_track_forced = all_track_forced + [forced]
         else:
             if output_subtitle in ('ERROR', 'SKIP'):
@@ -670,7 +695,11 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                 original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
                 final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
             else:
-                output_name = ''
+                full_language = pycountry.languages.get(alpha_3=language)
+                if full_language:
+                    output_name = full_language.name
+                else:
+                    output_name = ''
                 output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
                 original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
                 final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
