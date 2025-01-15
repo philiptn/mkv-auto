@@ -64,7 +64,7 @@ def process_file(file_path):
     if tag == 'Plex':
         # If the path is directly to a file, copy the file to mkv-auto input folder
         try:
-            subprocess.run(["cp", linux_path, f'{mkv_auto_folder_path}input/'])
+            subprocess.run(["cp", "-r", linux_path, f'{mkv_auto_folder_path}input/'])
         except Exception as e:
             print(f"\n[SERVICE] An error occurred while executing the command: {e}")
             os.remove(lock_file_path)  # Remove the lock file
