@@ -268,23 +268,23 @@ def print_with_progress_files(logger, current, total, header, description="Proce
         SPINNER.start()
 
 
-def print_final_spin_files(logger, total, header, description="Processing"):
+def print_final_spin_files(logger, current, total, header, description="Processing"):
     hide_cursor()
     global SPINNER
 
     if SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {total} of {total} {DONE}{CHECK}{RESET}"
+            f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
         )
         SPINNER.stop(final_line)
         SPINNER = None
 
-        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {total} of {total} {CHECK}")
-        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {total} of {total} {CHECK}")
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
         logger.color(
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {total} of {total} {DONE}{CHECK}{RESET}"
+            f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
         )
 
 
