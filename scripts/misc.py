@@ -731,7 +731,7 @@ def compact_names_list(names):
     return names
 
 
-def compact_episode_list(episodes):
+def compact_episode_list(episodes, zfill=False):
     # Summarize consecutive episode numbers as ranges.
     episodes = sorted(episodes)
     ranges = []
@@ -745,7 +745,17 @@ def compact_episode_list(episodes):
             range_start = range_end = episode
     ranges.append((range_start, range_end))
 
-    return ", ".join(f"{start}" if start == end else f"{start}-{end}" for start, end in ranges)
+    # Determine the padding logic
+    def format_episode(num):
+        if zfill:
+            return f"{num:02}" if num < 100 else f"{num:03}"
+        return str(num)
+
+    # Format the ranges with optional zfill
+    return ", ".join(
+        f"{format_episode(start)}" if start == end else f"{format_episode(start)}-{format_episode(end)}"
+        for start, end in ranges
+    )
 
 
 def print_media_info(logger, filenames):
@@ -873,6 +883,7 @@ config = {
         'keep_original': get_config('general', 'KEEP_ORIGINAL', variables_defaults).lower() == "true",
         'ini_temp_dir': get_config('general', 'TEMP_DIR', variables_defaults),
         'file_tag': get_config('general', 'FILE_TAG', variables_defaults),
+        'normalize_filenames': get_config('general', 'NORMALIZE_FILENAMES', variables_defaults).lower() == "true",
         'remove_samples': get_config('general', 'REMOVE_SAMPLES', variables_defaults).lower() == "true",
         'movies_folder': get_config('general', 'MOVIES_FOLDER', variables_defaults),
         'movies_hdr_folder': get_config('general', 'MOVIES_HDR_FOLDER', variables_defaults),

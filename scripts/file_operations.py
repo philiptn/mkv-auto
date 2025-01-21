@@ -231,7 +231,18 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
 def move_file_to_output(input_file_path, output_folder, folder_structure):
     filename = os.path.basename(input_file_path)
-    flatten_directories = True
+
+    normalize_filenames = check_config(config, 'general', 'normalize_filenames')
+
+    tv_shows = defaultdict(lambda: defaultdict(set))
+    tv_shows_extras = defaultdict(list)
+    tv_shows_hdr = defaultdict(lambda: defaultdict(set))
+    tv_shows_hdr_extras = defaultdict(list)
+    movies = []
+    movie_extras = defaultdict(list)
+    movies_hdr = []
+    movie_hdr_extras = defaultdict(list)
+    uncategorized = []
 
     # Step 1: Determine folder structure based on the current (possibly disguised) filename
     new_folders, new_filename = reformat_filename(filename, False)
@@ -252,12 +263,37 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
         # No match means no prefix was found, so it's not a processed extra
         restored_filename = filename
 
-    # Step 3: Construct the output_path using the obtained folder structure from reformat_filename
-    # and the restored filename
-    if flatten_directories:
-        output_path = os.path.join(output_folder, new_folders, restored_filename)
-    else:
-        output_path = os.path.join(output_folder, new_folders, *folder_structure, restored_filename)
+    if normalize_filenames:
+        file_info = reformat_filename(restored_filename, True)
+        media_type = file_info["media_type"]
+        media_name = file_info["media_name"]
+        base, ext = os.path.splitext(restored_filename)
+
+        if media_type in ['tv_show', 'tv_show_hdr']:
+            season, episodes = extract_season_episode(restored_filename)
+            if season and episodes:
+                tv_shows[media_name][season].update(episodes)
+            else:
+                uncategorized.append(media_name)
+        elif media_type in ['movie', 'movie_hdr']:
+                movies.append(media_name)
+        else:
+            uncategorized.append(media_name)
+
+        if tv_shows:
+            for show in tv_shows:
+                for season, episodes in sorted(tv_shows[show].items()):
+                    episode_list = compact_episode_list(episodes, True)
+                    formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
+                    restored_filename = f"{show} - S{formatted_season}E{episode_list}{ext}"
+        if movies:
+            for movie in movies:
+                restored_filename = f"{movie}{ext}"
+        if uncategorized:
+            for item in uncategorized:
+                restored_filename = f"{item}"
+
+    output_path = os.path.join(output_folder, new_folders, restored_filename)
 
     # Ensure directories exist
     directory_path = os.path.dirname(output_path)
