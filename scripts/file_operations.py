@@ -6,6 +6,7 @@ import zipfile
 from datetime import datetime
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from scripts.misc import *
 from scripts.logger import *
 
@@ -108,6 +109,8 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     skipped_files_counter = [0]
     all_required_space = 0.0
     actual_file_sizes = 0.0
+    space_lock = Lock()
+    file_counter_lock = Lock()
 
     items = []
     for root, dirs, files in os.walk(source_directory):
@@ -138,19 +141,23 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
         else:
             file_size = os.path.getsize(s)
             required_space = file_size * 3.5
-            all_required_space += required_space
 
-            if initial_available_space >= all_required_space:
-                available_space -= file_size
-                actual_file_sizes += file_size
-                os.makedirs(os.path.dirname(d), exist_ok=True)
-                shutil.move(s, d)
-                file_counter[0] += 1
-                print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file')
-            else:
-                skipped_files_counter[0] += 1
+            with space_lock:
+                all_required_space += required_space
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                if initial_available_space >= all_required_space:
+                    available_space -= file_size
+                    actual_file_sizes += file_size
+                    os.makedirs(os.path.dirname(d), exist_ok=True)
+
+                    shutil.move(s, d)
+                    with file_counter_lock:
+                        file_counter[0] += 1
+                        print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file')
+                else:
+                    skipped_files_counter[0] += 1
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(move_item, item) for item in items]
         concurrent.futures.wait(futures)
 
@@ -174,6 +181,8 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     skipped_files_counter = [0]
     all_required_space = 0.0
     actual_file_sizes = 0.0
+    space_lock = Lock()
+    file_counter_lock = Lock()
 
     items = []
     for root, dirs, files in os.walk(source_directory):
@@ -189,7 +198,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
     def sort_key(rel_path):
         depth = len(rel_path.split(os.sep))
-        return (-depth, rel_path.lower())
+        return -depth, rel_path.lower()
 
     items.sort(key=sort_key)
 
@@ -204,19 +213,23 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
         else:
             file_size = os.path.getsize(s)
             required_space = file_size * 3.5
-            all_required_space += required_space
 
-            if initial_available_space >= all_required_space:
-                available_space -= file_size
-                actual_file_sizes += file_size
-                os.makedirs(os.path.dirname(d), exist_ok=True)
-                shutil.copy(s, d)
-                file_counter[0] += 1
-                print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file')
-            else:
-                skipped_files_counter[0] += 1
+            with space_lock:
+                all_required_space += required_space
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                if initial_available_space >= all_required_space:
+                    available_space -= file_size
+                    actual_file_sizes += file_size
+                    os.makedirs(os.path.dirname(d), exist_ok=True)
+
+                    shutil.copy(s, d)
+                    with file_counter_lock:
+                        file_counter[0] += 1
+                        print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file')
+                else:
+                    skipped_files_counter[0] += 1
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(copy_item, item) for item in items]
         concurrent.futures.wait(futures)
 
@@ -227,6 +240,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
         "available_space_gib": available_space / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
     }
+
 
 
 def move_file_to_output(input_file_path, output_folder, folder_structure):
