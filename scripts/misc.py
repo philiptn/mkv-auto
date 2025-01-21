@@ -714,9 +714,14 @@ def show_cursor():
 
 
 def extract_season_episode(filename):
-    # Extract season and episode numbers from filenames with an S##E## pattern.
-    match = re.search(r'[sS](\d{2})[eE](\d{2})', filename)
-    return (int(match.group(1)), int(match.group(2))) if match else (None, None)
+    # Extract single or multi-episode patterns like S01E01 or S01E01-E02
+    match = re.search(r'[sS](\d{2})[eE](\d{2})(?:-[eE]?(\d{2}))?', filename)
+    if match:
+        season = int(match.group(1))
+        start_episode = int(match.group(2))
+        end_episode = int(match.group(3)) if match.group(3) else start_episode
+        return season, range(start_episode, end_episode + 1)
+    return None, None
 
 
 def compact_names_list(names):
@@ -767,18 +772,18 @@ def print_media_info(logger, filenames):
         is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
 
         if media_type in ['tv_show', 'tv_show_hdr']:
-            season, episode = extract_season_episode(filename)
+            season, episodes = extract_season_episode(filename)
             if is_extra:
                 if media_type == 'tv_show':
                     tv_shows_extras[media_name].append(filename)
                 else:
                     tv_shows_hdr_extras[media_name].append(filename)
             else:
-                if season and episode:
+                if season and episodes:
                     if media_type == 'tv_show':
-                        tv_shows[media_name][season].add(episode)
+                        tv_shows[media_name][season].update(episodes)
                     else:
-                        tv_shows_hdr[media_name][season].add(episode)
+                        tv_shows_hdr[media_name][season].update(episodes)
                 else:
                     uncategorized.append(media_name)
         elif media_type in ['movie', 'movie_hdr']:
