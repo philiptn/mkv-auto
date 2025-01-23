@@ -29,9 +29,12 @@ def convert_path(win_path):
             win_path = win_path.replace(drive_letter, linux_path, 1)
 
     # Replace backslashes with forward slashes
-    win_path = win_path.replace('\\', '/')
+    final_path = win_path.replace('\\', '/')
 
-    return win_path, is_directory
+    if not final_path.endswith('/'):
+        final_path = f"{final_path}/"
+
+    return final_path, is_directory
 
 
 def process_file(file_path):

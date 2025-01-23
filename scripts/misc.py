@@ -916,6 +916,5 @@ config = {
     }
 }
 
-# Calculate max_workers as 80% of the available logical cores
 max_cpu_usage = check_config(config, 'general', 'max_cpu_usage')
 max_workers = int(os.cpu_count() * int(max_cpu_usage) / 100)
