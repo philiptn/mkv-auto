@@ -115,6 +115,7 @@ def mkv_auto(args):
 
     extract_archives(logger, temp_dir)
     process_extras(temp_dir)
+    process_covers(temp_dir)
     flatten_directories(temp_dir)
 
     convert_all_videos_to_mkv(debug, temp_dir, args.silent)
@@ -150,14 +151,15 @@ def mkv_auto(args):
 
         # Ignore files that start with a dot
         filenames = [f for f in filenames if not f.startswith('.')]
+        filenames_covers = [f for f in filenames if f.lower().endswith(('.png', '.jpg'))]
         # Extract the directory path relative to the input directory
         relative_dir_path = os.path.relpath(dirpath, temp_dir)
         # Split the relative path into individual directories
         all_dirnames = relative_dir_path.split(os.sep)
+
         total_external_subs = []
-        # Remove all filenames that are not mkv or srt
+
         filenames = [f for f in filenames if f.endswith('.mkv') or f.endswith('.srt')]
-        # Remove all filenames that are not mkv
         filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
         filenames_before_retag = filenames_mkv_only
 
@@ -246,7 +248,8 @@ def mkv_auto(args):
                 repack_mkv_tracks_process(logger, debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
 
             filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
-            move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+            all_filenames = filenames_mkv_only + filenames_covers
+            move_files_to_output_process(logger, debug, max_workers, all_filenames, dirpath, all_dirnames, output_dir)
 
             end_time = time.time()
             processing_time = end_time - start_time

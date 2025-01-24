@@ -242,20 +242,13 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     }
 
 
-
 def move_file_to_output(input_file_path, output_folder, folder_structure):
     filename = os.path.basename(input_file_path)
 
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
 
     tv_shows = defaultdict(lambda: defaultdict(set))
-    tv_shows_extras = defaultdict(list)
-    tv_shows_hdr = defaultdict(lambda: defaultdict(set))
-    tv_shows_hdr_extras = defaultdict(list)
     movies = []
-    movie_extras = defaultdict(list)
-    movies_hdr = []
-    movie_hdr_extras = defaultdict(list)
     uncategorized = []
 
     # Step 1: Determine folder structure based on the current (possibly disguised) filename
@@ -269,6 +262,9 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
         # Check if this is indeed an extra by verifying it ends with an excluded tag
         if any(original_part.lower().endswith(tag) for tag in excluded_tags):
             # Restore the filename by removing the prefix
+            restored_filename = original_part + ext
+        # Covers etc. need to be restored to be moved to destination
+        elif ext.lower() in ('.jpg', '.png'):
             restored_filename = original_part + ext
         else:
             # Not an extra or doesn't end with excluded tag, no restore needed

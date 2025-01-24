@@ -94,6 +94,49 @@ excluded_tags = [
 ]
 
 
+def process_covers(input_folder):
+    # Recursively walk through the directories, skipping those starting with '.'
+    for root, dirs, files in os.walk(input_folder):
+        # Modify dirs in-place to skip hidden directories
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+
+        cover_files = []
+        normal_files = []
+
+        for f in files:
+            base, ext = os.path.splitext(f)
+
+            if ext.lower() in ['.jpg', '.png']:
+                cover_files.append(f)
+            else:
+                normal_files.append(f)
+
+        # If there are no extras or no normal files in this directory, no action needed
+        if not cover_files or not normal_files:
+            continue
+
+        identified_media = None
+        for nf in normal_files:
+            result = reformat_filename(nf, names_only=True)
+            if result['media_type'] in ['movie', 'movie_hdr', 'tv_show', 'tv_show_hdr']:
+                identified_media = result
+                break
+
+        if not identified_media:
+            continue
+
+        media_name = identified_media['media_name']
+
+        for cf in cover_files:
+            old_full_path = os.path.join(root, cf)
+
+            new_filename = f"{media_name} - {cf}"
+            new_full_path = os.path.join(root, new_filename)
+
+            if not os.path.exists(new_full_path):
+                os.rename(old_full_path, new_full_path)
+
+
 def process_extras(input_folder):
     # Recursively walk through the directories, skipping those starting with '.'
     for root, dirs, files in os.walk(input_folder):
@@ -572,7 +615,7 @@ def reformat_filename(filename, names_only):
     # Regular expression to match TV shows with season range, with or without year
     tv_show_pattern2 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})-s(\d{2})", re.IGNORECASE)
     # Regular expression to match movies
-    movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.(mkv|srt))$", re.IGNORECASE)
+    movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.*)$", re.IGNORECASE)
 
     # Regular expression to detect 2160p without h264 or x264
     hdr_pattern = re.compile(r"2160p", re.IGNORECASE)
