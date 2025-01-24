@@ -31,7 +31,7 @@ def convert_path(win_path):
     # Replace backslashes with forward slashes
     final_path = win_path.replace('\\', '/')
 
-    if not final_path.endswith('/'):
+    if not final_path.endswith('/') and is_directory:
         final_path = f"{final_path}/"
 
     return final_path, is_directory
