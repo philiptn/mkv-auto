@@ -284,13 +284,13 @@ def print_with_progress(logger, current, total, header, description="Processing"
     if current >= total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} ({current}/{total}) {DONE}{CHECK}{RESET}"
+            f"{description} {DONE}{CHECK}{RESET} {' ' * (total + 3)} "
         )
         SPINNER.stop(final_line)
         SPINNER = None
-        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) {CHECK}")
-        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} ({current}/{total}) {CHECK}")
-        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} ({current}/{total}) {DONE}{CHECK}{RESET}")
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {CHECK}")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {CHECK}")
+        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {DONE}{CHECK}{RESET}")
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
