@@ -639,7 +639,8 @@ def reformat_filename(filename, names_only):
 
     if tv_match1:
         # TV show with season and episode
-        showname = tv_match1.group(1).replace('.', ' ')
+        showname = tv_match1.group(1).replace('. ', '.')
+        showname = showname.replace('.', ' ')
         showname = showname.replace(' -', '')
         showname = to_sentence_case(showname)  # Transform to sentence case
         year = tv_match1.group(3)
@@ -668,7 +669,8 @@ def reformat_filename(filename, names_only):
 
     elif tv_match2:
         # TV show with season range
-        showname = tv_match2.group(1).replace('.', ' ')
+        showname = tv_match2.group(1).replace('. ', '.')
+        showname = showname.replace('.', ' ')
         showname = showname.replace(' -', '')
         showname = to_sentence_case(showname)  # Transform to sentence case
         year = tv_match2.group(3)
@@ -697,7 +699,8 @@ def reformat_filename(filename, names_only):
 
     elif movie_match:
         # Movie
-        title = movie_match.group(1).replace('.', ' ')
+        title = movie_match.group(1).replace('. ', '.')
+        title = title.replace('.', ' ')
         title = title.replace(' -', '')
         title = to_sentence_case(title)
         year = movie_match.group(2) or movie_match.group(3)

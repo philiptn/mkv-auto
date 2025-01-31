@@ -445,7 +445,6 @@ def fix_episodes_naming(directory):
                 else:
                     new_name = file_name
 
-                new_name = new_name.replace(". ", ".")
                 shutil.move(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
 
 
