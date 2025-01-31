@@ -422,21 +422,21 @@ def format_audio_preferences_print(audio_format_preferences):
             if channels == '2.0':
                 channel_text = "Stereo"
             else:
-                channel_text = f"Surround {channels}"
+                channel_text = f"{channels}"
             if label:
-                formatted_preferences.append(f"{label_text} ({codec}) - {channel_text}")
+                formatted_preferences.append(f"{label_text} ({codec_label} {channel_text})")
             else:
                 if label_text:
                     formatted_preferences.append(f"{label_text} ({channel_text})")
                 else:
-                    formatted_preferences.append(f"{codec} ({channel_text})")
+                    formatted_preferences.append(f"{codec_label} ({channel_text})")
         elif codec == 'ORIG':
             formatted_preferences.append(codec_label)
         elif codec:
             if label_text:
                 formatted_preferences.append(f"{label_text} ({codec_label})")
             else:
-                formatted_preferences.append(f"{codec}")
+                formatted_preferences.append(f"{codec_label}")
 
     # Add numbering to the formatted preferences
     tree_lines = []

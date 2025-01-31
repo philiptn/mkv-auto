@@ -442,8 +442,11 @@ def fix_episodes_naming(directory):
                     new_name = f"{show_name}.{se_case}{int(parts[season_index+1]):02}{ee_case}{int(parts[episode_index+1]):02}"
                     new_name += f".{post_episode}" if post_episode else ""
                     new_name += extension
+                else:
+                    new_name = file_name
 
-                    shutil.move(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
+                new_name = new_name.replace(". ", ".")
+                shutil.move(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
 
 
 def remove_ds_store(root_dir):
