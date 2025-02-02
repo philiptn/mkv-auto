@@ -1207,83 +1207,113 @@ def process_external_subs(logger, debug, max_worker_threads, dirpath, input_file
 
 
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
-    # Regular expression to match season and episode (e.g., S01E01)
     pattern = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
     input_file_with_path = os.path.join(dirpath, input_file)
 
-    # Match the season and episode in the .mkv file name
     match = pattern.search(input_file)
     if match:
         season, episode = match.groups()
         season_episode = f's{season}e{episode}'.lower()
     else:
-        # If no season and episode pattern, use the base name of the file
         season_episode = None
 
-    # Normalize the base name to handle spaces or dots consistently
     base, extension = os.path.splitext(input_file)
-    base_name_normalized = re.sub(r'[\s\.]+', ' ', os.path.splitext(os.path.basename(input_file))[0]).strip()
+    base_name_normalized = os.path.splitext(os.path.basename(input_file))[0].strip()
 
     all_langs = []
     all_sub_files = []
     updated_missing_subs_langs = []
+    num = 1000
 
-    # Get list of all subtitles, exluding any ".idx" tracks, as these will need to have the same ID as 'sub'
-    subtitle_files = [f for f in os.listdir(dirpath) if f.split('.')[-1] in ['srt', 'ass', 'sup', 'sub']]
+    # Collect and sort subtitle files
+    subtitle_files = sorted(
+        [f for f in os.listdir(dirpath) if f.split('.')[-1] in ['srt', 'ass', 'sup', 'sub', 'idx']]
+    )
 
-    for index, subtitle in enumerate(subtitle_files):
-        # Normalize subtitle name for comparison
-        normalized_subtitle = re.sub(r'[\s\.]+', ' ', os.path.splitext(subtitle)[0]).strip()
+    # Dictionary to store idx-sub pairs
+    subtitle_pairs = {}
+
+    for subtitle in subtitle_files:
+        sub_base, sub_ext = os.path.splitext(subtitle)
+
+        # Find an existing base that starts the same to pair .idx and .sub files
+        matched_base = None
+        for existing_base in subtitle_pairs.keys():
+            if sub_base.startswith(existing_base):  # Ensuring `.idx` and `.sub` match
+                matched_base = existing_base
+                break
+
+        if sub_ext == ".idx":
+            if matched_base:
+                subtitle_pairs[matched_base]["idx"] = subtitle
+            else:
+                subtitle_pairs[sub_base] = {"idx": subtitle, "num": None}
+        elif sub_ext == ".sub":
+            if matched_base:
+                subtitle_pairs[matched_base]["sub"] = subtitle
+            else:
+                subtitle_pairs[sub_base] = {"sub": subtitle, "num": None}
+
+    processed_subs = set()
+
+    for subtitle in subtitle_files:
+        if subtitle in processed_subs:
+            continue
+
+        sub_base, sub_ext = os.path.splitext(subtitle)
 
         subtitle_path = os.path.join(dirpath, subtitle)
 
-        # Match based on season/episode or normalized base name
-        if (season_episode and season_episode in subtitle.lower()) or normalized_subtitle.startswith(
-                base_name_normalized) or base_name_normalized in normalized_subtitle:
+        if (season_episode and season_episode in subtitle.lower()) or sub_base.startswith(
+                base_name_normalized) or base_name_normalized in sub_base:
 
-            # Check if a language code is already in the subtitle filename
             lang_match = re.search(r'\.([a-z]{2,3})\.[^.]+$', subtitle, re.IGNORECASE)
             if lang_match:
                 if len(lang_match.group(1)) == 2:
                     try:
-                        # Convert to 3-letter code
                         lang_code = pycountry.languages.get(alpha_2=lang_match.group(1)).alpha_3
                     except:
                         lang_code = lang_match.group(1)
                 else:
                     lang_code = lang_match.group(1)
             else:
-                # If no lang code, use language from main audio track language.
-                # Unless it is und, then assume English.
-                file_info, pretty = get_mkv_info(False, input_file_with_path, True)
+                file_info, pretty = get_mkv_info(False, input_file_with_path, False)
                 main_audio_track_lang = get_main_audio_track_language(file_info)
-                if main_audio_track_lang == "und":
-                    lang_code = 'eng'
-                else:
-                    lang_code = pycountry.languages.get(name=main_audio_track_lang).alpha_3
-            all_langs.append(lang_code)
+                lang_code = 'eng' if main_audio_track_lang == "und" else pycountry.languages.get(name=main_audio_track_lang).alpha_3
 
+            all_langs.append(lang_code)
             language = pycountry.languages.get(alpha_3=lang_code)
-            if language:
-                language_name = language.name
-            else:
-                language_name = ''
-            if subtitle.split('.')[-1] in ('sub', 'sup'):
+            language_name = language.name if language else ''
+
+            if sub_ext in ('.idx', '.sub', '.sup'):
                 language_name = ''
 
             output_name_b64 = base64.b64encode(language_name.encode("utf-8")).decode("utf-8")
 
-            new_subtitle_name = f"{base}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
-            new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
-            all_sub_files.append(new_subtitle_path)
-            os.rename(subtitle_path, new_subtitle_path)
+            # Ensure idx and sub files get the SAME num
+            if sub_base in subtitle_pairs:
+                if subtitle_pairs[sub_base]["num"] is None:
+                    subtitle_pairs[sub_base]["num"] = num  # Assign shared num for pair
+                    num += 1
 
-            # If the subtitle file is "sub", then the "idx" file should also be renamed with the same ID
-            if subtitle.split('.')[-1] == "sub":
-                idx_subtitle_name = f"{base}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.idx"
-                new_idx_subtitle_path = os.path.join(dirpath, idx_subtitle_name)
-                all_sub_files.append(new_idx_subtitle_path)
-                os.rename(os.path.splitext(subtitle_path)[0] + ".idx", new_idx_subtitle_path)
+                assigned_num = subtitle_pairs[sub_base]["num"]
+
+                for ext in ['idx', 'sub']:
+                    if ext in subtitle_pairs[sub_base]:
+                        orig_name = subtitle_pairs[sub_base][ext]
+                        new_name = f"{base}_0_'{output_name_b64}'_{assigned_num}_{lang_code}.{ext}"
+                        new_path = os.path.join(dirpath, new_name)
+                        all_sub_files.append(new_path)
+                        os.rename(os.path.join(dirpath, orig_name), new_path)
+                        processed_subs.add(orig_name)
+            else:
+                # For standalone subtitles (srt, ass, etc.)
+                new_subtitle_name = f"{base}_0_'{output_name_b64}'_{num}_{lang_code}.{sub_ext.lstrip('.')}"
+                new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
+                all_sub_files.append(new_subtitle_path)
+                os.rename(subtitle_path, new_subtitle_path)
+                processed_subs.add(subtitle)
+                num += 1  # Increment after standalone processing
 
     for lang in missing_subs_langs:
         if lang not in all_langs:
