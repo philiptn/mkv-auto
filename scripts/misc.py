@@ -68,9 +68,9 @@ class ContinuousSpinner:
         if self._thread:
             self._thread.join()
         if final_line:
-            sys.stdout.write(f"\r{final_line}    \n")
+            sys.stdout.write(f"\r{final_line}\n")
         else:
-            sys.stdout.write("\r     \n")
+            sys.stdout.write("\r\n")
         sys.stdout.flush()
 
     def _spin(self):
