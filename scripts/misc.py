@@ -284,7 +284,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
     if current == total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {DONE}{CHECK}{RESET} {' ' * (total + 3)} "
+            f"{description} {DONE}{CHECK}{RESET} {' ' * ((len({str(total)}) * 2) + 7)}"
         )
         SPINNER.stop(final_line)
         SPINNER = None

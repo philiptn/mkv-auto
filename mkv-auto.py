@@ -118,7 +118,7 @@ def mkv_auto(args):
     process_covers(temp_dir)
     flatten_directories(temp_dir)
 
-    convert_all_videos_to_mkv(debug, temp_dir, args.silent)
+    convert_all_videos_to_mkv(logger, debug, temp_dir, args.silent)
     rename_others_file_to_folder(temp_dir)
 
     if remove_samples:

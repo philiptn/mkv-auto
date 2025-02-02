@@ -24,11 +24,16 @@ def move_file(src, dst):
 
 
 def extract_archives(logger, input_folder):
+    header = "FILES"
+    description = "Extract archives"
+
     for root, dirs, files in os.walk(input_folder):
         # Filter for .rar and .zip files
         archive_files = [f for f in files if f.endswith('.rar') or f.endswith('.zip')]
 
         if archive_files:
+            completed_count = 0
+            print_with_progress(logger, completed_count, len(archive_files), header=header, description=description)
             for archive_file in archive_files:
                 archive_path = os.path.join(root, archive_file)
                 temp_extract_path = os.path.join(root, "temp_extracted")
@@ -62,6 +67,10 @@ def extract_archives(logger, input_folder):
                         tuple(f'.r{i:02d}' for i in range(100)))]
                     for sub_rar_file in sub_rar_files:
                         os.remove(os.path.join(root, sub_rar_file))
+
+                    completed_count += 1
+                    print_with_progress(logger, completed_count, len(archive_files), header=header,
+                                        description=description)
 
                 except Exception as e:
                     custom_print(logger, f"{RED}[ERROR]{RESET} Failed to extract {archive_file}: {e}")
@@ -273,6 +282,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
         # No match means no prefix was found, so it's not a processed extra
         restored_filename = filename
 
+    not_normalized_filename = restored_filename
     if normalize_filenames:
         file_info = reformat_filename(restored_filename, True)
         media_type = file_info["media_type"]
@@ -303,7 +313,12 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
             for item in uncategorized:
                 restored_filename = f"{item}"
 
-    output_path = os.path.join(output_folder, new_folders, restored_filename)
+    # If the same instance of the normalized filename is already in the destination folder,
+    # we need to skip the normalization as not to get any file conflicts.
+    if not os.path.exists(os.path.join(output_folder, new_folders, restored_filename)):
+        output_path = os.path.join(output_folder, new_folders, restored_filename)
+    else:
+        output_path = os.path.join(output_folder, new_folders, not_normalized_filename)
 
     # Ensure directories exist
     directory_path = os.path.dirname(output_path)

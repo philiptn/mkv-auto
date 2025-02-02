@@ -35,7 +35,10 @@ def convert_video_to_mkv(debug, video_file, output_file):
     os.remove(video_file)
 
 
-def convert_all_videos_to_mkv(debug, input_folder, silent):
+def convert_all_videos_to_mkv(logger, debug, input_folder, silent):
+    header = "FFMPEG"
+    description = "Convert media to MKV"
+
     video_files = []
     for root, dirs, files in os.walk(input_folder):
         for file in files:
@@ -45,6 +48,9 @@ def convert_all_videos_to_mkv(debug, input_folder, silent):
     total_files = len(video_files)
     if total_files == 0:
         return
+
+    completed_count = 0
+    print_with_progress(logger, completed_count, total_files, header=header, description=description)
 
     for i, video_file in enumerate(video_files, start=1):
         if video_file.endswith('.mp4'):
@@ -58,6 +64,8 @@ def convert_all_videos_to_mkv(debug, input_folder, silent):
         else:
             output_file = os.path.splitext(video_file)[0] + '.mkv'
             convert_video_to_mkv(debug, video_file, output_file)
+        completed_count += 1
+        print_with_progress(logger, completed_count, total_files, header=header, description=description)
 
 
 def format_tracks_as_blocks(json_data, line_width=80):

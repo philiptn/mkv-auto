@@ -167,7 +167,7 @@ def get_pan_filter(source_channels, layout):
             'pan=5.1|'
             'FL=0.5*FL|'
             'FR=0.5*FR|'
-            'FC=0.7*FC|'
+            'FC=0.6*FC|'
             'LFE=0.3*LFE|'
             'BL=0.3*BL|'
             'BR=0.3*BR'
@@ -181,7 +181,7 @@ def get_pan_filter(source_channels, layout):
             'pan=7.1|'
             'FL=0.5*FL|'
             'FR=0.5*FR|'
-            'FC=0.7*FC|'
+            'FC=0.6*FC|'
             'LFE=0.3*LFE|'
             'BL=0.3*BL|'
             'BR=0.3*BR|'
@@ -198,8 +198,8 @@ def get_pan_filter(source_channels, layout):
         if source_channels > 2:
             return (
                 'pan=stereo|'
-                'FL=0.5*FL+0.7*FC+0.3*BL+0.3*SL+0.3*LFE|'
-                'FR=0.5*FR+0.7*FC+0.3*BR+0.3*SR+0.3*LFE'
+                'FL=0.5*FL+0.6*FC+0.3*BL+0.3*SL+0.3*LFE|'
+                'FR=0.5*FR+0.6*FC+0.3*BR+0.3*SR+0.3*LFE'
             )
         else:
             return (
@@ -210,7 +210,7 @@ def get_pan_filter(source_channels, layout):
 
     elif layout == 'Mono':
         if source_channels > 2:
-            return 'pan=mono|FC=0.5*FL+0.5*FR+0.7*FC'
+            return 'pan=mono|FC=0.5*FL+0.5*FR+0.6*FC'
         else:
             return 'pan=mono|FC=0.7*FL+0.7*FR'
 
