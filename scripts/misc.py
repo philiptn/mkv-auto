@@ -805,8 +805,8 @@ def compact_episode_list(episodes, zfill=False):
 
 
 def print_media_info(logger, filenames):
-    # Ignore subtitles.
-    filenames = [f for f in filenames if not f.endswith('.srt')]
+    # Ignore subtitles
+    filenames = [f for f in filenames if f.endswith('.mkv')]
 
     tv_shows = defaultdict(lambda: defaultdict(set))
     tv_shows_extras = defaultdict(list)

@@ -545,7 +545,7 @@ def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, 
     all_subtitle_files = [None] * total_files
 
     header = "MKVEXTRACT"
-    description = "Extract subtitles"
+    description = "Extract internal subtitles"
 
     # Disable tqdm if there are no subtitle tracks to extract
     disable_print = True if all(
@@ -610,7 +610,12 @@ def extract_subs_in_mkv_process_worker(debug, input_file, dirpath, internal_thre
 
 
 def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpath, subtitle_files_list):
-    total_files = len(input_files)
+    sub_files = [
+        [f for f in sublist if isinstance(f, str) and f.endswith(('.mkv', '.srt', '.sup', '.ass', '.sub'))]
+        for sublist in subtitle_files_list
+    ]
+    total_files = len(sub_files)
+
     all_ready_subtitle_tracks = [None] * total_files
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
@@ -621,7 +626,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     disable_print = False
 
     # Disable print if all the subtitles to be processed are SRT (therefore no OCR is needed)
-    for subs in subtitle_files_list:
+    for subs in sub_files:
         if subs:
             if all(sub.endswith('.srt') for sub in subs):
                 disable_print = True
@@ -649,7 +654,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(convert_to_srt_process_worker, debug, input_file, dirpath, internal_threads,
-                                   subtitle_files_list[index]): index for index, input_file in enumerate(input_files)}
+                                   sub_files[index]): index for index, input_file in enumerate(input_files)}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -673,7 +678,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
                 # Fetch the variables that were passed to the thread
                 index = futures[future]
                 input_file = input_files[index]
-                subtitle_files = subtitle_files_list[index]
+                subtitle_files = sub_files[index]
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
@@ -1204,6 +1209,7 @@ def process_external_subs(logger, debug, max_worker_threads, dirpath, input_file
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
     # Regular expression to match season and episode (e.g., S01E01)
     pattern = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
+    input_file_with_path = os.path.join(dirpath, input_file)
 
     # Match the season and episode in the .mkv file name
     match = pattern.search(input_file)
@@ -1222,8 +1228,8 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
     all_sub_files = []
     updated_missing_subs_langs = []
 
-    # List all subtitle files in the folder
-    subtitle_files = [f for f in os.listdir(dirpath) if f.split('.')[-1] in ['srt', 'ass', 'sup']]
+    # Get list of all subtitles, exluding any ".idx" tracks, as these will need to have the same ID as 'sub'
+    subtitle_files = [f for f in os.listdir(dirpath) if f.split('.')[-1] in ['srt', 'ass', 'sup', 'sub']]
 
     for index, subtitle in enumerate(subtitle_files):
         # Normalize subtitle name for comparison
@@ -1247,8 +1253,14 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 else:
                     lang_code = lang_match.group(1)
             else:
-                # If no lang code, assume English
-                lang_code = 'eng'
+                # If no lang code, use language from main audio track language.
+                # Unless it is und, then assume English.
+                file_info, pretty = get_mkv_info(False, input_file_with_path, True)
+                main_audio_track_lang = get_main_audio_track_language(file_info)
+                if main_audio_track_lang == "und":
+                    lang_code = 'eng'
+                else:
+                    lang_code = pycountry.languages.get(name=main_audio_track_lang).alpha_3
             all_langs.append(lang_code)
 
             language = pycountry.languages.get(alpha_3=lang_code)
@@ -1256,12 +1268,22 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 language_name = language.name
             else:
                 language_name = ''
+            if subtitle.split('.')[-1] in ('sub', 'sup'):
+                language_name = ''
+
             output_name_b64 = base64.b64encode(language_name.encode("utf-8")).decode("utf-8")
 
             new_subtitle_name = f"{base}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.{subtitle.split('.')[-1]}"
             new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
             all_sub_files.append(new_subtitle_path)
             os.rename(subtitle_path, new_subtitle_path)
+
+            # If the subtitle file is "sub", then the "idx" file should also be renamed with the same ID
+            if subtitle.split('.')[-1] == "sub":
+                idx_subtitle_name = f"{base}_0_'{output_name_b64}'_{index + 1000}_{lang_code}.idx"
+                new_idx_subtitle_path = os.path.join(dirpath, idx_subtitle_name)
+                all_sub_files.append(new_idx_subtitle_path)
+                os.rename(os.path.splitext(subtitle_path)[0] + ".idx", new_idx_subtitle_path)
 
     for lang in missing_subs_langs:
         if lang not in all_langs:

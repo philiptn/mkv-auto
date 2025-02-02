@@ -421,7 +421,7 @@ def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, re
 
 def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
     updated_subs = []
-    prioritize_subtitles = check_config(config, 'subtitles', 'prioritize_subtitles')
+    prioritize_subtitles = check_config(config, 'subtitles', 'prioritize_subtitles').lower()
 
     max_len = max(len(all_subtitle_files), len(total_external_subs))
 
@@ -429,49 +429,41 @@ def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
         built_in = all_subtitle_files[i] if i < len(all_subtitle_files) else []
         external = total_external_subs[i] if i < len(total_external_subs) else []
 
-        # Convert subtitle lists to dictionaries based on their language codes for comparison
-        built_in_dict = {}
-        for sub in built_in:
-            lang_match = re.search(r'\_([a-z]{2,3})\.[^.]+$', sub, re.IGNORECASE)
-            if lang_match:
-                lang = lang_match.group(1)
-                built_in_dict[lang] = sub
+        def group_subs(subs):
+            """ Groups subtitles by language, handling .sub/.idx pairs correctly. """
+            sub_dict = {}
+            for sub in subs:
+                match = re.search(r'_([a-z]{2,3})\.(srt|ass|sup|sub|idx)$', sub, re.IGNORECASE)
+                if match:
+                    lang, ext = match.groups()
+                    if ext in {"sub", "idx"}:
+                        sub_dict.setdefault(lang, {}).update({ext: sub})
+                    else:
+                        sub_dict[lang] = {"file": sub}  # Other types (e.g., .srt) overwrite
+            return sub_dict
 
-        external_dict = {}
-        for sub in external:
-            lang_match = re.search(r'\_([a-z]{2,3})\.[^.]+$', sub, re.IGNORECASE)
-            if lang_match:
-                lang = lang_match.group(1)
-                external_dict[lang] = sub
+        built_in_dict, external_dict = group_subs(built_in), group_subs(external)
 
-        # Prioritize subtitles based on the prioritize_subtitles variable
-        if prioritize_subtitles.lower() == "external":
-            # External subtitles overwrite internal if they match language codes
-            for lang_code in external_dict:
-                if lang_code in built_in_dict:
-                    built_in_dict[lang_code] = external_dict[lang_code]
+        # Merge based on priority
+        final_dict = external_dict if prioritize_subtitles == "external" else built_in_dict
+        for lang in set(built_in_dict) | set(external_dict):
+            if lang in built_in_dict and lang in external_dict:
+                if prioritize_subtitles == "external":
+                    final_dict[lang] = external_dict[lang]
+                else:
+                    final_dict[lang] = built_in_dict[lang]
 
-            # Add unmatched external subtitles
-            for lang_code, sub in external_dict.items():
-                if lang_code not in built_in_dict:
-                    built_in_dict[lang_code] = sub
+        # Convert dictionary back to list
+        final_list = []
+        for subs in final_dict.values():
+            if "file" in subs:
+                final_list.append(subs["file"])  # Other subtitles like .srt
+            elif "sub" in subs and "idx" in subs:
+                final_list.extend([subs["idx"], subs["sub"]])  # Ensure sub+idx stay together
+            else:
+                final_list.extend(subs.values())  # If only .sub or only .idx exists
 
-        elif prioritize_subtitles.lower() == "internal":
-            # Internal subtitles overwrite external if they match language codes
-            for lang_code in built_in_dict:
-                if lang_code in external_dict:
-                    external_dict[lang_code] = built_in_dict[lang_code]
-
-            # Add unmatched internal subtitles
-            for lang_code, sub in built_in_dict.items():
-                if lang_code not in external_dict:
-                    external_dict[lang_code] = sub
-
-            # Swap the updated dictionary to built_in_dict for final combination
-            built_in_dict = external_dict
-
-        # Combine updated subtitle list
-        updated_subs.append(list(built_in_dict.values()))
+        updated_subs.append(final_list)
 
     return updated_subs
 
@@ -740,14 +732,10 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
                     os.rename(subtitle_tmp, final_subtitle)
                     replacements = replacements + current_replacements
 
-            # Also rename .idx file if processing VobSub subtitles
+            # Also rename .idx file if processing VobSub subtitles.
             if file.endswith('.sub'):
-                if forced == '1':
-                    os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
-                              f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
-                else:
-                    os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
-                              f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
+                os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
+                          f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.idx")
         else:
             final_subtitle = ''
             if forced == '1':

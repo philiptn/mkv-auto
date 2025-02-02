@@ -159,9 +159,8 @@ def mkv_auto(args):
 
         total_external_subs = []
 
-        filenames = [f for f in filenames if f.endswith('.mkv') or f.endswith('.srt')]
+        filenames = [f for f in filenames if f.endswith(('.mkv', '.srt', '.sup', '.ass', '.sub', '.idx'))]
         filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
-        filenames_before_retag = filenames_mkv_only
 
         download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
         remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
@@ -197,7 +196,7 @@ def mkv_auto(args):
             if any(need_processing_subs):
                 if any(file.endswith(('.srt', '.ass', '.sub', '.idx', '.sup')) for file in filenames):
                     total_external_subs, all_missing_subs_langs = process_external_subs(
-                        logger, debug, max_workers, dirpath, filenames_before_retag, all_missing_subs_langs)
+                        logger, debug, max_workers, dirpath, filenames_mkv_only, all_missing_subs_langs)
 
                 all_subtitle_files = extract_subs_in_mkv_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
 
