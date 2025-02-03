@@ -968,8 +968,8 @@ max_workers = int(os.cpu_count() * int(max_cpu_usage) / 100)
 
 
 def get_max_ocr_threads():
-    memory_per_ocr_thread_gb = 4.0  # Approximate memory usage per thread in GB
-    safety_margin_gb = 3  # Keep some memory free for the OS and other processes
+    memory_per_ocr_thread_gb = 3.7  # Approximate memory usage per thread in GB
+    safety_margin_gb = 1  # Keep some memory free for the OS and other processes
     """Calculate the maximum number of threads based on available memory."""
     available_memory_gb = psutil.virtual_memory().available / (1024 ** 3)  # Convert bytes to GB
     max_threads_based_on_memory = int((available_memory_gb - safety_margin_gb) / memory_per_ocr_thread_gb)
