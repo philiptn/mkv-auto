@@ -651,6 +651,7 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
     # Reduced threads to not overwhelm the system.
     num_workers = min(total_files, max_worker_threads // 1.7)
     internal_threads = max(1, max_worker_threads // num_workers)
+    internal_threads = min(get_max_ocr_threads(), internal_threads)
 
     header = "SUBTITLES"
     description = "Convert subtitles to SRT"
