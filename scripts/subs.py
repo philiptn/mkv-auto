@@ -539,6 +539,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     # Prepare to track the results in the order they were submitted
     results = [None] * len(subtitle_files)  # Placeholder list for results
 
+    max_threads = min(get_max_ocr_threads(), max_threads)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Submit all tasks and store futures in a dictionary with their index
         future_to_index = {

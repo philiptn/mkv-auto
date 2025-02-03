@@ -212,6 +212,8 @@ def get_main_audio_track_language(file_info):
         if track['type'] == 'audio':
             for key, value in track["properties"].items():
                 if key == 'language':
+                    if value == 'nob' or value == 'nno':
+                        value = 'nor'
                     language = pycountry.languages.get(alpha_3=value)
                     if language:
                         main_audio_track_lang = language.name
@@ -1294,7 +1296,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
             language_name = language.name if language else ''
 
             if sub_ext in ('.idx', '.sub', '.sup'):
-                language_name = ''
+                language_name = 'Original'
 
             output_name_b64 = base64.b64encode(language_name.encode("utf-8")).decode("utf-8")
 
