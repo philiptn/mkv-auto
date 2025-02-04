@@ -59,7 +59,7 @@ def process_file(file_path):
         return
 
     first_line = lines[0].strip()
-    tag, path = [item.strip().strip("'") for item in first_line.split(',')]
+    tag, path = [item.strip().strip("'") for item in first_line.split(',', 1)]
 
     linux_path, is_directory = convert_path(path)
 
