@@ -364,8 +364,6 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, max_worker_threads, inp
     header = "MKVMERGE"
     description = "Filter audio and subtitle tracks"
 
-    hide_cursor()
-
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description)
 
@@ -454,7 +452,6 @@ def generate_audio_tracks_in_mkv_files(logger, debug, max_worker_threads, input_
     description = f"Process audio {print_multi_or_single(len(audio_format_preferences), 'format')}"
 
     if not disable_print:
-        hide_cursor()
         custom_print(logger,
                      f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
         for pref in audio_format_preferences_print:
@@ -565,8 +562,6 @@ def extract_subs_in_mkv_process(logger, debug, max_worker_threads, input_files, 
     num_workers = min(total_files, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
-    hide_cursor()
-
     if not disable_print:
         # Initialize progress
         print_with_progress(logger, 0, total_files, header=header, description=description)
@@ -655,8 +650,6 @@ def convert_to_srt_process(logger, debug, max_worker_threads, input_files, dirpa
 
     header = "SUBTITLES"
     description = "Convert subtitles to SRT"
-
-    hide_cursor()
 
     if not disable_print:
         # Initialize progress
@@ -811,8 +804,6 @@ def remove_sdh_process(logger, debug, max_worker_threads, subtitle_files_to_proc
     header = "SUBTITLES"
     description = "Remove SDH from subtitles"
 
-    hide_cursor()
-
     if not disable_print:
         # Initialize progress
         print_with_progress(logger, 0, total_files, header=header, description=description)
@@ -901,8 +892,6 @@ def fetch_missing_subtitles_process(logger, debug, max_worker_threads, input_fil
     num_workers = min(total_files, max_worker_threads)
     # Half it due to OCR process internally using multiple threads, to not overwhelm the system
     internal_threads = max(1, max_worker_threads // num_workers)
-
-    hide_cursor()
 
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description)
@@ -1023,8 +1012,6 @@ def resync_sub_process(logger, debug, max_worker_threads, input_files, dirpath, 
     header = "FFSUBSYNC"
     description = "Synchronize subtitles"
 
-    hide_cursor()
-
     if not disable_print:
         # Initialize progress
         print_with_progress(logger, 0, total_files, header=header, description=description)
@@ -1074,8 +1061,6 @@ def remove_clutter_process(logger, debug, max_worker_threads, input_files, dirpa
 
     header = "MISC"
     description = "Remove clutter from MKV"
-
-    hide_cursor()
 
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description)
@@ -1128,8 +1113,6 @@ def repack_mkv_tracks_process(logger, debug, max_worker_threads, input_files, di
     header = "MKVMERGE"
     description = "Repack tracks into MKV"
 
-    hide_cursor()
-
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description)
 
@@ -1177,8 +1160,6 @@ def process_external_subs(logger, debug, max_worker_threads, dirpath, input_file
 
     header = "SUBTITLES"
     description = "Process external subtitles"
-
-    hide_cursor()
 
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description)
@@ -1342,8 +1323,6 @@ def move_files_to_output_process(logger, debug, max_worker_threads, input_files,
 
     header = "INFO"
     description = f"Move {print_multi_or_single(total_files, 'file')} to destination folder"
-
-    hide_cursor()
 
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description)
