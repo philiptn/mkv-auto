@@ -616,7 +616,7 @@ def reformat_filename(filename, names_only):
     movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.*)$", re.IGNORECASE)
 
     # Regular expression to detect 2160p without h264 or x264
-    hdr_pattern = re.compile(r"2160p", re.IGNORECASE)
+    hdr_pattern = re.compile(r"2160p|HDR|DV", re.IGNORECASE)
     non_hdr_pattern = re.compile(r"h264|x264", re.IGNORECASE)
 
     # Regular expression to detect editions: {edition-Director's Cut}, etc.

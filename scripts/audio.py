@@ -238,8 +238,8 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     # OPUS only supports up to Stereo audio
     if codec == "OPUS":
         chosen_channels = min(2, chosen_channels)
-    # AC3 and EAC3 only supports up to 5.1 audio
-    elif codec == "AC3" or codec == "EAC3":
+    # Other codecs only supports up to 5.1 audio
+    elif codec in ("AC3", "EAC3", "DTS"):
         chosen_channels = min(6, chosen_channels)
 
     if chosen_channels == 6:

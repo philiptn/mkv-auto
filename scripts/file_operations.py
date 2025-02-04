@@ -305,10 +305,16 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
                 for season, episodes in sorted(tv_shows[show].items()):
                     episode_list = compact_episode_list(episodes, True)
                     formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
-                    restored_filename = f"{show} - S{formatted_season}E{episode_list}{ext}"
+                    if media_type == 'tv_show_hdr':
+                        restored_filename = f"{show} - S{formatted_season}E{episode_list} - HDR{ext}"
+                    else:
+                        restored_filename = f"{show} - S{formatted_season}E{episode_list}{ext}"
         if movies:
             for movie in movies:
-                restored_filename = f"{movie}{ext}"
+                if media_type == 'movie_hdr':
+                    restored_filename = f"{movie} - HDR{ext}"
+                else:
+                    restored_filename = f"{movie}{ext}"
         if uncategorized:
             for item in uncategorized:
                 restored_filename = f"{item}"
