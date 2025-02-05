@@ -5,7 +5,7 @@ removing and/or converting any audio or subtitle tracks from the source video.
 ***Note***: If you are running Windows and just want to try the program, go [here](https://github.com/philiptn/mkv-auto?tab=readme-ov-file#windows).
 
 ### Features
-- Multithreaded file processing - uses up to 85% of available CPU (default)
+- Multithreaded file processing - uses up to 85% of available CPU and RAM (default)
 - Remove any audio or subtitle tracks from video that does not match user preferences
 - Automatically download missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal) (default enabled)
 - Generate audio tracks in preferred codec (DTS, AAC, AC3 etc.) if not already present in the media (FFmpeg)

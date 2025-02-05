@@ -284,7 +284,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
     if current == total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-            f"{description} {DONE}{CHECK}{RESET} {' ' * ((len({str(total)}) * 2) + 7)}"
+            f"{description} {DONE}{CHECK}{RESET} {' ' * ((len({str(total)}) * 2) + 8)}"
         )
         SPINNER.stop(final_line)
         SPINNER = None
@@ -933,7 +933,8 @@ config = {
         'tv_shows_folder': get_config('general', 'TV_SHOWS_FOLDER', variables_defaults),
         'tv_shows_hdr_folder': get_config('general', 'TV_SHOWS_HDR_FOLDER', variables_defaults),
         'others_folder': get_config('general', 'OTHERS_FOLDER', variables_defaults),
-        'max_cpu_usage': get_config('general', 'MAX_CPU_USAGE', variables_defaults)
+        'max_cpu_usage': get_config('general', 'MAX_CPU_USAGE', variables_defaults),
+        'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults)
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
@@ -966,8 +967,17 @@ max_workers = int(os.cpu_count() * int(max_cpu_usage) / 100)
 def get_max_ocr_threads():
     memory_per_ocr_thread_gb = 3.7  # Approximate memory usage per thread in GB
     safety_margin_gb = 1  # Keep some memory free for the OS and other processes
-    """Calculate the maximum number of threads based on available memory."""
-    available_memory_gb = psutil.virtual_memory().available / (1024 ** 3)  # Convert bytes to GB
-    max_threads_based_on_memory = int((available_memory_gb - safety_margin_gb) / memory_per_ocr_thread_gb)
+    max_ram_usage = int(check_config(config, 'general', 'max_ram_usage'))
+
+    total_memory_gb = psutil.virtual_memory().total / (1024 ** 3)  # Convert total bytes to GB
+    allowed_memory_gb = (max_ram_usage / 100) * total_memory_gb  # Compute allowed RAM based on max usage
+    available_memory_gb = psutil.virtual_memory().available / (1024 ** 3)  # Available memory in GB
+
+    # Use the lowest of allowed or actual available memory
+    usable_memory_gb = min(allowed_memory_gb, available_memory_gb) - safety_margin_gb
+
+    # Compute max threads that can fit within the usable memory
+    max_threads_based_on_memory = int(usable_memory_gb / memory_per_ocr_thread_gb)
+
     return max(1, max_threads_based_on_memory)  # Ensure at least one thread runs
 
