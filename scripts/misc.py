@@ -72,15 +72,13 @@ class ContinuousSpinner:
             sys.stdout.write(f"\r{final_line}\n")
         else:
             sys.stdout.write("\r\n")
-        sys.stdout.flush()
 
     def _spin(self):
         while not self._stop_event.is_set():
             frame = self.frames[self._idx]
             # Call the function that includes real-time UTC
             line_text = self._make_line()
-            sys.stdout.write(f"\r{line_text}{ACTIVE}{frame}{RESET} ")
-            sys.stdout.flush()
+            sys.stdout.write(f"\r{line_text}{ACTIVE}{frame}{RESET}  ")
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)
 
