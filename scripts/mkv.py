@@ -1423,20 +1423,13 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
 
 
 def check_integrity_of_mkv(filename):
-    base, extension = os.path.splitext(filename)
-    new_base = base + "_tmp"
-    temp_filename = new_base + extension
-
-    command = ["mkvmerge", "--output", temp_filename, filename]
+    command = ["mkvmerge", "--identify", filename]
 
     result = subprocess.run(command, capture_output=True, text=True)
-    os.remove(temp_filename)
     result.check_returncode()
 
 
 def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
-    logger = get_custom_logger()
-
     pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
     pref_subs_ext = check_config(config, 'subtitles', 'pref_subs_ext')

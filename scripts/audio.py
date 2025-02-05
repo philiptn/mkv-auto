@@ -289,6 +289,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     final_out_ext = final_codec if final_codec != 'orig' else extension
     final_out = f"{base}.{unique_id}.{lang}.{final_out_ext}"
     ffmpeg_final_opts = []
+    track_name_final = ''
 
     # Codec settings
     if codec == 'AAC':

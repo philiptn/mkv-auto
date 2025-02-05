@@ -319,12 +319,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
             for item in uncategorized:
                 restored_filename = f"{item}"
 
-    # If the same instance of the normalized filename is already in the destination folder,
-    # we need to skip the normalization as not to get any file conflicts.
-    if not os.path.exists(os.path.join(output_folder, new_folders, restored_filename)):
-        output_path = os.path.join(output_folder, new_folders, restored_filename)
-    else:
-        output_path = os.path.join(output_folder, new_folders, not_normalized_filename)
+    output_path = os.path.join(output_folder, new_folders, restored_filename)
 
     # Ensure directories exist
     directory_path = os.path.dirname(output_path)
