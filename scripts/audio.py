@@ -262,11 +262,20 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         if debug:
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
         subprocess.run(command, capture_output=True, text=True, check=True)
+
+        pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
+        audio_preferences = parse_preferred_codecs(pref_audio_formats)
+
         if track_name:
             if track_name == 'Original':
                 track_name = f"{track_name}"
             elif not track_name.endswith(' (Original)'):
-                track_name = f"{track_name} (Original)"
+                if len(audio_preferences) == 1:
+                    a, pref_codec, b = audio_preferences
+                    if len(audio_preferences) == 1 and pref_codec == "ORIG":
+                        pass
+                else:
+                    track_name = f"{track_name} (Original)"
             else:
                 track_name = f"{track_name}"
         else:
