@@ -69,7 +69,7 @@ class ContinuousSpinner:
         if self._thread:
             self._thread.join()
         if final_line:
-            sys.stdout.write(f"\033[?25l\r{final_line}\n")
+            sys.stdout.write(f"\033[?25l\r{final_line} \n")
         else:
             sys.stdout.write("\033[?25l\r\n")
 
