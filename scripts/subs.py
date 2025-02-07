@@ -934,6 +934,11 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             if forced_track_val or "forced" in track_name.lower() or track_name == f'non-{main_audio_track_lang} dialogue':
                 forced_track = True
                 forced_track_val = 1
+                if "forced" not in track_name.lower():
+                    if track_name and not track_name.endswith(" (Forced)"):
+                        track_name = f"{track_name} (Forced)"
+                    else:
+                        track_name = "Forced"
             else:
                 forced_track = False
 
@@ -1078,12 +1083,18 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         subs_track_names = subs_track_names + forced_track_names
         sub_filetypes = sub_filetypes + forced_sub_filetypes
         subs_track_forced = subs_track_forced + forced_sub_bool
-    else:
+    elif forced_subtitles_priority.lower() == 'first':
         subs_track_ids = forced_track_ids + subs_track_ids
         subs_track_languages = forced_track_languages + subs_track_languages
         subs_track_names = forced_track_names + subs_track_names
         sub_filetypes = forced_sub_filetypes + sub_filetypes
         subs_track_forced = forced_sub_bool + subs_track_forced
+    else:
+        subs_track_ids = subs_track_ids
+        subs_track_languages = subs_track_languages
+        subs_track_names = subs_track_names
+        sub_filetypes = sub_filetypes
+        subs_track_forced = subs_track_forced
 
     # If none of the subtitles matched, add the forced tracks as a last effort
     if len(subs_track_ids) == 0:
