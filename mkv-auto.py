@@ -78,7 +78,6 @@ def mkv_auto(args):
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
 
     done_info = {'skipped_files': 0}
-    total_data = 0
     if move_files:
         remaining_files = wait_for_stable_files(input_dir)
         while remaining_files:
@@ -86,13 +85,13 @@ def mkv_auto(args):
             all_files = remaining_files + files_in_temp
             done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)
             remaining_files = wait_for_stable_files(input_dir)
-            total_data += done_info['actual_file_sizes_gb']
             if done_info['skipped_files'] > 0:
                 break
     else:
         remaining_files = wait_for_stable_files(input_dir)
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=remaining_files)
-        total_data += done_info['actual_file_sizes_gb']
+
+    total_data = get_folder_size_gb(temp_dir)
 
     desc = "Moving file" if move_files else "Copying file"
     total_files_temp = count_files(temp_dir)
@@ -104,15 +103,15 @@ def mkv_auto(args):
     method = 'moved' if move_files else 'copied'
     if done_info['skipped_files'] == 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {total_data:.2f} GB to TEMP.")
+                             f"Successfully {method} {total_data} GB to TEMP.")
     elif done_info['skipped_files'] > 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {total_data:.2f} GB to TEMP.")
+                             f"Successfully {method} {total_data} GB to TEMP.")
         custom_print(logger,
                      f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                      f"had to be skipped due to insufficient storage capacity.")
         custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {total_data:.2f} GB, "
+                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {total_data} GB, "
                      f"{total_files} {print_multi_or_single(total_files, 'file')}).")
         custom_print(logger, f"{GREY}[INFO]{RESET} Only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
 

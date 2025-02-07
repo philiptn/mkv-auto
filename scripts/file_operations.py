@@ -23,6 +23,17 @@ def move_file(src, dst):
     shutil.move(src, dst)
 
 
+def get_folder_size_gb(folder_path):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        for file in filenames:
+            file_path = os.path.join(dirpath, file)
+            if os.path.exists(file_path):  # Ensure the file exists
+                total_size += os.path.getsize(file_path)
+
+    return round(total_size / (1024 ** 3), 2)  # Convert to GB and round to 2 decimal places
+
+
 def extract_archives(logger, input_folder):
     header = "FILES"
     description = "Extract archives"
