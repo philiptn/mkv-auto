@@ -10,8 +10,6 @@ import csv
 import re
 import concurrent.futures
 import random
-from langdetect import detect
-from langdetect.lang_detect_exception import LangDetectException
 import pycountry
 import concurrent.futures
 import xml.etree.ElementTree as ET
@@ -165,21 +163,6 @@ def run_with_xvfb(command):
         return -1
     finally:
         release_display(display_number)
-
-
-def detect_language_of_subtitle(subtitle_path):
-    try:
-        with open(subtitle_path, 'r', encoding='utf-8') as file:
-            subtitle_content = file.read()
-            # Detect language of the subtitle content
-            language_code = detect(subtitle_content)
-            # Get the full language name
-            language = pycountry.languages.get(alpha_2=language_code)
-            return language_code, language.name if language else "Unknown language"
-    except LangDetectException:
-        return "Language detection failed"
-    except FileNotFoundError:
-        return "File not found"
 
 
 def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
@@ -741,10 +724,13 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             if forced == '1':
                 name = f'non-{main_audio_track_lang} dialogue'
             else:
-                if len(language) > 2:
-                    name = pycountry.languages.get(alpha_3=language).name
-                else:
-                    name = pycountry.languages.get(alpha_2=language).name
+                try:
+                    if len(language) > 2:
+                        name = pycountry.languages.get(alpha_3=language).name
+                    else:
+                        name = pycountry.languages.get(alpha_2=language).name
+                except:
+                    name = ''
 
             name_b64 = base64.b64encode(name.encode("utf-8")).decode("utf-8")
             original_subtitle = f"{base}_{forced}_'{name_b64}'_{track_id}_{language}.{original_extension}"
@@ -836,7 +822,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
     forced_subtitles_priority = check_config(config, 'subtitles', 'forced_subtitles_priority')
     main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
-    download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
 
     total_subs_tracks = 0
     pref_subs_langs = pref_langs
@@ -870,7 +855,8 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             all_sub_filetypes.append(track['codec'])
 
     # Get main audio track language
-    main_audio_track_lang = get_main_audio_track_language(file_info)
+    main_audio_track_lang_name = get_main_audio_track_language(file_info)
+    main_audio_track_lang = pycountry.languages.get(name=main_audio_track_lang_name).alpha_3
 
     # Check for matching subs languages
     for track in file_info["tracks"]:
@@ -891,7 +877,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         all_sub_langs = []
         for track in file_info["tracks"]:
             if track["type"] == "subtitles":
-                track_language = ''
                 for key, value in track["properties"].items():
                     if key == 'language':
                         all_sub_langs.append(value)
@@ -909,9 +894,13 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
 
     # If none of the subs track matches the language preference,
     # set the preferred sub languages to the ones found, and run the detection
-    # using that as the reference.
-    if not subs_track_languages:
+    # using that as the reference. Unless 'main_audio_language_subs_only' is enabled,
+    # then it should use that as the wanted subtitle language.
+    if not subs_track_languages and not main_audio_language_subs_only:
         pref_subs_langs = unmatched_subs_track_languages
+    if main_audio_language_subs_only:
+        pref_subs_langs = [main_audio_track_lang]
+
     # Reset the found subs languages
     subs_track_languages = []
 
@@ -931,7 +920,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                 if key == 'track_name':
                     track_name = value
 
-            if forced_track_val or "forced" in track_name.lower() or track_name == f'non-{main_audio_track_lang} dialogue':
+            if forced_track_val or "forced" in track_name.lower() or track_name == f'non-{main_audio_track_lang_name} dialogue':
                 forced_track = True
                 forced_track_val = 1
                 if "forced" not in track_name.lower():
@@ -969,7 +958,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                         forced_sub_filetypes.append('sub')
                         forced_sub_bool.append(forced_track_val)
                     elif track["codec"] == "SubRip/SRT" and forced_sub_filetypes not in ('sup', 'sub', 'ass'):
-                        forced_track_names.append(f'non-{main_audio_track_lang} dialogue')
+                        forced_track_names.append(f'non-{main_audio_track_lang_name} dialogue')
                         forced_sub_bool.append(forced_track_val)
                         forced_sub_filetypes.append('srt')
                     elif track["codec"] == "SubStationAlpha":
@@ -1130,33 +1119,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         elif lang in pref_subs_langs:
             default_subs_track = track_id
             break
-
-    # Remove any subtitles that do not match the main audio language
-    main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
-    if (main_audio_language_subs_only and main_audio_track_lang in subs_track_languages
-            or main_audio_language_subs_only and download_missing_subs):
-        if subs_track_languages:
-            filtered_subs = [
-                (lang, filetype, forced, track_id, name)
-                for lang, filetype, forced, track_id, name in zip(
-                    subs_track_languages, sub_filetypes, subs_track_forced, subs_track_ids, subs_track_names
-                ) if lang == main_audio_track_lang
-            ]
-
-            if filtered_subs:
-                # Unzip the filtered lists back into separate variables
-                (subs_track_languages, sub_filetypes, subs_track_forced,
-                 subs_track_ids, subs_track_names) = map(list, zip(*filtered_subs))
-            else:
-                # Clear lists if no subtitles match the main audio language
-                subs_track_languages = []
-                sub_filetypes = []
-                subs_track_forced = []
-                subs_track_ids = []
-                subs_track_names = []
-        # Filter `missing_subs_langs` to only include languages matching `main_audio_track_lang`
-        if missing_subs_langs:
-            missing_subs_langs = [lang for lang in missing_subs_langs if lang == main_audio_track_lang]
 
     if len(subs_track_ids) != 0 and len(subs_track_ids) < total_subs_tracks:
         needs_processing = True

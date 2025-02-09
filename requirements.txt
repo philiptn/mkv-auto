@@ -1,17 +1,14 @@
 # For removing SDH (Deaf or Hard-of-Hearing) entries and other tags
 # https://pypi.org/project/subtitle-filter/
-# subtitle-filter==1.4.6
-subtitle-filter==1.4.9
+subtitle-filter==1.5.0
 
 # For progress bar support
 # https://pypi.org/project/tqdm/
-# tqdm==4.65.0
-tqdm==4.66.2
+tqdm==4.67.1
 
 # For parsing .ini files
 # https://pypi.org/project/configparser/
-# configparser==5.3.0
-configparser==6.0.1
+configparser==7.1.0
 
 # For converting Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT
 # https://pypi.org/project/asstosrt/
@@ -19,7 +16,7 @@ asstosrt==0.1.6
 
 # For automatically resyncing SRT subtitles to the audio stream
 # https://pypi.org/project/ffsubsync/
-ffsubsync==0.4.25
+ffsubsync==0.4.27
 
 # For removing all-uppercase letters in improperly formatted SDH subtitles
 # https://pypi.org/project/pysrt/
@@ -27,16 +24,11 @@ pysrt==1.1.2
 
 # Needed for unpacking archives
 # https://pypi.org/project/rarfile/
-# rarfile==4.0
 rarfile==4.2
-
-# For detecting the subtitle language of SRT files
-# https://pypi.org/project/langdetect/
-langdetect==1.0.9
 
 # For converting ISO 639-1 two-letter language codes to full country names
 # https://pypi.org/project/pycountry/
-pycountry==23.12.11
+pycountry==24.6.1
 
 # For downloading external subtitles
 # https://pypi.org/project/subliminal/

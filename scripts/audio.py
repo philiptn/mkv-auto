@@ -271,7 +271,6 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
                 track_name = f"{track_name}"
             elif not track_name.endswith(' (Original)'):
                 if len(audio_preferences) == 1:
-                    a, pref_codec, b = audio_preferences
                     if len(audio_preferences) == 1 and pref_codec == "ORIG":
                         pass
                 else:
@@ -279,7 +278,11 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
             else:
                 track_name = f"{track_name}"
         else:
-            track_name = "Original"
+            if len(audio_preferences) == 1:
+                if len(audio_preferences) == 1 and "ORIG" in audio_preferences:
+                    pass
+            else:
+                track_name = "Original"
         return final_out_ext, languages[index], track_name, unique_id
 
     # Unique temp wav

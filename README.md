@@ -202,9 +202,6 @@ https://github.com/byroot/pysrt
 Marko Kreen for rarfile (Unpacking `.rar` and `.zip` archives in Python)  
 https://github.com/markokr/rarfile
 
-Michal Mimino Danilak for langdetect (detecting the subtitle language of SRT files)  
-https://github.com/Mimino666/langdetect  
-
 Christian Theune and Nate Schimoller for pycountry (converting ISO two-letter language codes to country names)  
 https://github.com/pycountry/pycountry  
 
