@@ -858,6 +858,15 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     main_audio_track_lang_name = get_main_audio_track_language(file_info)
     main_audio_track_lang = pycountry.languages.get(name=main_audio_track_lang_name).alpha_3
 
+    # If none of the subs track matches the language preference,
+    # set the preferred sub languages to the ones found, and run the detection
+    # using that as the reference. Unless 'main_audio_language_subs_only' is enabled,
+    # then it should use that as the wanted subtitle language.
+    if not subs_track_languages and not main_audio_language_subs_only:
+        pref_subs_langs = unmatched_subs_track_languages
+    if main_audio_language_subs_only:
+        pref_subs_langs = [main_audio_track_lang]
+
     # Check for matching subs languages
     for track in file_info["tracks"]:
         if track["type"] == "subtitles":
@@ -891,15 +900,6 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
         missing_subs_langs = ['none']
     else:
         needs_processing = True
-
-    # If none of the subs track matches the language preference,
-    # set the preferred sub languages to the ones found, and run the detection
-    # using that as the reference. Unless 'main_audio_language_subs_only' is enabled,
-    # then it should use that as the wanted subtitle language.
-    if not subs_track_languages and not main_audio_language_subs_only:
-        pref_subs_langs = unmatched_subs_track_languages
-    if main_audio_language_subs_only:
-        pref_subs_langs = [main_audio_track_lang]
 
     # Reset the found subs languages
     subs_track_languages = []
