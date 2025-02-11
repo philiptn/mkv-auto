@@ -615,7 +615,7 @@ def reformat_filename(filename, names_only):
     # Regular expression to match movies
     movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.*)$", re.IGNORECASE)
 
-    hdr_pattern = re.compile(r"2160p| HDR|.HDR| DV|.DV")
+    hdr_pattern = re.compile(r"2160p| HDR|.HDR| DV |.DV.")
     non_hdr_pattern = re.compile(r"h264|x264", re.IGNORECASE)
 
     # Regular expression to detect editions: {edition-Director's Cut}, etc.
@@ -956,24 +956,50 @@ config = {
     }
 }
 
-max_cpu_usage = check_config(config, 'general', 'max_cpu_usage')
-max_workers = int(os.cpu_count() * int(max_cpu_usage) / 100)
+max_cpu_usage = int(check_config(config, 'general', 'max_cpu_usage'))
+available = max_cpu_usage - psutil.cpu_percent(interval=0.5)
+max_workers = int(os.cpu_count() * max(available, 0) / 100)
+if available > 0 and max_workers < 1:
+    max_workers = 1
 
 
 def get_max_ocr_threads():
-    memory_per_ocr_thread_gb = 3.7  # Approximate memory usage per thread in GB
-    safety_margin_gb = 1  # Keep some memory free for the OS and other processes
-    max_ram_usage = int(check_config(config, 'general', 'max_ram_usage'))
+    # --- CPU constraint ---
+    max_cpu_conf = int(check_config(config, 'general', 'max_cpu_usage'))  # e.g. 85 for 85%
+    current_cpu = psutil.cpu_percent(interval=0.5)
+    avail_cpu = max_cpu_conf - current_cpu
+    if avail_cpu > 0:
+        cpu_limit = int(os.cpu_count() * avail_cpu / 100)
+        cpu_limit = max(1, cpu_limit)  # if any CPU headroom exists, allow at least 1 thread
+    else:
+        cpu_limit = 0  # No available CPU capacity
 
-    total_memory_gb = psutil.virtual_memory().total / (1024 ** 3)  # Convert total bytes to GB
-    allowed_memory_gb = (max_ram_usage / 100) * total_memory_gb  # Compute allowed RAM based on max usage
-    available_memory_gb = psutil.virtual_memory().available / (1024 ** 3)  # Available memory in GB
+    # --- Memory constraint ---
+    memory_per_thread = 3.7  # Approximate GB used per thread
+    safety_margin = 1  # Reserve some GB for OS/other processes
+    max_ram_conf = int(check_config(config, 'general', 'max_ram_usage'))  # e.g. 85 for 85%
 
-    # Use the lowest of allowed or actual available memory
-    usable_memory_gb = min(allowed_memory_gb, available_memory_gb) - safety_margin_gb
+    vm = psutil.virtual_memory()
+    total_mem = vm.total / (1024 ** 3)  # Total memory in GB
+    allowed_mem = (max_ram_conf / 100) * total_mem
+    avail_mem = vm.available / (1024 ** 3)  # Currently available memory in GB
+    usable_mem = min(allowed_mem, avail_mem) - safety_margin
+    mem_limit = max(1, int(usable_mem / memory_per_thread))
 
-    # Compute max threads that can fit within the usable memory
-    max_threads_based_on_memory = int(usable_memory_gb / memory_per_ocr_thread_gb)
+    # The actual maximum threads is limited by both constraints.
+    return min(cpu_limit, mem_limit)
 
-    return max(1, max_threads_based_on_memory)  # Ensure at least one thread runs
 
+def get_ram_usage():
+    # Retrieve memory details
+    vm = psutil.virtual_memory()
+
+    # Convert bytes to gigabytes (1 GB = 1024^3 bytes)
+    total_gb = vm.total / (1024 ** 3)
+    used_gb = vm.used / (1024 ** 3)
+
+    return {
+        "used_ram": f"{used_gb:.0f}",
+        "total_ram": f"{total_gb:.0f}",
+        "percent_ram": f"{vm.percent:.0f}"
+    }

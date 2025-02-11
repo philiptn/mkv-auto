@@ -184,7 +184,10 @@ def mkv_auto(args):
                     custom_print(logger, f"{RED}[ERROR]{RESET} Remove this file from the input folder and try again.\n")
                     exit(1)
 
-        custom_print(logger, f"{GREY}[INFO]{RESET} Using {max_workers} CPU threads for processing.")
+        ram_info = get_ram_usage()
+        custom_print(logger, f"{GREY}[INFO]{RESET} Current system load:")
+        custom_print(logger, f"{GREY}[INFO]{RESET} CPU: {psutil.cpu_percent(interval=0.5):.0f} % | RAM: {ram_info['percent_ram']} % ")
+        custom_print(logger, f"{GREY}[INFO]{RESET} {max_workers} CPU {print_multi_or_single(max_workers, 'thread')} are available.")
         start_time = time.time()
 
         try:
