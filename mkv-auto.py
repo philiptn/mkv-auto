@@ -186,7 +186,7 @@ def mkv_auto(args):
 
         ram_info = get_ram_usage()
         custom_print(logger, f"{GREY}[INFO]{RESET} CPU {psutil.cpu_percent(interval=0.5):.0f} %  RAM {ram_info['percent_ram']} % ")
-        custom_print(logger, f"{GREY}[INFO]{RESET} {max_workers} CPU {print_multi_or_single(max_workers, 'thread')} can be used for processing.")
+        custom_print(logger, f"{GREY}[INFO]{RESET} {max_workers} CPU {print_multi_or_single(max_workers, 'thread')} available.")
         start_time = time.time()
 
         try:
