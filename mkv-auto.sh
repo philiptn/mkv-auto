@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-IMAGE_NAME="philiptn/mkv-auto"
+IMAGE_NAME="philiptn/mkv-auto:dev"
 HOST_FOLDER="$(pwd)"
 
 # Check if the user is a member of the docker group
