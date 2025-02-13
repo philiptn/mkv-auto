@@ -1003,3 +1003,14 @@ def get_ram_usage():
         "total_ram": f"{total_gb:.0f}",
         "percent_ram": f"{vm.percent:.0f}"
     }
+
+
+def get_block_gradient(num):
+    if int(num) < 5:
+        return "░"  # low
+    elif int(num) < 25:
+        return "▒"  # medium
+    elif int(num) < 50:
+        return "▓"  # high
+    else:
+        return "█"  # max
