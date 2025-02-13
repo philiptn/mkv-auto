@@ -185,8 +185,8 @@ def mkv_auto(args):
                     exit(1)
 
         ram_info = get_ram_usage()
-        custom_print(logger, f"{GREY}[INFO]{RESET} CPU {psutil.cpu_percent(interval=0.5):.0f} %  RAM {ram_info['percent_ram']} % ")
-        custom_print(logger, f"{GREY}[INFO]{RESET} {max_workers} CPU {print_multi_or_single(max_workers, 'thread')} available.")
+        custom_print(logger, f"{GREY}[INFO]{RESET} CPU {psutil.cpu_percent(interval=0.5):.0f} % {GREY}|{RESET} RAM {ram_info['percent_ram']} %")
+        custom_print(logger, f"{GREY}[INFO]{RESET} Using {max_workers} {print_multi_or_single(max_workers, 'worker')} based on system load.")
         start_time = time.time()
 
         try:
