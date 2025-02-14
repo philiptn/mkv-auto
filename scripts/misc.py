@@ -956,11 +956,14 @@ config = {
     }
 }
 
-max_cpu_usage = int(check_config(config, 'general', 'max_cpu_usage'))
-available = max_cpu_usage - psutil.cpu_percent(interval=0.5)
-max_workers = int(os.cpu_count() * max(available, 0) / 100)
-if available > 0 and max_workers < 1:
-    max_workers = 1
+
+def get_worker_thread_count():
+    max_cpu_usage = int(check_config(config, 'general', 'max_cpu_usage'))
+    available = max_cpu_usage - psutil.cpu_percent(interval=0.5)
+    max_workers = int(os.cpu_count() * max(available, 0) / 100)
+    if available > 0 and max_workers < 1:
+        max_workers = 1
+    return max_workers
 
 
 def get_max_ocr_threads():

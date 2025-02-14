@@ -185,6 +185,7 @@ def mkv_auto(args):
                     exit(1)
 
         ram_info = get_ram_usage()
+        max_workers = get_max_ocr_threads()
         custom_print(logger, f"{GREY}[INFO]{RESET} "
                              f"CPU {GREY}{get_block_gradient(psutil.cpu_percent(interval=0.5))}{RESET} {psutil.cpu_percent(interval=0.5):.0f}% "
                              f"RAM {GREY}{get_block_gradient(ram_info['percent_ram'])}{RESET} {ram_info['percent_ram']}%")
@@ -196,15 +197,15 @@ def mkv_auto(args):
             all_downloaded_subs = []
             subtitle_files_to_process = []
 
-            need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath)
-            audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(logger, debug, max_workers, filenames_mkv_only, dirpath, need_processing_audio)
+            need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(logger, debug, filenames_mkv_only, dirpath)
+            audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(logger, debug, filenames_mkv_only, dirpath, need_processing_audio)
 
             if any(need_processing_subs):
                 if any(file.endswith(('.srt', '.ass', '.sub', '.idx', '.sup')) for file in filenames):
                     total_external_subs, all_missing_subs_langs = process_external_subs(
-                        logger, debug, max_workers, dirpath, filenames_mkv_only, all_missing_subs_langs)
+                        logger, debug, dirpath, filenames_mkv_only, all_missing_subs_langs)
 
-                all_subtitle_files = extract_subs_in_mkv_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
+                all_subtitle_files = extract_subs_in_mkv_process(logger, debug, filenames_mkv_only, dirpath)
 
                 if all_subtitle_files and total_external_subs:
                     all_subtitle_files = merge_subtitles_with_priority(all_subtitle_files, total_external_subs)
@@ -212,7 +213,7 @@ def mkv_auto(args):
                     all_subtitle_files = total_external_subs
 
                 if not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs:
-                    all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers, filenames_mkv_only, dirpath, total_external_subs,
+                    all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, filenames_mkv_only, dirpath, total_external_subs,
                                                     all_missing_subs_langs)
                     all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, all_downloaded_subs)]
 
@@ -220,15 +221,15 @@ def mkv_auto(args):
                     # Filter the nested lists to only include .srt files
                     subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in all_subtitle_files]
                     if any(sub for sub in subtitle_files):
-                        resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
+                        resync_sub_process(logger, debug, filenames_mkv_only, dirpath, subtitle_files)
 
                 if all_subtitle_files:
                     (subtitle_tracks_to_be_merged, subtitle_files_to_process,
-                     all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_subtitle_files)
+                     all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, filenames_mkv_only, dirpath, all_subtitle_files)
 
                 if (not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs)
                         and any(sub for sub in errored_ocr_list) and download_missing_subs):
-                    all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, max_workers,
+                    all_downloaded_subs = fetch_missing_subtitles_process(logger, debug,
                                                                           filenames_mkv_only, dirpath,
                                                                           total_external_subs,
                                                                           all_missing_subs_langs)
@@ -240,21 +241,21 @@ def mkv_auto(args):
                         # Filter the nested lists to only include .srt files
                         subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in subtitle_files_to_process]
                         if any(sub for sub in subtitle_files):
-                            resync_sub_process(logger, debug, max_workers, filenames_mkv_only, dirpath, subtitle_files)
+                            resync_sub_process(logger, debug, filenames_mkv_only, dirpath, subtitle_files)
 
-                    subtitle_tracks_to_be_merged = get_subtitle_tracks_metadata_for_repack(logger, all_subtitle_files, max_workers)
+                    subtitle_tracks_to_be_merged = get_subtitle_tracks_metadata_for_repack(logger, all_subtitle_files)
 
                 if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
-                    remove_sdh_process(logger, debug, max_workers, subtitle_files_to_process)
+                    remove_sdh_process(logger, debug, subtitle_files_to_process)
 
             if (any(any(value for value in d.values()) for d in audio_tracks_to_be_merged) or
                     any(any(value for value in d.values()) for d in subtitle_tracks_to_be_merged) or
                     remove_all_subtitles):
-                repack_mkv_tracks_process(logger, debug, max_workers, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
+                repack_mkv_tracks_process(logger, debug, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
 
-            filenames_mkv_only = remove_clutter_process(logger, debug, max_workers, filenames_mkv_only, dirpath)
+            filenames_mkv_only = remove_clutter_process(logger, debug, filenames_mkv_only, dirpath)
             all_filenames = filenames_mkv_only + filenames_covers
-            move_files_to_output_process(logger, debug, max_workers, all_filenames, dirpath, all_dirnames, output_dir)
+            move_files_to_output_process(logger, debug, all_filenames, dirpath, all_dirnames, output_dir)
 
             end_time = time.time()
             processing_time = end_time - start_time
@@ -281,7 +282,7 @@ def mkv_auto(args):
                 custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
                                      f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
                 custom_print(logger, traceback.print_tb(e.__traceback__))
-                move_files_to_output_process(logger, debug, max_workers, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+                move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir)
 
             print_no_timestamp(logger, '')
             if not args.service:

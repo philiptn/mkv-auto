@@ -177,7 +177,10 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
                 else:
                     skipped_files_counter[0] += 1
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    max_worker_threads = get_max_ocr_threads()
+    num_workers = max(1, max_worker_threads)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(move_item, item) for item in items]
         concurrent.futures.wait(futures)
 
@@ -249,7 +252,10 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
                 else:
                     skipped_files_counter[0] += 1
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    max_worker_threads = get_max_ocr_threads()
+    num_workers = max(1, max_worker_threads)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(copy_item, item) for item in items]
         concurrent.futures.wait(futures)
 
@@ -376,7 +382,11 @@ def wait_for_stable_files(path):
                 return file_path  # Return stable file
             return None
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Calculate number of workers and internal threads
+        max_worker_threads = get_max_ocr_threads()
+        num_workers = max(1, max_worker_threads)
+
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
             future_to_file = {executor.submit(process_file, file): file for file in files if file not in stable_files}
 
             for future in as_completed(future_to_file):
@@ -392,7 +402,7 @@ def wait_for_stable_files(path):
             dirnames[:] = [d for d in dirnames if not d.startswith('.')]
             files.extend(os.path.join(dirpath, f) for f in filenames if not f.startswith('.'))
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
             future_to_file = {executor.submit(process_file, file): file for file in files if file not in stable_files}
 
             for future in as_completed(future_to_file):
