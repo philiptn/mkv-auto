@@ -446,7 +446,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
 
     # Calculate number of workers and internal threads
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "FFMPEG"
@@ -561,7 +561,7 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
 
     # Calculate number of workers and internal threads
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
     internal_threads = max(1, max_worker_threads // num_workers)
 
     if not disable_print:
@@ -648,7 +648,7 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     # Reduced threads to not overwhelm the system.
     max_worker_threads = get_max_ocr_threads()
     calculated_workers = int(max_worker_threads / 1.7)  # Convert to int, which floors the value.
-    num_workers = max(1, min(total_files, calculated_workers))  # Ensure num_workers is at least 1.
+    num_workers = max(1, max(total_files, calculated_workers))  # Ensure num_workers is at least 1.
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "SUBTITLES"
@@ -748,7 +748,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
 def get_subtitle_tracks_metadata_for_repack(logger, subtitle_files_list):
     all_ready_subtitle_tracks = [None] * len(subtitle_files_list)
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
     internal_threads = max(1, max_worker_threads // num_workers)
 
     # Use ThreadPoolExecutor to handle multithreading
@@ -803,7 +803,7 @@ def remove_sdh_process(logger, debug, subtitle_files_to_process_list):
         disable_print = False
 
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "SUBTITLES"
@@ -895,7 +895,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
 
     # Calculate number of workers and internal threads
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
     internal_threads = max(1, max_worker_threads // num_workers)
 
     # Initialize progress
@@ -1012,7 +1012,7 @@ def resync_sub_process(logger, debug, input_files, dirpath, subtitle_files_to_pr
         disable_print = False
 
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "FFSUBSYNC"
@@ -1064,7 +1064,7 @@ def remove_clutter_process(logger, debug, input_files, dirpath):
     all_updated_input_files = [None] * total_files
 
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
 
     header = "MISC"
     description = "Remove clutter from MKV"
@@ -1116,7 +1116,7 @@ def repack_mkv_tracks_process(logger, debug, input_files, dirpath, audio_tracks_
                               subtitle_tracks_list):
     total_files = len(input_files)
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
 
     header = "MKVMERGE"
     description = "Repack tracks into MKV"
@@ -1329,7 +1329,7 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
     total_files = len(input_files)
 
     max_worker_threads = get_max_ocr_threads()
-    num_workers = max(1, min(total_files, max_worker_threads))
+    num_workers = max(1, max(total_files, max_worker_threads))
 
     header = "INFO"
     description = f"Move {print_multi_or_single(total_files, 'file')} to destination folder"

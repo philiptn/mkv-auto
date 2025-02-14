@@ -185,7 +185,7 @@ def mkv_auto(args):
                     exit(1)
 
         ram_info = get_ram_usage()
-        max_workers = get_max_ocr_threads()
+        max_workers = get_worker_thread_count()
         custom_print(logger, f"{GREY}[INFO]{RESET} "
                              f"CPU {GREY}{get_block_gradient(psutil.cpu_percent(interval=0.5))}{RESET} {psutil.cpu_percent(interval=0.5):.0f}% "
                              f"RAM {GREY}{get_block_gradient(ram_info['percent_ram'])}{RESET} {ram_info['percent_ram']}%")
