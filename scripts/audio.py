@@ -289,10 +289,14 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     temp_wav = f"{base}.{unique_id}.{lang}.temp.wav"
 
     # Decode to WAV
-    decode_cmd = ["ffmpeg", "-i", file, "-c:a", "pcm_s16le", "-f", "wav", temp_wav]
+    decode_cmd = ["ffmpeg", "-i", file, "-c:a", "pcm_s16le", "-f", "wav"]
+    # If the source is Stereo, and the transformation is EOS, decrease
+    # the overall volume to make the EOS compressor not be too aggressive
+    if chosen_channels == 2 and transformation == "EOS":
+        decode_cmd += ['-af', 'volume=0.8']
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(decode_cmd)}{RESET}")
-    subprocess.run(decode_cmd, capture_output=True, text=True, check=True)
+    subprocess.run(decode_cmd + [temp_wav], capture_output=True, text=True, check=True)
 
     final_codec = codec.lower()
     if final_codec in ('orig', 'eos'):
