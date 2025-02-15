@@ -445,7 +445,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
         disable_print = True
 
     # Calculate number of workers and internal threads
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -560,7 +560,7 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
         check_if_subs_in_mkv(os.path.join(dirpath, file)) == False for file in input_files) else False
 
     # Calculate number of workers and internal threads
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -648,7 +648,7 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     # Reduced threads to not overwhelm the system.
     max_worker_threads = get_max_ocr_threads()
     calculated_workers = int(max_worker_threads / 1.7)  # Convert to int, which floors the value.
-    num_workers = max(1, max(total_files, calculated_workers))  # Ensure num_workers is at least 1.
+    num_workers = max(1, calculated_workers)  # Ensure num_workers is at least 1.
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "SUBTITLES"
@@ -747,7 +747,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
 
 def get_subtitle_tracks_metadata_for_repack(logger, subtitle_files_list):
     all_ready_subtitle_tracks = [None] * len(subtitle_files_list)
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -802,7 +802,7 @@ def remove_sdh_process(logger, debug, subtitle_files_to_process_list):
     else:
         disable_print = False
 
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -894,7 +894,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
         shutil.copy('subliminal_defaults.toml', os.path.join(dirpath, 'subliminal.toml'))
 
     # Calculate number of workers and internal threads
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -1011,7 +1011,7 @@ def resync_sub_process(logger, debug, input_files, dirpath, subtitle_files_to_pr
     else:
         disable_print = False
 
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -1063,7 +1063,7 @@ def remove_clutter_process(logger, debug, input_files, dirpath):
     total_files = len(input_files)
     all_updated_input_files = [None] * total_files
 
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
     header = "MISC"
@@ -1115,7 +1115,7 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
 def repack_mkv_tracks_process(logger, debug, input_files, dirpath, audio_tracks_list,
                               subtitle_tracks_list):
     total_files = len(input_files)
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
     header = "MKVMERGE"
@@ -1164,7 +1164,7 @@ def process_external_subs(logger, debug, dirpath, input_files, all_missing_subs_
     subtitle_tracks_to_be_processed = [None] * total_files
     updated_all_missing_subs_langs = [None] * total_files
 
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = min(total_files, max_worker_threads)
 
     header = "SUBTITLES"
@@ -1328,7 +1328,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnames, output_dir):
     total_files = len(input_files)
 
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
     header = "INFO"

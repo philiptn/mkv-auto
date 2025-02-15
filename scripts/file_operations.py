@@ -177,7 +177,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
                 else:
                     skipped_files_counter[0] += 1
 
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -252,7 +252,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
                 else:
                     skipped_files_counter[0] += 1
 
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -383,7 +383,7 @@ def wait_for_stable_files(path):
             return None
 
         # Calculate number of workers and internal threads
-        max_worker_threads = get_max_ocr_threads()
+        max_worker_threads = get_worker_thread_count()
         num_workers = max(1, max_worker_threads)
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
