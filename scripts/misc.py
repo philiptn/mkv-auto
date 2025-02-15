@@ -979,14 +979,13 @@ def get_max_ocr_threads():
 
     # --- Memory constraint ---
     memory_per_thread = 3.7  # Approximate GB used per thread
-    safety_margin = 1  # Reserve some GB for OS/other processes
     max_ram_conf = int(check_config(config, 'general', 'max_ram_usage'))  # e.g. 85 for 85%
 
     vm = psutil.virtual_memory()
     total_mem = vm.total / (1024 ** 3)  # Total memory in GB
     allowed_mem = (max_ram_conf / 100) * total_mem
     avail_mem = vm.available / (1024 ** 3)  # Currently available memory in GB
-    usable_mem = min(allowed_mem, avail_mem) - safety_margin
+    usable_mem = min(allowed_mem, avail_mem)
     mem_limit = max(1, int(usable_mem / memory_per_thread))
 
     # The actual maximum threads is limited by both constraints.

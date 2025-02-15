@@ -647,8 +647,7 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     # the OCR process uses multiple Tesseract processes internally.
     # Reduced threads to not overwhelm the system.
     max_worker_threads = get_max_ocr_threads()
-    calculated_workers = int(max_worker_threads / 1.7)  # Convert to int, which floors the value.
-    num_workers = max(1, calculated_workers)  # Ensure num_workers is at least 1.
+    num_workers = max(1, max_worker_threads)  # Ensure num_workers is at least 1.
     internal_threads = max(1, max_worker_threads // num_workers)
 
     header = "SUBTITLES"
