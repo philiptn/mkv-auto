@@ -292,7 +292,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     decode_cmd = ["ffmpeg", "-i", file, "-c:a", "pcm_s16le", "-f", "wav"]
     # If the source is Stereo, and the transformation is EOS, decrease
     # the overall volume to make the EOS compressor not be too aggressive
-    if chosen_channels == 2 and transformation == "EOS":
+    if source_channels <= 2 and transformation == "EOS":
         decode_cmd += ['-af', 'volume=0.8']
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(decode_cmd)}{RESET}")
@@ -310,43 +310,43 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     # Codec settings
     if codec == 'AAC':
         ffmpeg_final_opts += ['-c:a', 'aac', '-aq', '6', '-strict', '-2']
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"AAC (from {track_name})"
         else:
             track_name_final = f"AAC {chosen_layout}"
     elif codec == 'DTS':
         ffmpeg_final_opts += ['-c:a', 'dts', '-strict', '-2']
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"DTS (from {track_name})"
         else:
             track_name_final = f"DTS {chosen_layout}"
     elif codec == 'AC3':
         ffmpeg_final_opts += ['-c:a', 'ac3', '-strict', '-2']
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"Dolby Digital (from {track_name})"
         else:
             track_name_final = f"Dolby Digital {chosen_layout}"
     elif codec == 'EAC3':
         ffmpeg_final_opts += ['-c:a', 'eac3', '-strict', '-2']
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"Dolby Digital Plus (from {track_name})"
         else:
             track_name_final = f"Dolby Digital Plus {chosen_layout}"
     elif codec == 'OPUS':
         ffmpeg_final_opts += ['-c:a', 'opus', '-strict', '-2']
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"Opus (from {track_name})"
         else:
             track_name_final = f"Opus {chosen_layout}"
     elif codec == 'WAV':
         ffmpeg_final_opts += ['-c:a', 'pcm_s16le', '-strict', '-2']
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"PCM (from {track_name})"
         else:
             track_name_final = f"PCM {chosen_layout}"
     elif codec == 'FLAC':
         ffmpeg_final_opts += ['-c:a', 'flac', '-strict', '-2']
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"FLAC (from {track_name})"
         else:
             track_name_final = f"FLAC {chosen_layout}"
@@ -380,7 +380,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         chosen_layout_name = chosen_layout
         if chosen_layout == "5.1(side)":
             chosen_layout_name = "5.1"
-        if track_name:
+        if track_name and track_name != 'Original':
             track_name_final = f"Even-Out-Sound (from {track_name})"
         else:
             track_name_final = f"Even-Out-Sound {chosen_layout_name}"

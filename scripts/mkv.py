@@ -1065,20 +1065,11 @@ def remove_clutter_process(logger, debug, input_files, dirpath):
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
-    header = "MISC"
-    description = "Remove clutter from MKV"
-
-    # Initialize progress
-    print_with_progress(logger, 0, total_files, header=header, description=description)
-
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(remove_clutter_process_worker, debug, input_file, dirpath): index for
                    index, input_file in enumerate(input_files)}
-
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            print_with_progress(logger, completed_count, total_files, header=header, description=description)
-
             try:
                 index = futures[future]
                 updated_filename = future.result()
