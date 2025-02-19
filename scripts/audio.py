@@ -271,7 +271,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
                 track_name = f"{track_name}"
             elif not track_name.endswith(' (Original)'):
                 if len(audio_preferences) == 1:
-                    if len(audio_preferences) == 1 and pref_codec == "ORIG":
+                    if len(audio_preferences) == 1 and "ORIG" in audio_preferences:
                         pass
                 else:
                     track_name = f"{track_name} (Original)"

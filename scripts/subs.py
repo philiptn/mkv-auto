@@ -53,7 +53,6 @@ def is_valid_srt(file_path):
 
             # Check if there is at least one valid timestamp
             return bool(pattern.search(content))
-
     except:
         return False
 
@@ -288,6 +287,7 @@ def remove_sdh(max_threads, debug, input_files, remove_music, track_names, exter
 
 def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
     output_subtitles = []
+    errored_ass_subs = []
     keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
 
     for index, file in enumerate(subtitle_files):
@@ -302,13 +302,11 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
             base, _, forced = base_forced.rpartition('_')
 
             output_subtitle = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.srt"
-            subtitle_tmp = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"
 
             if name:
                 original_name_b64 = name_encoded
             else:
                 original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
-                name = 'Original'
 
             if forced == '1':
                 output_name = f'non-{main_audio_track_lang} dialogue'
@@ -316,7 +314,11 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
                 original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
                 final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
             else:
-                output_name = ''
+                full_language = pycountry.languages.get(alpha_3=language)
+                if full_language:
+                    output_name = name if name else full_language.name
+                else:
+                    output_name = name if name else ''
                 output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
                 original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
                 final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
@@ -327,14 +329,21 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
             with open(final_subtitle, "w") as srt_file:
                 srt_file.write(srt_output)
 
-            if keep_original_subtitles:
-                output_subtitles = output_subtitles + [final_subtitle, original_subtitle]
+            if is_valid_srt(output_subtitle):
+                os.rename(output_subtitle, final_subtitle)
+                if keep_original_subtitles:
+                    output_subtitles = output_subtitles + [final_subtitle, original_subtitle]
+                else:
+                    output_subtitles = output_subtitles + [final_subtitle]
             else:
-                output_subtitles = output_subtitles + [final_subtitle]
+                errored_ass_subs.append(original_subtitle)
+                if keep_original_subtitles:
+                    output_subtitles = output_subtitles + [original_subtitle]
+
         else:
             output_subtitles = output_subtitles + [file]
 
-    return output_subtitles
+    return output_subtitles, errored_ass_subs
 
 
 def resync_srt_subs(max_threads, debug, input_file, subtitle_files):
@@ -722,17 +731,20 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
         else:
             final_subtitle = ''
             if forced == '1':
-                name = f'non-{main_audio_track_lang} dialogue'
+                new_name = f'non-{main_audio_track_lang} dialogue'
             else:
                 try:
                     if len(language) > 2:
-                        name = pycountry.languages.get(alpha_3=language).name
+                        new_name = pycountry.languages.get(alpha_3=language).name
                     else:
-                        name = pycountry.languages.get(alpha_2=language).name
+                        new_name = pycountry.languages.get(alpha_2=language).name
                 except:
-                    name = ''
+                    new_name = ''
 
-            name_b64 = base64.b64encode(name.encode("utf-8")).decode("utf-8")
+            if name:
+                new_name = name
+
+            name_b64 = base64.b64encode(new_name.encode("utf-8")).decode("utf-8")
             original_subtitle = f"{base}_{forced}_'{name_b64}'_{track_id}_{language}.{original_extension}"
             os.rename(file, original_subtitle)
     finally:

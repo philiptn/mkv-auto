@@ -408,6 +408,7 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
     remove_commentary = check_config(config, 'audio', 'remove_commentary')
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
     always_enable_subs = check_config(config, 'subtitles', 'always_enable_subs')
+    download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
 
     (wanted_audio_tracks, default_audio_track, needs_processing_audio,
      pref_audio_formats_found, track_ids_to_be_converted,
@@ -423,6 +424,14 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
     if needs_processing_audio:
         strip_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track,
                             wanted_subs_tracks, default_subs_track, always_enable_subs)
+
+    if download_missing_subs.lower() == 'always':
+        needs_processing_subs = True
+        if pref_subs_langs != ['']:
+            missing_subs_langs = pref_subs_langs
+        else:
+            main_lang = get_main_audio_track_language_3_letter(file_info)
+            missing_subs_langs = [main_lang]
 
     return needs_processing_audio, needs_processing_subs, missing_subs_langs
 
@@ -626,7 +635,7 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     all_ready_subtitle_tracks = [None] * total_files
     subtitle_tracks_to_be_processed = [None] * total_files
     all_replacements_list = [None] * total_files
-    all_errored_ocr = [None] * total_files
+    all_errored_subs = [None] * total_files
     all_missing_subs_langs = [None] * total_files
     main_audio_track_langs_list = [None] * total_files
 
@@ -666,15 +675,15 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
-                ready_tracks, output_subtitles, all_replacements, errored_ocr, missing_subs_langs, main_audio_track_langs = future.result()
+                ready_tracks, output_subtitles, all_replacements, errored_subs, missing_subs_langs, main_audio_track_langs = future.result()
                 if ready_tracks is not None:
                     all_ready_subtitle_tracks[index] = ready_tracks
                 if output_subtitles is not None:
                     subtitle_tracks_to_be_processed[index] = output_subtitles
                 if all_replacements is not None:
                     all_replacements_list[index] = all_replacements
-                if errored_ocr is not None:
-                    all_errored_ocr[index] = errored_ocr
+                if errored_subs is not None:
+                    all_errored_subs[index] = errored_subs
                 if missing_subs_langs is not None:
                     all_missing_subs_langs[index] = missing_subs_langs
                 if main_audio_track_langs is not None:
@@ -701,17 +710,18 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     if all_replacements_list_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
                              f"{all_replacements_list_count} OCR {print_multi_or_single(all_replacements_list_count, 'error')}.")
-    all_errored_ocr_count = len([item for list in all_errored_ocr for item in list])
-    if all_errored_ocr_count:
-        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_ocr_count} "
-                             f"{print_multi_or_single(all_errored_ocr_count, 'subtitle')} failed to be converted.")
+    all_errored_subs_count = len([item for list in all_errored_subs for item in list])
+    if all_errored_subs_count:
+        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_subs_count} "
+                             f"{print_multi_or_single(all_errored_subs_count, 'subtitle')} failed to be converted.")
     return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed,
-            all_missing_subs_langs, all_errored_ocr, main_audio_track_langs_list)
+            all_missing_subs_langs, all_errored_subs, main_audio_track_langs_list)
 
 
 def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files):
     input_file_with_path = os.path.join(dirpath, input_file)
     subtitle_files_to_process = subtitle_files
+    errored_ass_subs = []
 
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
@@ -725,15 +735,16 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
      subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(False, file_info, pref_subs_langs)
 
     if "ass" in sub_filetypes:
-        all_subtitles = convert_ass_to_srt(subtitle_files_to_process, main_audio_track_lang)
+        all_subtitles, errored_ass_subs = convert_ass_to_srt(subtitle_files_to_process, main_audio_track_lang)
         subtitle_files_to_process = all_subtitles
 
     (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
      all_subs_track_names, all_subs_track_forced, updated_sub_filetypes,
-     all_replacements, errored_ocr, missing_subs_langs) = ocr_subtitles(
+     all_replacements, errored_ocr_subs, missing_subs_langs) = ocr_subtitles(
         internal_threads, debug, subtitle_files_to_process, main_audio_track_lang)
 
     sub_filetypes = updated_sub_filetypes
+    errored_subs = errored_ass_subs + errored_ocr_subs
 
     return {
         'sub_extensions': sub_filetypes,
@@ -741,7 +752,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
         'sub_ids': all_subs_track_ids,
         'sub_names': all_subs_track_names,
         'sub_forced': all_subs_track_forced
-    }, output_subtitles, all_replacements, errored_ocr, missing_subs_langs, main_audio_track_lang
+    }, output_subtitles, all_replacements, errored_subs, missing_subs_langs, main_audio_track_lang
 
 
 def get_subtitle_tracks_metadata_for_repack(logger, subtitle_files_list):
@@ -1311,6 +1322,14 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
             updated_missing_subs_langs.append(lang)
     if not updated_missing_subs_langs:
         updated_missing_subs_langs.append('none')
+
+    if download_missing_subs.lower() == 'always':
+        if pref_subs_langs:
+            updated_missing_subs_langs = pref_subs_langs
+        else:
+            file_info = get_mkv_info(False, input_file_with_path, True)
+            main_lang = get_main_audio_track_language_3_letter(file_info)
+            updated_missing_subs_langs = [main_lang]
 
     return all_sub_files, updated_missing_subs_langs
 
