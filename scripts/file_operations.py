@@ -443,18 +443,25 @@ def replace_tags_in_file(file_path, replacement):
 
 
 def remove_sample_files_and_dirs(root_dir):
+    # This regex matches a base name that ends with an optional separator (-, _, or .) followed by "sample"
+    sample_pattern = re.compile(r'(?:[-_.]?sample)$', re.IGNORECASE)
+
     for dirpath, dirnames, filenames in os.walk(root_dir, topdown=False):
-        # Exclude directories starting with a dot
+        # Exclude directories that start with a dot
         dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+
+        # Remove directories named exactly "sample"
         for dirname in dirnames:
             if dirname.lower() == "sample":
                 shutil.rmtree(os.path.join(dirpath, dirname))
 
+        # Check each file for sample pattern in its base name
         for filename in filenames:
+            if filename.startswith('.'):
+                continue
             base, ext = os.path.splitext(filename)
-            if not filename.startswith('.'):
-                if base.lower().endswith("-sample") or base.lower() == "sample" or base.lower().endswith(".sample"):
-                    os.remove(os.path.join(dirpath, filename))
+            if sample_pattern.search(base):
+                os.remove(os.path.join(dirpath, filename))
 
 
 def fix_episodes_naming(directory):
