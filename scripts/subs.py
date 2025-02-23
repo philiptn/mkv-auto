@@ -577,6 +577,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
                     all_track_forced = all_track_forced + [forced, forced]
             else:
                 updated_sub_filetypes = updated_sub_filetypes + ['srt']
+                output_subtitles = output_subtitles + [output_subtitle]
                 updated_subtitle_languages = updated_subtitle_languages + [language]
                 all_track_ids = all_track_ids + [track_id]
                 if 'forced' in name.lower() or (forced == '1'):
