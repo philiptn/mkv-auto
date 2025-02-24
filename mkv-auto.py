@@ -276,10 +276,10 @@ def mkv_auto(args):
                 print_no_timestamp(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
                                      f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...")
                 total_files_input = wait_for_stable_files(input_dir)
-                if not total_files_input:
+                if not total_files_input and move_files:
                     for file in filenames_mkv_only:
                         try:
-                            shutil.move(os.path.join(dirpath, file), temp_dir)
+                            shutil.move(os.path.join(temp_dir, file), dirpath)
                         except:
                             pass
             else:

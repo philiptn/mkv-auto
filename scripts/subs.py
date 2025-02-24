@@ -870,7 +870,10 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
 
     # Get main audio track language
     main_audio_track_lang_name = get_main_audio_track_language(file_info)
-    main_audio_track_lang = pycountry.languages.get(name=main_audio_track_lang_name).alpha_3
+    try:
+        main_audio_track_lang = pycountry.languages.get(name=main_audio_track_lang_name).alpha_3
+    except:
+        main_audio_track_lang = None
 
     # If none of the subs track matches the language preference,
     # set the preferred sub languages to the ones found, and run the detection
