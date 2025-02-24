@@ -278,7 +278,10 @@ def mkv_auto(args):
                 total_files_input = wait_for_stable_files(input_dir)
                 if not total_files_input:
                     for file in filenames_mkv_only:
-                        shutil.move(os.path.join(dirpath, file), temp_dir)
+                        try:
+                            shutil.move(os.path.join(dirpath, file), temp_dir)
+                        except:
+                            pass
             else:
                 # If anything were to fail, move files to output folder
                 custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
