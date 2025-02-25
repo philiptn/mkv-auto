@@ -609,9 +609,9 @@ def reformat_filename(filename, names_only):
     others_folder = check_config(config, 'general', 'others_folder')
 
     # Regular expression to match TV shows with season and episode, with or without year
-    tv_show_pattern1 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})e(\d{2})", re.IGNORECASE)
+    tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2})e(\d{2})", re.IGNORECASE)
     # Regular expression to match TV shows with season range, with or without year
-    tv_show_pattern2 = re.compile(r"^(.*?)([. ]((?:19|20)\d{2}))?[. ]s(\d{2})-s(\d{2})", re.IGNORECASE)
+    tv_show_pattern2 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2})-s(\d{2})", re.IGNORECASE)
     # Regular expression to match movies
     movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.*)$", re.IGNORECASE)
 

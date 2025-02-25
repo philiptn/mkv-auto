@@ -280,26 +280,40 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
     # Step 1: Determine folder structure based on the current (possibly disguised) filename
     new_folders, new_filename = reformat_filename(filename, False)
 
+    filename = os.path.basename(input_file_path)
     base, ext = os.path.splitext(filename)
-    pattern = re.compile(r"^(?P<prefix>.+? - (?:S00E\d+ - )?)(?P<original>.+)$", re.IGNORECASE)
-    match = pattern.match(base)
-    if match:
-        original_part = match.group('original')
-        # Check if this is indeed an extra by verifying it ends with an excluded tag
-        if any(original_part.lower().endswith(tag) for tag in excluded_tags):
-            # Restore the filename by removing the prefix
-            restored_filename = original_part + ext
-        # Covers etc. need to be restored to be moved to destination
-        elif ext.lower() in ('.jpg', '.png'):
-            restored_filename = original_part + ext
-        else:
-            # Not an extra or doesn't end with excluded tag, no restore needed
-            restored_filename = filename
-    else:
-        # No match means no prefix was found, so it's not a processed extra
-        restored_filename = filename
 
-    not_normalized_filename = restored_filename
+    extra_match = re.search(r"S00E\d+\s*-\s*(?P<original>.+)$", base, re.IGNORECASE)
+    if extra_match:
+        restored_filename = extra_match.group("original") + ext
+    else:
+        normalize_filenames = check_config(config, 'general', 'normalize_filenames')
+        if normalize_filenames:
+            file_info = reformat_filename(filename, True)
+            media_type = file_info["media_type"]
+            media_name = file_info["media_name"]
+
+            if media_type in ['tv_show', 'tv_show_hdr']:
+                season, episodes = extract_season_episode(filename)
+                if season and episodes:
+                    episode_list = compact_episode_list(episodes, True)
+                    formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
+                    if media_type == 'tv_show_hdr':
+                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
+                    else:
+                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
+                else:
+                    restored_filename = filename
+            elif media_type in ['movie', 'movie_hdr']:
+                if media_type == 'movie_hdr':
+                    restored_filename = f"{media_name} - HDR{ext}"
+                else:
+                    restored_filename = f"{media_name}{ext}"
+            else:
+                restored_filename = filename
+        else:
+            restored_filename = filename
+
     if normalize_filenames:
         file_info = reformat_filename(restored_filename, True)
         media_type = file_info["media_type"]
