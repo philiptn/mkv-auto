@@ -931,6 +931,9 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
             for key, value in track["properties"].items():
                 if key == 'language':
                     track_language = value
+                    # If the track language is "und", then it is probably English.
+                    if track_language == 'und':
+                        track_language = 'eng'
                 if key == 'forced_track':
                     forced_track_val = value
                     forced_track_val = 1 if forced_track_val else 0

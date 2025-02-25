@@ -1072,15 +1072,26 @@ def resync_subs_process_worker(debug, input_file, dirpath, subtitle_files_to_pro
 def remove_clutter_process(logger, debug, input_files, dirpath):
     total_files = len(input_files)
     all_updated_input_files = [None] * total_files
+    hidden_cc_found = False
 
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
+
+    header = "FFMPEG"
+    description = f"Remove hidden CC in video stream"
+
+    if any(has_closed_captions(os.path.join(dirpath, file)) for file in input_files):
+        hidden_cc_found = True
+        # Initialize progress
+        print_with_progress(logger, 0, total_files, header=header, description=description)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(remove_clutter_process_worker, debug, input_file, dirpath): index for
                    index, input_file in enumerate(input_files)}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
+            if hidden_cc_found:
+                print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
                 updated_filename = future.result()
