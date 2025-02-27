@@ -1220,6 +1220,7 @@ def process_external_subs(logger, debug, dirpath, input_files, all_missing_subs_
 
 
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
+    download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
     pattern = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
     input_file_with_path = os.path.join(dirpath, input_file)
 
