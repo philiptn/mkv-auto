@@ -852,30 +852,37 @@ def print_media_info(logger, filenames):
     if tv_shows:
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show in sorted(tv_shows):
-            for season, episodes in sorted(tv_shows[show].items()):
-                episode_list = compact_episode_list(episodes)
+            seasons = sorted(tv_shows[show].keys())
+            if len(seasons) == 1:
+                # If there's only one season, show episodes.
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(tv_shows[show][season]))
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+            else:
+                # More than one season: show season range.
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {seasons[0]}-{seasons[-1]})")
             if tv_shows_extras[show]:
-                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_extras[show])} "
-                                           f"{print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})")
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})")
 
     if tv_shows_hdr:
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
         for show in sorted(tv_shows_hdr):
-            for season, episodes in sorted(tv_shows_hdr[show].items()):
-                episode_list = compact_episode_list(episodes)
+            seasons = sorted(tv_shows_hdr[show].keys())
+            if len(seasons) == 1:
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+            else:
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {seasons[0]}-{seasons[-1]})")
             if tv_shows_hdr_extras[show]:
-                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_hdr_extras[show])} "
-                                           f"{print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})")
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})")
 
     if movies:
         movies.sort()
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         for movie in movies:
             if movie_extras[movie]:
-                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_extras[movie])} "
-                                           f"{print_multi_or_single(len(movie_extras[movie]), 'Extra')})")
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})")
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
@@ -884,8 +891,7 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
         for movie in movies_hdr:
             if movie_hdr_extras[movie]:
-                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} "
-                                           f"{print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
