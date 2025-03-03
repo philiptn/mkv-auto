@@ -228,18 +228,13 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
     chosen_channels = channels_to_int(ch_str) if ch_str else None
     if chosen_channels is None and source_channels is not None:
         chosen_channels = source_channels
-    if chosen_channels is None:
-        chosen_channels = 2
 
     chosen_layout = source_layout
     # Limit the chosen channel based on what the source actually is
     chosen_channels = min(int(source_channels), int(chosen_channels))
 
-    # OPUS only supports up to Stereo audio
-    if codec == "OPUS":
-        chosen_channels = min(2, chosen_channels)
-    # Other codecs only supports up to 5.1 audio
-    elif codec in ("AC3", "EAC3", "DTS"):
+    # These codecs only supports up to 5.1 audio
+    if codec in ("AC3", "EAC3", "DTS"):
         chosen_channels = min(6, chosen_channels)
 
     if chosen_channels == 6:
@@ -333,7 +328,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         else:
             track_name_final = f"Dolby Digital Plus {chosen_layout}"
     elif codec == 'OPUS':
-        ffmpeg_final_opts += ['-c:a', 'opus', '-strict', '-2']
+        ffmpeg_final_opts += ['-c:a', 'libopus', '-strict', '-2']
         if track_name and track_name != 'Original':
             track_name_final = f"Opus (from {track_name})"
         else:
