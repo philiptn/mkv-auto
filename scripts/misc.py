@@ -853,14 +853,13 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show in sorted(tv_shows):
             seasons = sorted(tv_shows[show].keys())
+            total_episodes = sum(len(tv_shows[show][s]) for s in seasons)
             if len(seasons) == 1:
-                # If there's only one season, show episodes.
                 season = seasons[0]
-                episode_list = compact_episode_list(sorted(tv_shows[show][season]))
-                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})")
             else:
-                # More than one season: show season range.
-                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {seasons[0]}-{seasons[-1]})")
+                total_episodes = sum(len(tv_shows[show][s]) for s in seasons)
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})")
             if tv_shows_extras[show]:
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})")
 
@@ -868,12 +867,12 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
         for show in sorted(tv_shows_hdr):
             seasons = sorted(tv_shows_hdr[show].keys())
+            total_episodes = sum(len(tv_shows[show][s]) for s in seasons)
             if len(seasons) == 1:
                 season = seasons[0]
-                episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
-                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, Episode {episode_list})")
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {season}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})")
             else:
-                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {seasons[0]}-{seasons[-1]})")
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})")
             if tv_shows_hdr_extras[show]:
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})")
 
