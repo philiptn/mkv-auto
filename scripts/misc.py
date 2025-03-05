@@ -882,7 +882,7 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         for movie in movies:
             if movie_extras[movie]:
-                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})")
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} +{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')}")
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
@@ -891,7 +891,7 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
         for movie in movies_hdr:
             if movie_hdr_extras[movie]:
-                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} +{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')}")
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
