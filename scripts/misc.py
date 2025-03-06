@@ -936,7 +936,8 @@ config = {
         'tv_shows_hdr_folder': get_config('general', 'TV_SHOWS_HDR_FOLDER', variables_defaults),
         'others_folder': get_config('general', 'OTHERS_FOLDER', variables_defaults),
         'max_cpu_usage': get_config('general', 'MAX_CPU_USAGE', variables_defaults),
-        'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults)
+        'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults),
+        'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true"
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],

@@ -37,7 +37,8 @@ def mkv_auto(args):
     if args.output_dir:
         output_dir = args.output_dir
 
-    if args.debug:
+    debug_ini = check_config(config, 'general', 'debug')
+    if args.debug or debug_ini:
         debug = True
     else:
         debug = False
