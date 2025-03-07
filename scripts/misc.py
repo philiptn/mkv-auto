@@ -845,10 +845,10 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show in sorted(tv_shows):
             seasons = sorted(tv_shows[show].keys())
-            total_episodes = sum(len(tv_shows[show][s]) for s in seasons)
             if len(seasons) == 1:
                 season = seasons[0]
-                tv_shows_print = f"(Season {season}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                episode_list = compact_episode_list(sorted(tv_shows[show][season]))
+                tv_shows_print = f"(Season {season}, Episode {episode_list})"
                 if tv_shows_extras[show]:
                     tv_shows_print += f" +{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')}"
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_print}")
@@ -863,10 +863,10 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
         for show in sorted(tv_shows_hdr):
             seasons = sorted(tv_shows_hdr[show].keys())
-            total_episodes = sum(len(tv_shows_hdr[show][s]) for s in seasons)
             if len(seasons) == 1:
                 season = seasons[0]
-                tv_shows_hdr_print = f"(Season {season}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                episode_list = compact_episode_list(sorted(tv_shows[show][season]))
+                tv_shows_hdr_print = f"(Season {season}, Episode {episode_list})"
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" +{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')}"
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_hdr_print}")
