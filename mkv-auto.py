@@ -81,6 +81,7 @@ def mkv_auto(args):
     done_info = {'skipped_files': 0}
     if move_files:
         remaining_files = wait_for_stable_files(input_dir)
+        total_data_init = get_folder_size_gb(input_dir)
         while remaining_files:
             files_in_temp = count_files(temp_dir)
             all_files = remaining_files + files_in_temp
@@ -90,6 +91,7 @@ def mkv_auto(args):
                 break
     else:
         remaining_files = wait_for_stable_files(input_dir)
+        total_data_init = get_folder_size_gb(input_dir)
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=remaining_files)
 
     total_data = get_folder_size_gb(temp_dir)
@@ -112,7 +114,7 @@ def mkv_auto(args):
                      f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                      f"had to be skipped due to insufficient storage capacity.")
         custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {total_data} GB).")
+                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {total_data_init} GB).")
         custom_print(logger, f"{GREY}[INFO]{RESET} Only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
 
     extract_archives(logger, temp_dir)
