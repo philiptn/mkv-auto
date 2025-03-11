@@ -83,6 +83,7 @@ def mkv_auto(args):
         remaining_files = wait_for_stable_files(input_dir)
         total_data_init = get_folder_size_gb(input_dir)
         while remaining_files:
+            total_data_init += get_folder_size_gb(input_dir)
             files_in_temp = count_files(temp_dir)
             all_files = remaining_files + files_in_temp
             done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)

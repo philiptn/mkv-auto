@@ -270,95 +270,44 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
 def move_file_to_output(input_file_path, output_folder, folder_structure):
     filename = os.path.basename(input_file_path)
-
-    normalize_filenames = check_config(config, 'general', 'normalize_filenames')
-
-    tv_shows = defaultdict(lambda: defaultdict(set))
-    movies = []
-    uncategorized = []
-
-    # Step 1: Determine folder structure based on the current (possibly disguised) filename
-    new_folders, new_filename = reformat_filename(filename, False)
-
-    filename = os.path.basename(input_file_path)
     base, ext = os.path.splitext(filename)
 
-    extra_match = re.search(r"S00E\d+\s*-\s*(?P<original>.+)$", base, re.IGNORECASE)
-    if extra_match:
-        restored_filename = extra_match.group("original") + ext
+    tv_extra_match = re.search(r"S00E\d+\s*-\s*(?P<original>.+)$", base, re.IGNORECASE)
+    if tv_extra_match:
+        restored_filename = tv_extra_match.group("original") + ext
     else:
-        normalize_filenames = check_config(config, 'general', 'normalize_filenames')
-        if normalize_filenames:
-            file_info = reformat_filename(filename, True)
-            media_type = file_info["media_type"]
-            media_name = file_info["media_name"]
+        file_info = reformat_filename(filename, True)
+        media_type = file_info["media_type"]
+        media_name = file_info["media_name"]
 
-            if media_type in ['tv_show', 'tv_show_hdr']:
-                season, episodes = extract_season_episode(filename)
-                if season and episodes:
-                    episode_list = compact_episode_list(episodes, True)
-                    formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
-                    if media_type == 'tv_show_hdr':
-                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
-                    else:
-                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
-                else:
-                    restored_filename = filename
-            elif media_type in ['movie', 'movie_hdr']:
+        if media_type in ['movie', 'movie_hdr']:
+            pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
+            movie_extra_match = pattern.match(base)
+            if movie_extra_match:
+                restored_filename = movie_extra_match.group("extra") + ext
+            else:
                 if media_type == 'movie_hdr':
                     restored_filename = f"{media_name} - HDR{ext}"
                 else:
                     restored_filename = f"{media_name}{ext}"
+        elif media_type in ['tv_show', 'tv_show_hdr']:
+            season, episodes = extract_season_episode(filename)
+            if season and episodes:
+                episode_list = compact_episode_list(episodes, True)
+                formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
+                if media_type == 'tv_show_hdr':
+                    restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
+                else:
+                    restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
             else:
                 restored_filename = filename
         else:
             restored_filename = filename
 
-    if normalize_filenames:
-        file_info = reformat_filename(restored_filename, True)
-        media_type = file_info["media_type"]
-        media_name = file_info["media_name"]
-        base, ext = os.path.splitext(restored_filename)
-
-        if media_type in ['tv_show', 'tv_show_hdr']:
-            season, episodes = extract_season_episode(restored_filename)
-            if season and episodes:
-                tv_shows[media_name][season].update(episodes)
-            else:
-                uncategorized.append(media_name)
-        elif media_type in ['movie', 'movie_hdr']:
-                movies.append(media_name)
-        else:
-            uncategorized.append(media_name)
-
-        if tv_shows:
-            for show in tv_shows:
-                for season, episodes in sorted(tv_shows[show].items()):
-                    episode_list = compact_episode_list(episodes, True)
-                    formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
-                    if media_type == 'tv_show_hdr':
-                        restored_filename = f"{show} - S{formatted_season}E{episode_list} - HDR{ext}"
-                    else:
-                        restored_filename = f"{show} - S{formatted_season}E{episode_list}{ext}"
-        if movies:
-            for movie in movies:
-                if media_type == 'movie_hdr':
-                    restored_filename = f"{movie} - HDR{ext}"
-                else:
-                    restored_filename = f"{movie}{ext}"
-        if uncategorized:
-            for item in uncategorized:
-                restored_filename = f"{item}"
-
+    new_folders, _ = reformat_filename(filename, False)
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
-    # Ensure directories exist
-    directory_path = os.path.dirname(output_path)
-    if not directory_path.endswith('/'):
-        directory_path += '/'
-    os.makedirs(os.path.dirname(directory_path), exist_ok=True)
-
-    # Step 4: Move the file
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     shutil.move(input_file_path, output_path)
 
 
