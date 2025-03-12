@@ -274,6 +274,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
     if tv_extra_match:
         restored_filename = tv_extra_match.group("original") + ext
     else:
+        normalize_filenames = check_config(config, 'general', 'normalize_filenames')
         file_info = reformat_filename(filename, True)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
@@ -284,19 +285,25 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
             if movie_extra_match:
                 restored_filename = movie_extra_match.group("extra") + ext
             else:
-                if media_type == 'movie_hdr':
-                    restored_filename = f"{media_name} - HDR{ext}"
+                if normalize_filenames:
+                    if media_type == 'movie_hdr':
+                        restored_filename = f"{media_name} - HDR{ext}"
+                    else:
+                        restored_filename = f"{media_name}{ext}"
                 else:
-                    restored_filename = f"{media_name}{ext}"
+                    restored_filename = filename
         elif media_type in ['tv_show', 'tv_show_hdr']:
             season, episodes = extract_season_episode(filename)
             if season and episodes:
                 episode_list = compact_episode_list(episodes, True)
                 formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
-                if media_type == 'tv_show_hdr':
-                    restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
+                if normalize_filenames:
+                    if media_type == 'tv_show_hdr':
+                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
+                    else:
+                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
                 else:
-                    restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
+                    restored_filename = filename
             else:
                 restored_filename = filename
         else:
