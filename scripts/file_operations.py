@@ -164,12 +164,11 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
 
             with space_lock:
                 all_required_space += required_space
+                actual_file_sizes += file_size
 
                 if initial_available_space >= all_required_space:
                     available_space -= file_size
-                    actual_file_sizes += file_size
                     os.makedirs(os.path.dirname(d), exist_ok=True)
-
                     shutil.move(s, d)
                     with file_counter_lock:
                         file_counter[0] += 1
@@ -188,7 +187,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
 
     return {
         "total_files": total_files,
-        "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
+        "actual_file_sizes": actual_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": initial_available_space / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
@@ -239,12 +238,11 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
             with space_lock:
                 all_required_space += required_space
+                actual_file_sizes += file_size
 
                 if initial_available_space >= all_required_space:
                     available_space -= file_size
-                    actual_file_sizes += file_size
                     os.makedirs(os.path.dirname(d), exist_ok=True)
-
                     shutil.copy(s, d)
                     with file_counter_lock:
                         file_counter[0] += 1
@@ -261,7 +259,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
     return {
         "total_files": total_files,
-        "actual_file_sizes_gb": actual_file_sizes / (1024 ** 3),
+        "actual_file_sizes": actual_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": available_space / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
