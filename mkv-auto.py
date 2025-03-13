@@ -96,10 +96,7 @@ def mkv_auto(args):
 
     desc = "Moving file" if move_files else "Copying file"
     total_files_temp = count_files(temp_dir)
-    if done_info['skipped_files'] > 0:
-        print_final_spin_files(logger, total_files_temp, total_files, header='INFO', description=desc)
-    else:
-        print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
+    print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
 
     method = 'moved' if move_files else 'copied'
     if done_info['skipped_files'] == 0:
@@ -112,7 +109,7 @@ def mkv_auto(args):
                      f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                      f"had to be skipped due to insufficient storage capacity.")
         custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {done_info['actual_file_sizes']:.2f} GB).")
+                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {done_info['actual_file_sizes']:.2f} GB)")
         custom_print(logger, f"{GREY}[INFO]{RESET} Only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
 
     extract_archives(logger, temp_dir)
