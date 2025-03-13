@@ -1675,11 +1675,8 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
 
     for index, filetype in enumerate(final_audio_filetypes):
         if not default_locked:
-            if final_audio_languages[index] == pref_audio_langs[first_pref_audio_index]:
-                default_track_str = "0:yes"
-                default_locked = True
-            else:
-                default_track_str = "0:no"
+            default_track_str = "0:yes"
+            default_locked = True
         else:
             default_track_str = "0:no"
         lang_str = f"0:{final_audio_languages[index]}"
