@@ -13,7 +13,6 @@ import pycountry
 import threading
 import psutil
 
-
 # ANSI color codes
 BLUE = '\033[94m'
 RESET = '\033[0m'  # Reset to default terminal color
@@ -93,49 +92,6 @@ excluded_tags = [
 ]
 
 
-def process_covers(input_folder):
-    # Recursively walk through the directories, skipping those starting with '.'
-    for root, dirs, files in os.walk(input_folder):
-        # Modify dirs in-place to skip hidden directories
-        dirs[:] = [d for d in dirs if not d.startswith('.')]
-
-        cover_files = []
-        normal_files = []
-
-        for f in files:
-            base, ext = os.path.splitext(f)
-
-            if ext.lower() in ['.jpg', '.png']:
-                cover_files.append(f)
-            else:
-                normal_files.append(f)
-
-        # If there are no extras or no normal files in this directory, no action needed
-        if not cover_files or not normal_files:
-            continue
-
-        identified_media = None
-        for nf in normal_files:
-            result = reformat_filename(nf, names_only=True)
-            if result['media_type'] in ['movie', 'movie_hdr', 'tv_show', 'tv_show_hdr']:
-                identified_media = result
-                break
-
-        if not identified_media:
-            continue
-
-        media_name = identified_media['media_name']
-
-        for cf in cover_files:
-            old_full_path = os.path.join(root, cf)
-
-            new_filename = f"{media_name} - {cf}"
-            new_full_path = os.path.join(root, new_filename)
-
-            if not os.path.exists(new_full_path):
-                os.rename(old_full_path, new_full_path)
-
-
 def process_extras(input_folder):
     # Recursively walk through the directories, skipping those starting with '.'
     for root, dirs, files in os.walk(input_folder):
@@ -148,11 +104,13 @@ def process_extras(input_folder):
         for f in files:
             base, ext = os.path.splitext(f)
 
-            if ext.lower() not in ['.mkv', '.mp4', '.mov', '.avi', '.srt']:
+            if ext.lower() not in ['.mkv', '.mp4', '.mov', '.avi', '.srt', '.jpg', '.png']:
                 continue
 
             # Check if the filename ends with any of the excluded tags
             if any(base.lower().endswith(tag) for tag in excluded_tags):
+                extras_files.append(f)
+            elif ext.lower() in ('.jpg', '.png'):
                 extras_files.append(f)
             else:
                 normal_files.append(f)
@@ -189,7 +147,7 @@ def process_extras(input_folder):
             base, ext = os.path.splitext(ef)
 
             # Extract the extra tag part from the filename to put it into the new name
-            matching_tag = None
+            matching_tag = ''
             for tag in excluded_tags:
                 if base.lower().endswith(tag):
                     matching_tag = tag
@@ -203,7 +161,8 @@ def process_extras(input_folder):
 
             # Convert underscores or dots to spaces
             extras_title = extras_title.replace('.', ' ').replace('_', ' ')
-            extras_title = to_sentence_case(extras_title)
+            if ext not in ('.jpg', '.png'):
+                extras_title = to_sentence_case(extras_title)
 
             if 'tv_show' in media_type:
                 # TV show extras:
@@ -842,7 +801,8 @@ def print_media_info(logger, filenames):
             uncategorized.append(media_name)
     print_no_timestamp(logger, '')
     if tv_shows:
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(tv_shows)} TV {print_multi_or_single(len(tv_shows), 'Show')}:")
         for show in sorted(tv_shows):
             seasons = sorted(tv_shows[show].keys())
             if len(seasons) == 1:
@@ -860,7 +820,8 @@ def print_media_info(logger, filenames):
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_print}")
 
     if tv_shows_hdr:
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
         for show in sorted(tv_shows_hdr):
             seasons = sorted(tv_shows_hdr[show].keys())
             if len(seasons) == 1:
@@ -882,16 +843,19 @@ def print_media_info(logger, filenames):
         print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies)} {print_multi_or_single(len(movies), 'Movie')}:")
         for movie in movies:
             if movie_extras[movie]:
-                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})")
+                print_no_timestamp(logger,
+                                   f"  {BLUE}{movie}{RESET} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})")
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
     if movies_hdr:
         movies_hdr.sort()
-        print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(movies_hdr)} HDR {print_multi_or_single(len(movies_hdr), 'Movie')}:")
         for movie in movies_hdr:
             if movie_hdr_extras[movie]:
-                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
+                print_no_timestamp(logger,
+                                   f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
@@ -901,7 +865,8 @@ def print_media_info(logger, filenames):
         for item in uncategorized:
             print_no_timestamp(logger, f"  {BLUE}{item}{RESET}")
 
-    print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
+    print_no_timestamp(logger,
+                       f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
     print_no_timestamp(logger, '')
 
 
@@ -940,25 +905,32 @@ config = {
         'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true"
     },
     'audio': {
-        'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
+        'pref_audio_langs': [item.strip() for item in
+                             get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
         'pref_audio_formats': get_config('audio', 'PREFERRED_AUDIO_FORMATS', variables_defaults),
         'remove_commentary': get_config('audio', 'REMOVE_COMMENTARY_TRACK', variables_defaults).lower() == "true"
     },
     'subtitles': {
-        'pref_subs_langs': [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
-        'pref_subs_langs_short': [item.strip()[:-1] for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
-        'pref_subs_ext': [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_EXT', variables_defaults).split(',')],
-        'ocr_languages': [item.strip() for item in get_config('subtitles', 'OCR_LANGUAGES', variables_defaults).split(',')],
+        'pref_subs_langs': [item.strip() for item in
+                            get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
+        'pref_subs_langs_short': [item.strip()[:-1] for item in
+                                  get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
+        'pref_subs_ext': [item.strip() for item in
+                          get_config('subtitles', 'PREFERRED_SUBS_EXT', variables_defaults).split(',')],
+        'ocr_languages': [item.strip() for item in
+                          get_config('subtitles', 'OCR_LANGUAGES', variables_defaults).split(',')],
         'always_enable_subs': get_config('subtitles', 'ALWAYS_ENABLE_SUBS', variables_defaults).lower() == "true",
         'always_remove_sdh': get_config('subtitles', 'REMOVE_SDH', variables_defaults).lower() == "true",
         'remove_music': get_config('subtitles', 'REMOVE_MUSIC', variables_defaults).lower() == "true",
         'resync_subtitles': get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true",
-        'keep_original_subtitles': get_config('subtitles', 'KEEP_ORIGINAL_SUBTITLES', variables_defaults).lower() == "true",
+        'keep_original_subtitles': get_config('subtitles', 'KEEP_ORIGINAL_SUBTITLES',
+                                              variables_defaults).lower() == "true",
         'forced_subtitles_priority': get_config('subtitles', 'FORCED_SUBTITLES_PRIORITY', variables_defaults),
         'prioritize_subtitles': get_config('subtitles', 'PRIORITIZE_SUBTITLES', variables_defaults),
         'download_missing_subs': get_config('subtitles', 'DOWNLOAD_MISSING_SUBS', variables_defaults),
         'remove_all_subtitles': get_config('subtitles', 'REMOVE_ALL_SUBTITLES', variables_defaults).lower() == "true",
-        'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY', variables_defaults).lower() == "true",
+        'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY',
+                                                    variables_defaults).lower() == "true",
         'redo_casing': get_config('subtitles', 'REDO_CASING', variables_defaults).lower() == "true"
     }
 }

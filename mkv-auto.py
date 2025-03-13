@@ -117,7 +117,6 @@ def mkv_auto(args):
 
     extract_archives(logger, temp_dir)
     process_extras(temp_dir)
-    process_covers(temp_dir)
     flatten_directories(temp_dir)
 
     convert_all_videos_to_mkv(logger, debug, temp_dir, args.silent)
