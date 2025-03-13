@@ -96,7 +96,10 @@ def mkv_auto(args):
 
     desc = "Moving file" if move_files else "Copying file"
     total_files_temp = count_files(temp_dir)
-    print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
+    if done_info['skipped_files'] > 0:
+        print_final_spin_files(logger, total_files_temp, total_files, header='INFO', description=desc)
+    else:
+        print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
 
     method = 'moved' if move_files else 'copied'
     if done_info['skipped_files'] == 0:
