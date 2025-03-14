@@ -2,7 +2,7 @@
 <Language Name="中文(繁體)">
   <General>
     <Title>Subtitle Edit</Title>
-    <Version>4.0.3</Version>
+    <Version>4.0.11</Version>
     <TranslatedBy>譯者: BAWAN | 風逸蘭 | Jackie Lam | SiderealArt</TranslatedBy>
     <CultureName>zh-TW</CultureName>
     <HelpFile />
@@ -695,7 +695,7 @@ Note: Do check free disk space.</WaveFileMalformed>
     <RemovedEmptyLineAtTop>移除頂部空行</RemovedEmptyLineAtTop>
     <RemovedEmptyLineAtBottom>移除底部空行</RemovedEmptyLineAtBottom>
     <RemovedEmptyLineInMiddle>移除中間空行</RemovedEmptyLineInMiddle>
-    <RemovedEmptyLinesUnsedLineBreaks>移除 空行/無用換行字元</RemovedEmptyLinesUnsedLineBreaks>
+    <RemovedEmptyLinesUnusedLineBreaks>移除 空行/無用換行字元</RemovedEmptyLinesUnusedLineBreaks>
     <FixOverlappingDisplayTimes>修復重疊的顯示時間</FixOverlappingDisplayTimes>
     <FixShortDisplayTimes>修復過短的顯示時間</FixShortDisplayTimes>
     <FixLongDisplayTimes>修復過長的顯示時間</FixLongDisplayTimes>
@@ -2635,14 +2635,14 @@ Continue?</RestoreDefaultSettingsMsg>
     <NumberOfAlignmentTags>對齊標籤數: {0}</NumberOfAlignmentTags>
     <LineLengthMinimum>字幕長度 - 最小: {0}</LineLengthMinimum>
     <LineLengthMaximum>字幕長度 - 最大: {0}</LineLengthMaximum>
-    <LineLengthAverage>字幕長度 - 平均: {0}</LineLengthAverage>
+    <LineLengthAverage>字幕長度 - 平均: {0:#.###}</LineLengthAverage>
     <LinesPerSubtitleAverage>字幕、行數 - 平均: {0:0.0}</LinesPerSubtitleAverage>
     <SingleLineLengthMinimum>單行長度 - 最小: {0}</SingleLineLengthMinimum>
     <SingleLineLengthMaximum>單行長度 - 最大: {0}</SingleLineLengthMaximum>
-    <SingleLineLengthAverage>單行長度 - 平均: {0}</SingleLineLengthAverage>
+    <SingleLineLengthAverage>單行長度 - 平均: {0:#.###}</SingleLineLengthAverage>
     <SingleLineWidthMinimum>單行寬度 - 最小: {0} 像素</SingleLineWidthMinimum>
     <SingleLineWidthMaximum>單行寬度 - 最大: {0} 像素</SingleLineWidthMaximum>
-    <SingleLineWidthAverage>單行寬度 - 平均: {0} 像素</SingleLineWidthAverage>
+    <SingleLineWidthAverage>單行寬度 - 平均: {0:#.###} 像素</SingleLineWidthAverage>
     <DurationMinimum>持續時間 - 最小: {0:0.000} 秒</DurationMinimum>
     <DurationMaximum>持續時間 - 最大: {0:0.000} 秒</DurationMaximum>
     <DurationAverage>持續時間 - 平均: {0:0.000} 秒</DurationAverage>
@@ -2964,7 +2964,7 @@ Continue?</RestoreDefaultSettingsMsg>
     <RemoveShotChangesFromSelection>Remove scene changes from selection</RemoveShotChangesFromSelection>
     <GuessTimeCodes>猜測時間碼...</GuessTimeCodes>
     <SeekSilence>搜尋靜音...</SeekSilence>
-    <InsertSubtitleHere>在這裡插入字幕...</InsertSubtitleHere>
+    <InsertSubtitleHere>在這裡插入字幕</InsertSubtitleHere>
     <CharsSecX>CPS: {0:0.00}</CharsSecX>
     <WordsMinX>WPM: {0:0.00}</WordsMinX>
   </Waveform>

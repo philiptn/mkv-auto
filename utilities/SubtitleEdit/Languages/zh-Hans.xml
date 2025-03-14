@@ -2,7 +2,7 @@
 <Language Name="中文(简体)">
   <General>
     <Title>Subtitle Edit</Title>
-    <Version>4.0.3</Version>
+    <Version>4.0.11</Version>
     <TranslatedBy>翻译: FeiXJ | Leon Cheung | larsenlouis | VK | nkh0472</TranslatedBy>
     <CultureName>zh-Hans</CultureName>
     <HelpFile>https://www.nikse.dk/SubtitleEdit/Help</HelpFile>
@@ -10,6 +10,7 @@
     <Cancel>取消(&amp;A)</Cancel>
     <Yes>是</Yes>
     <No>否</No>
+    <Close>关闭</Close>
     <Apply>应用</Apply>
     <ApplyTo>应用于</ApplyTo>
     <None>无</None>
@@ -17,6 +18,7 @@
     <Preview>预览</Preview>
     <ShowPreview>显示预览</ShowPreview>
     <HidePreview>隐藏预览</HidePreview>
+    <SubtitleFile>字幕文件</SubtitleFile>
     <SubtitleFiles>字幕文件</SubtitleFiles>
     <AllFiles>所有文件</AllFiles>
     <VideoFiles>视频文件</VideoFiles>
@@ -196,9 +198,6 @@ Command line: {1} {2}
     <Engine>引擎</Engine>
     <VoskWebsite>Vosk 网站</VoskWebsite>
     <WhisperWebsite>Whisper 网站</WhisperWebsite>
-    <WhisperNotFound>未找到 Whisper。
-
-在线查看更多信息？</WhisperNotFound>
     <Model>模型</Model>
     <Models>模型</Models>
     <LanguagesAndModels>语言和模型</LanguagesAndModels>
@@ -215,12 +214,14 @@ Command line: {1} {2}
     <BatchMode>批处理模式</BatchMode>
     <KeepPartialTranscription>保留部分转录</KeepPartialTranscription>
     <TranslateToEnglish>翻译为英语</TranslateToEnglish>
-    <MaxCharsPerSubtitle>每行字幕的最大字符数</MaxCharsPerSubtitle>
     <RemoveTemporaryFiles>移除临时文件</RemoveTemporaryFiles>
     <SetCppConstMeFolder>设置 CPP/Const-me 模型文件夹...</SetCppConstMeFolder>
     <OnlyRunPostProcessing>仅进行后处理/调整时间</OnlyRunPostProcessing>
     <DownloadFasterWhisperCuda>下载适用 Faster-Whisper 的 cuBLAS and cuDNN 组件</DownloadFasterWhisperCuda>
     <NoTextFound>未找到文字！</NoTextFound>
+    <FixCasing>修复大小写</FixCasing>
+    <AddPeriods>添加句点</AddPeriods>
+    <FixShortDuration>修复持续时间短的问题</FixShortDuration>
   </AudioToText>
   <AssaAttachments>
     <Title>Advanced Sub Station Alpha字幕附件</Title>
@@ -404,6 +405,12 @@ Command line: {1} {2}
     <BatchAlignTimeCodes>将时间码与帧时间码对齐</BatchAlignTimeCodes>
     <BatchUseExactTimeCodes>使用准确的时间码（如果可用）</BatchUseExactTimeCodes>
     <BatchSnapToShotChanges>捕捉提示的场景变化（如果有）</BatchSnapToShotChanges>
+    <UnfixableParagraphsTitle>查看未完全链接的字幕</UnfixableParagraphsTitle>
+    <UnfixableParagraphsInstructions>一些字幕没有根据您的配置完全链接，这很可能是由于过于密集的镜头变化（可能是误报）。
+您可能需要手动查看这些字幕，以确保其与正确的（真实的）镜头变化一致。</UnfixableParagraphsInstructions>
+    <UnfixableParagraphsColumnParagraphs>行</UnfixableParagraphsColumnParagraphs>
+    <UnfixableParagraphsColumnParagraphsFormat>#{0} – #{1}</UnfixableParagraphsColumnParagraphsFormat>
+    <UnfixableParagraphsColumnGap>间隔（帧）</UnfixableParagraphsColumnGap>
   </BeautifyTimeCodes>
   <BeautifyTimeCodesProfile>
     <Title>编辑配置</Title>
@@ -427,6 +434,7 @@ Command line: {1} {2}
     <Chaining>链接</Chaining>
     <InCueOnShot>入点提示处场景变化</InCueOnShot>
     <OutCueOnShot>出点提示处场景变化</OutCueOnShot>
+    <CheckGeneral>在不受影响的情况下仍执行通用规则</CheckGeneral>
     <MaxGap>最大间隔：</MaxGap>
     <ShotChangeBehavior>如果中间有场景变化：</ShotChangeBehavior>
     <DontChain>不要链接</DontChain>
@@ -722,6 +730,8 @@ Command line: {1} {2}
     <ChooseColor>选择颜色:</ChooseColor>
     <TotalSeconds>总秒数：</TotalSeconds>
     <EndDelayInSeconds>结束延迟（秒）：</EndDelayInSeconds>
+    <WordEffect>单词效果</WordEffect>
+    <CharacterEffect>字符效果</CharacterEffect>
   </EffectKaraoke>
   <EffectTypewriter>
     <Title>打字机效果</Title>
@@ -877,7 +887,7 @@ Command line: {1} {2}
     <RemovedEmptyLineAtTop>删除顶部空行</RemovedEmptyLineAtTop>
     <RemovedEmptyLineAtBottom>删除底部空行</RemovedEmptyLineAtBottom>
     <RemovedEmptyLineInMiddle>删除中部空行</RemovedEmptyLineInMiddle>
-    <RemovedEmptyLinesUnsedLineBreaks>删除 空行/无用换行符</RemovedEmptyLinesUnsedLineBreaks>
+    <RemovedEmptyLinesUnusedLineBreaks>删除 空行/无用换行符</RemovedEmptyLinesUnusedLineBreaks>
     <FixOverlappingDisplayTimes>修复重叠的显示时间</FixOverlappingDisplayTimes>
     <FixShortDisplayTimes>修正过短的显示时间</FixShortDisplayTimes>
     <FixLongDisplayTimes>修正过长的显示时间</FixLongDisplayTimes>
@@ -954,7 +964,7 @@ Command line: {1} {2}
     <FixDoubleDash>修复 '-- '为 '...'</FixDoubleDash>
     <FixDoubleGreaterThan>删除 '&gt;&gt;'</FixDoubleGreaterThan>
     <FixEllipsesStart>删除开头的 '...'</FixEllipsesStart>
-    <FixMissingOpenBracket>修复行内丢失的 '['</FixMissingOpenBracket>
+    <FixMissingOpenBracket>修复行内丢失的 '[' 及 '('</FixMissingOpenBracket>
     <FixMusicNotation>用自己喜欢的符号替换音符 (如 âTª)</FixMusicNotation>
     <FixDoubleDashExample>'Whoa-- um yeah!' -&gt; 'Whoa... um yeah!'</FixDoubleDashExample>
     <FixDoubleGreaterThanExample>'&gt;&gt; Robert: Sup dude!' -&gt; 'Robert: Sup dude!'</FixDoubleGreaterThanExample>
@@ -982,10 +992,10 @@ Command line: {1} {2}
     <GenerateWithFfmpegParametersPrompt>生成 - FFmpeg 命令行参数</GenerateWithFfmpegParametersPrompt>
   </GenerateBlankVideo>
   <GenerateVideoWithBurnedInSubs>
-    <Title>生成带有内嵌字幕的视频</Title>
+    <Title>生成带有硬字幕的视频</Title>
     <InfoAssaOff>注意：支持 ASSA 样式。</InfoAssaOff>
     <InfoAssaOn>注意：将使用 ASSA 样式:)</InfoAssaOn>
-    <XGeneratedWithBurnedInSubsInX>带有内嵌字幕的“{0}”已在{1}生成完毕。</XGeneratedWithBurnedInSubsInX>
+    <XGeneratedWithBurnedInSubsInX>带有硬字幕的“{0}”已在{1}生成完毕。</XGeneratedWithBurnedInSubsInX>
     <TimeRemainingMinutes>剩余时间：{0} 分钟</TimeRemainingMinutes>
     <TimeRemainingOneMinute>剩余时间：1 分钟</TimeRemainingOneMinute>
     <TimeRemainingSeconds>剩余时间: {0} 秒</TimeRemainingSeconds>
@@ -1003,21 +1013,28 @@ Command line: {1} {2}
     <Audio>音频</Audio>
     <Stereo>立体声</Stereo>
     <Preset>预设</Preset>
+    <PixelFormat>像素格式</PixelFormat>
     <Crf>CRF</Crf>
     <TuneFor>视频类型</TuneFor>
     <AlignRight>右对齐</AlignRight>
     <GetStartPosition>获取起始位置</GetStartPosition>
     <GetEndPosition>获取结束位置</GetEndPosition>
+    <UseSource>使用源</UseSource>
+    <UseSourceResolution>使用源分辨率</UseSourceResolution>
+    <OutputSettings>输出文件/文件夹...</OutputSettings>
   </GenerateVideoWithBurnedInSubs>
   <GenerateVideoWithEmbeddedSubs>
     <Title>生成带有嵌入式字幕的视频</Title>
     <InputVideoFile>输入视频文件</InputVideoFile>
     <SubtitlesX>字幕 ({0})</SubtitlesX>
     <SetLanguage>设置语言...</SetLanguage>
+    <LanguageAndTitle>语言/标题</LanguageAndTitle>
     <ToggleForced>切换强制</ToggleForced>
     <ToggleDefault>切换默认</ToggleDefault>
     <Default>默认</Default>
     <XGeneratedWithEmbeddedSubs>生成带有嵌入式字幕的"{0}"</XGeneratedWithEmbeddedSubs>
+    <DeleteInputVideo>“生成”后删除视频输入文件</DeleteInputVideo>
+    <OutputFileNameSettings>输出文件名设置...</OutputFileNameSettings>
   </GenerateVideoWithEmbeddedSubs>
   <GetDictionaries>
     <Title>获取更多词典</Title>
@@ -1044,12 +1061,7 @@ Command line: {1} {2}
     <To>至:</To>
     <Translate>翻译</Translate>
     <PleaseWait>这可能需要一段时间，请稍候...</PleaseWait>
-    <PoweredByGoogleTranslate>由谷歌翻译提供</PoweredByGoogleTranslate>
-    <PoweredByMicrosoftTranslate>由微软翻译提供</PoweredByMicrosoftTranslate>
     <PoweredByX>由{0}提供</PoweredByX>
-    <MsClientSecretNeeded>抱歉，要想使用最新的微软翻译，你需要微软认知服务“翻译文本”密钥。转到“选项 -&gt; 设置 -&gt; 工具”输入你的密钥。</MsClientSecretNeeded>
-    <GoogleNoApiKeyWarning>正在尝试使用API密钥……（慢速且有限的数据）</GoogleNoApiKeyWarning>
-    <Service>服务商：</Service>
     <LineMergeHandling>行的合并模式：</LineMergeHandling>
     <ProcessorMergeNext>最多合并2行</ProcessorMergeNext>
     <ProcessorSentence>合并句子</ProcessorSentence>
@@ -1069,6 +1081,13 @@ Command line: {1} {2}
     <XRequiresAnApiKey>"{0}"需要一个API密钥。</XRequiresAnApiKey>
     <ReadMore>了解更多?</ReadMore>
     <Formality>正式程度</Formality>
+    <TranslateCurrentLine>仅翻译当前行</TranslateCurrentLine>
+    <ReTranslateCurrentLine>重新翻译当前行</ReTranslateCurrentLine>
+    <MergeSplitStrategy>拆分/合并处理</MergeSplitStrategy>
+    <Delay>服务器调用的延迟</Delay>
+    <MaxBytes>每次服务器调用的最大字节数</MaxBytes>
+    <PromptX>{0} 的提示词</PromptX>
+    <TranslateLinesSeparately>分别翻译每一行</TranslateLinesSeparately>
   </GoogleTranslate>
   <GoogleOrMicrosoftTranslate>
     <Title>谷歌 与 微软 翻译</Title>
@@ -1313,6 +1332,7 @@ Command line: {1} {2}
         <CloseTranslation>关闭翻译字幕</CloseTranslation>
         <OpenContainingFolder>打开所在文件夹</OpenContainingFolder>
         <Compare>比较(&amp;C)...</Compare>
+        <VerifyCompleteness>验证完整性...</VerifyCompleteness>
         <Statistics>统计(&amp;C)...</Statistics>
         <Plugins>插件(&amp;P)...</Plugins>
         <ImportSubtitleFromVideoFile>从视频文件中导入字幕...</ImportSubtitleFromVideoFile>
@@ -1424,14 +1444,16 @@ Command line: {1} {2}
         <SmptTimeMode>SMPTE 时间 (弃帧)</SmptTimeMode>
         <GenerateTextFromVideo>从视频生成文本...</GenerateTextFromVideo>
         <GenerateBlankVideo>生成空白视频...</GenerateBlankVideo>
-        <GenerateVideoWithBurnedInSub>生成带有内嵌字幕的视频...</GenerateVideoWithBurnedInSub>
-        <GenerateVideoWithEmbeddedSubs>生成带有嵌入式字幕的视频...</GenerateVideoWithEmbeddedSubs>
+        <GenerateVideoWithBurnedInSub>生成带有硬字幕的视频...</GenerateVideoWithBurnedInSub>
+        <GenerateVideoWithEmbeddedSubs>生成带有内嵌字幕的视频...</GenerateVideoWithEmbeddedSubs>
+        <GenerateTransparentVideoWithSubs>生成带有硬字幕的透明视频...</GenerateTransparentVideoWithSubs>
         <VideoAudioToTextX>语言识别 ({0})...</VideoAudioToTextX>
         <ImportChaptersFromVideo>从视频中导入章节</ImportChaptersFromVideo>
         <GenerateImportShotChanges>生成/导入场景切换...</GenerateImportShotChanges>
         <RemoveOrExportShotChanges>删除/导出场景切换...</RemoveOrExportShotChanges>
         <WaveformBatchGenerate>批量生成波形...</WaveformBatchGenerate>
         <ShowHideWaveformAndSpectrogram>显示/隐藏波形和频谱图</ShowHideWaveformAndSpectrogram>
+        <TextToSpeechAndAddToVideo>文本转语音并添加到视频...</TextToSpeechAndAddToVideo>
         <UnDockVideoControls>取消内嵌显示视频控件</UnDockVideoControls>
         <ReDockVideoControls>内嵌显示视频控件</ReDockVideoControls>
       </Video>
@@ -1518,6 +1540,7 @@ Command line: {1} {2}
         <SplitLineAtCursorPosition>在光标处分割行</SplitLineAtCursorPosition>
         <SplitLineAtCursorPositionAndAutoBr>在光标处分割并自动换行</SplitLineAtCursorPositionAndAutoBr>
         <SplitLineAtCursorAndWaveformPosition>在光标/视频位置处分割行</SplitLineAtCursorAndWaveformPosition>
+        <SplitLineAtCursorAndWaveformPositionPlay>在光标/视频位置处分割行并播放</SplitLineAtCursorAndWaveformPositionPlay>
         <AutoDurationCurrentLine>自动设置时长 (当前行)</AutoDurationCurrentLine>
         <SelectAll>全部选择</SelectAll>
         <InsertFirstLine>插入行</InsertFirstLine>
@@ -1559,6 +1582,7 @@ Command line: {1} {2}
         <Subscript>下标</Subscript>
         <Alignment>排列...</Alignment>
         <AutoBalanceSelectedLines>自动平衡所选行...</AutoBalanceSelectedLines>
+        <EvenlyDistributeSelectedLines>均匀分布所选行 (CPS)</EvenlyDistributeSelectedLines>
         <RemoveLineBreaksFromSelectedLines>删除所选行的换行符...</RemoveLineBreaksFromSelectedLines>
         <TypewriterEffect>打字机效果...</TypewriterEffect>
         <KaraokeEffect>卡拉 OK 效果...</KaraokeEffect>
@@ -1588,6 +1612,7 @@ Command line: {1} {2}
         <GoToSourceView>转到源视图</GoToSourceView>
         <GoToListView>转到列表视图</GoToListView>
         <ExtractAudio>提取音频…</ExtractAudio>
+        <MediaInfo>媒体信息</MediaInfo>
       </ContextMenu>
     </Menu>
     <Controls>
@@ -1624,6 +1649,7 @@ Command line: {1} {2}
       <StillTypingAutoContinueStopped>仍然输入... 自动继续已停止</StillTypingAutoContinueStopped>
       <InsertNewSubtitleAtVideoPosition>在视频位置插入新字幕</InsertNewSubtitleAtVideoPosition>
       <InsertNewSubtitleAtVideoPositionNoTextBoxFocus>在当前视频位置插入新字幕 (且不将操作焦点定位到文本框)</InsertNewSubtitleAtVideoPositionNoTextBoxFocus>
+      <InsertNewSubtitleAtVideoPositionMax>在当前视频位置插入新字幕（尽可能长）</InsertNewSubtitleAtVideoPositionMax>
       <Auto>自动</Auto>
       <PlayFromJustBeforeText>从文本前播放</PlayFromJustBeforeText>
       <PlayFromBeginning>从视频开头播放</PlayFromBeginning>
@@ -1827,6 +1853,8 @@ Command line: {1} {2}
     <SortedByX>排序方式: {0}</SortedByX>
     <BeforeAutoBalanceSelectedLines>自动平衡所选行之前</BeforeAutoBalanceSelectedLines>
     <NumberOfLinesAutoBalancedX>自动平衡行数: {0}</NumberOfLinesAutoBalancedX>
+    <BeforeEvenlyDistributeSelectedLines>均匀分布所选行之前</BeforeEvenlyDistributeSelectedLines>
+    <NumberOfLinesEvenlyDistributedX>均匀分布的行数：{0}</NumberOfLinesEvenlyDistributedX>
     <BeforeRemoveLineBreaksInSelectedLines>从所选行删除换行符之前</BeforeRemoveLineBreaksInSelectedLines>
     <NumberOfWithRemovedLineBreakX>已删除换行符的行数: {0}</NumberOfWithRemovedLineBreakX>
     <BeforeMultipleReplace>多重替换之前</BeforeMultipleReplace>
@@ -2099,6 +2127,10 @@ Command line: {1} {2}
     <EvenLines>匹配行</EvenLines>
     <DurationLessThan>时长小于</DurationLessThan>
     <DurationGreaterThan>时长大于</DurationGreaterThan>
+    <CpsLessThan>CPS 小于</CpsLessThan>
+    <CpsGreaterThan>CPS 大于</CpsGreaterThan>
+    <LengthLessThan>长度少于</LengthLessThan>
+    <LengthGreaterThan>长度大于</LengthGreaterThan>
     <ExactlyOneLine>正好一行</ExactlyOneLine>
     <ExactlyTwoLines>正好两行</ExactlyTwoLines>
     <MoreThanTwoLines>超过两行</MoreThanTwoLines>
@@ -2290,13 +2322,14 @@ Command line: {1} {2}
     <Find>查找</Find>
     <Replace>替换</Replace>
     <VisualSync>影音对照同步</VisualSync>
-    <BurnIn>内嵌字幕</BurnIn>
+    <BurnIn>烧录硬字幕</BurnIn>
     <SpellCheck>拼写检查</SpellCheck>
     <NetflixQualityCheck>Netflix品质检查</NetflixQualityCheck>
     <BeautifyTimeCodes>美化时间码</BeautifyTimeCodes>
     <SettingsName>设置</SettingsName>
     <ToggleBookmarks>使用书签</ToggleBookmarks>
     <FocusTextBox>焦点文本框</FocusTextBox>
+    <CycleAudioTracks>循环音轨</CycleAudioTracks>
     <ToggleBookmarksWithComment>使用书签 - 添加注释</ToggleBookmarksWithComment>
     <ClearBookmarks>清空书签</ClearBookmarks>
     <ExportBookmarks>导出书签...</ExportBookmarks>
@@ -2436,6 +2469,7 @@ Command line: {1} {2}
     <WaveformUseFFmpeg>使用 FFmpeg 提取波形</WaveformUseFFmpeg>
     <WaveformUseCenterChannelOnly>仅使用前置/中置声道（适用于 5.1/7.1声道）</WaveformUseCenterChannelOnly>
     <DownloadX>下载 {0}</DownloadX>
+    <ExtractingX>正在提取 {0}</ExtractingX>
     <WaveformFFmpegPath>FFmpeg 文件路径</WaveformFFmpegPath>
     <WaveformBrowseToFFmpeg>浏览 FFmpeg 文件</WaveformBrowseToFFmpeg>
     <WaveformBrowseToVLC>浏览至VLC便携版安装路径</WaveformBrowseToVLC>
@@ -2502,8 +2536,8 @@ Command line: {1} {2}
     <CpsLineLengthStyleCalcNoSpace>统计除空格外的字符</CpsLineLengthStyleCalcNoSpace>
     <CpsLineLengthStyleCalcCjk>CJK 1，拉丁文 0.5</CpsLineLengthStyleCalcCjk>
     <CpsLineLengthStyleCalcCjkNoSpace>CJK 1，拉丁文 0.5，空格 0</CpsLineLengthStyleCalcCjkNoSpace>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacritics>忽略阿拉伯语变音符号</CpsLineLengthStyleCalcIgnoreArabicDiacritics>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>忽略阿拉伯语变音符号/空格</CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>
+    <CpsLineLengthStyleCalcIncludeCompositionCharacters>包括合成字符</CpsLineLengthStyleCalcIncludeCompositionCharacters>
+    <CpsLineLengthStyleCalcIncludeCompositionCharactersNotSpace>包括合成字符，忽略空格</CpsLineLengthStyleCalcIncludeCompositionCharactersNotSpace>
     <CpsLineLengthStyleCalcNoSpaceOrPunctuation>忽略空格或标点符号 ()[]-:;,.!?</CpsLineLengthStyleCalcNoSpaceOrPunctuation>
     <CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>忽略空格或标点符号，仅显示每秒字频</CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>
     <MusicSymbol>音符</MusicSymbol>
@@ -2596,6 +2630,7 @@ Command line: {1} {2}
     <MergeDialogWithNext>与下一条合并对话 (插入破折号)</MergeDialogWithNext>
     <MergeDialogWithPrevious>与上一条合并对话 (插入破折号)</MergeDialogWithPrevious>
     <AutoBalanceSelectedLines>自动平衡选中行</AutoBalanceSelectedLines>
+    <EvenlyDistributeSelectedLines>均匀分布所选行 (CPS)</EvenlyDistributeSelectedLines>
     <GoToNext>转到下一行</GoToNext>
     <GoToNextPlayTranslate>转到下一行（并以“翻译模式”播放）</GoToNextPlayTranslate>
     <GoToNextCursorAtEnd>转到下一行并将光标置于末尾</GoToNextCursorAtEnd>
@@ -2649,6 +2684,8 @@ Command line: {1} {2}
     <WaveformGoToPreviousShotChange>转到下一个场景切换点</WaveformGoToPreviousShotChange>
     <WaveformGoToNextShotChange>转到下一处场景切换</WaveformGoToNextShotChange>
     <WaveformToggleShotChange>切换场景切换</WaveformToggleShotChange>
+    <WaveformAllShotChangesOneFrameForward>将所有场景切换向前移动一帧</WaveformAllShotChangesOneFrameForward>
+    <WaveformAllShotChangesOneFrameBack>将所有场景切换向后移动一帧</WaveformAllShotChangesOneFrameBack>
     <WaveformRemoveOrExportShotChanges>删除/导出场景切换</WaveformRemoveOrExportShotChanges>
     <WaveformGuessStart>根据音量/场景切换点调节起始点</WaveformGuessStart>
     <GoBack1Frame>回退一帧</GoBack1Frame>
@@ -2695,6 +2732,7 @@ Command line: {1} {2}
     <AudioExtractSelectedLines>提取音频（仅所选行）</AudioExtractSelectedLines>
     <AudioToTextSelectedLinesX>对选定行语音转文本 ({0})</AudioToTextSelectedLinesX>
     <VideoToggleBrightness>切换亮度（仅限mpv）</VideoToggleBrightness>
+    <AutoTranslateSelectedLines>自动翻译所选行</AutoTranslateSelectedLines>
     <CustomSearch1>翻译、自定义搜索 1</CustomSearch1>
     <CustomSearch2>翻译、自定义搜索 2</CustomSearch2>
     <CustomSearch3>翻译、自定义搜索 3</CustomSearch3>
@@ -2749,11 +2787,12 @@ Command line: {1} {2}
     <ListViewListErrors>列出错误</ListViewListErrors>
     <ListViewListSortByX>按{0}排序</ListViewListSortByX>
     <ShowStyleManager>显示样式管理器</ShowStyleManager>
-    <MainTextBoxMoveLastWordDown>将上一行的最后一个单词移到下一行</MainTextBoxMoveLastWordDown>
-    <MainTextBoxMoveFirstWordFromNextUp>将下一行的第一个单词移到上一行</MainTextBoxMoveFirstWordFromNextUp>
-    <MainTextBoxMoveFirstWordUpCurrent>将次行行首的词上移至首行行末（单条字幕内）</MainTextBoxMoveFirstWordUpCurrent>
-    <MainTextBoxMoveFromCursorToNext>将光标位置之后的文本移动到下一条字幕，然后转到下一条</MainTextBoxMoveFromCursorToNext>
-    <MainTextBoxMoveLastWordDownCurrent>将首行行末的词下移至次行行首（单条字幕内）</MainTextBoxMoveLastWordDownCurrent>
+    <MainTextBoxMoveLastWordDown>将前行的最后一个单词移到次行</MainTextBoxMoveLastWordDown>
+    <MainTextBoxMoveFirstWordFromNextUp>将次行的第一个单词移到前行</MainTextBoxMoveFirstWordFromNextUp>
+    <MainTextBoxMoveFirstWordUpCurrent>将次行行首的词上移至前行行末（单条字幕内）</MainTextBoxMoveFirstWordUpCurrent>
+    <MainTextBoxMoveFromCursorToNext>将光标位置之后的文本移动到次行字幕，然后转到次行</MainTextBoxMoveFromCursorToNext>
+    <MainTextBoxMoveFirstWordToPrev>将行首第一个单词上移至前行行末</MainTextBoxMoveFirstWordToPrev>
+    <MainTextBoxMoveLastWordDownCurrent>将前行行末的词下移至次行行首（单条字幕内）</MainTextBoxMoveLastWordDownCurrent>
     <MainTextBoxSelectionToLower>选中的内容转小写</MainTextBoxSelectionToLower>
     <MainTextBoxSelectionToUpper>选中的内容转大写</MainTextBoxSelectionToUpper>
     <MainTextBoxSelectionToggleCasing>切换所选内容的大小写（首字母大写/大写/小写）</MainTextBoxSelectionToggleCasing>
@@ -2823,6 +2862,8 @@ Command line: {1} {2}
     <ExportAsHtml>导出为 HTML...</ExportAsHtml>
     <SetNewActor>设置新角色/配音</SetNewActor>
     <SetActorX>设置角色/配音 {0}</SetActorX>
+    <Used>已用</Used>
+    <Unused>未用</Unused>
   </Settings>
   <SettingsMpv>
     <DownloadMpv>下载 mpv 库</DownloadMpv>
@@ -2897,7 +2938,10 @@ Command line: {1} {2}
   </SpellCheck>
   <NetflixQualityCheck>
     <GlyphCheckReport>{1} 栏处找到无效字符 {0}</GlyphCheckReport>
-    <WhiteSpaceCheckReport>栏处找到无效空白字符 {0}</WhiteSpaceCheckReport>
+    <WhiteSpaceCheckForXReport>在第 {1} 列发现空格问题 ({0})。</WhiteSpaceCheckForXReport>
+    <WhiteSpaceLineEncding>行尾</WhiteSpaceLineEncding>
+    <WhiteSpaceBeforePunctuation>标点符号前缺失</WhiteSpaceBeforePunctuation>
+    <WhiteSpaceCheckconsecutive>2+连续</WhiteSpaceCheckconsecutive>
     <ReportPrompt>完整报告请看这里: {0}</ReportPrompt>
     <OpenReportInFolder>在文件夹中打开报告</OpenReportInFolder>
     <FoundXIssues>Netflix 品质检查找到 {0} 个问题</FoundXIssues>
@@ -2973,11 +3017,11 @@ Command line: {1} {2}
     <NumberOfAlignmentTags>排列位置标签数: {0}</NumberOfAlignmentTags>
     <LineLengthMinimum>字幕长度（最短）: {0}</LineLengthMinimum>
     <LineLengthMaximum>字幕长度（最长）: {0}</LineLengthMaximum>
-    <LineLengthAverage>字幕长度（平均）: {0}</LineLengthAverage>
+    <LineLengthAverage>字幕长度（平均）: {0:#.###}</LineLengthAverage>
     <LinesPerSubtitleAverage>平均行数: {0:0.0}</LinesPerSubtitleAverage>
     <SingleLineLengthMinimum>单行长度（最短）: {0}</SingleLineLengthMinimum>
     <SingleLineLengthMaximum>单行长度（最长）: {0}</SingleLineLengthMaximum>
-    <SingleLineLengthAverage>单行长度（平均）: {0}</SingleLineLengthAverage>
+    <SingleLineLengthAverage>单行长度（平均）: {0:#.###}</SingleLineLengthAverage>
     <SingleLineLengthExceedingMaximum>单行长度 - 超过最大值（{0} 个字符）: {1} ({2:0.00}%)</SingleLineLengthExceedingMaximum>
     <SingleLineWidthMinimum>单行宽度（最短）: {0} 像素</SingleLineWidthMinimum>
     <SingleLineWidthMaximum>单行宽度（最长）: {0} 像素</SingleLineWidthMaximum>
@@ -3092,6 +3136,9 @@ Command line: {1} {2}
     <Angle>角度</Angle>
     <BoxPerLine>每行一个框（使用轮廓色）</BoxPerLine>
     <BoxMultiLine>共用一个框（使用阴影色）</BoxMultiLine>
+    <BoxPerLineShort>每行一个框</BoxPerLineShort>
+    <BoxMultiLineShort>共用一个框</BoxMultiLineShort>
+    <BoxType>框类型</BoxType>
     <DuplicateStyleNames>为样式创建副本: {0}</DuplicateStyleNames>
   </SubStationAlphaStyles>
   <SubStationAlphaStylesCategoriesManager>
@@ -3118,6 +3165,27 @@ Command line: {1} {2}
     <Info>一个同步点可调整位置，两个以上同步点可调整位置和速度</Info>
     <ApplySync>应用</ApplySync>
   </PointSync>
+  <TextToSpeech>
+    <Title>文本转语音</Title>
+    <Voice>语音</Voice>
+    <TestVoice>测试语音</TestVoice>
+    <DefaultVoice>默认语音</DefaultVoice>
+    <AddAudioToVideo>将音频添加到视频文件（新文件）</AddAudioToVideo>
+    <GenerateSpeech>从文本生成语音</GenerateSpeech>
+    <ActorInfo>右键单击将角色分配给声音</ActorInfo>
+    <AdjustingSpeedXOfY>调整速度：{0} / {1}...</AdjustingSpeedXOfY>
+    <MergingAudioTrackXOfY>合并音轨：{0} / {1}...</MergingAudioTrackXOfY>
+    <GeneratingSpeechFromTextXOfY>从文本生成语音：{0} / {1}...</GeneratingSpeechFromTextXOfY>
+    <ReviewAudioClips>审阅音频剪辑</ReviewAudioClips>
+    <CustomAudioEncoding>自定义音频编码</CustomAudioEncoding>
+    <ReviewInfo>查看和编辑/删除音频剪辑</ReviewInfo>
+    <Play>播放</Play>
+    <AutoContinue>自动继续</AutoContinue>
+    <Regenerate>重新生成</Regenerate>
+    <Speed>速度</Speed>
+    <Stability>稳定性</Stability>
+    <Similarity>相似性</Similarity>
+  </TextToSpeech>
   <TimedTextSmpteTiming>
     <Title>SMPTE 时序</Title>
     <UseSmpteTiming>对当前字幕使用 SMPTE 时序？</UseSmpteTiming>
@@ -3136,6 +3204,21 @@ Command line: {1} {2}
     <Message>如果您要修复这个问题请发送电子邮件到 mailto:niksedk@gmail.com，并附上该字幕的副本。</Message>
     <ImportAsPlainText>以纯文本导入...</ImportAsPlainText>
   </UnknownSubtitle>
+  <VerifyCompleteness>
+    <Title>对照其他字幕验证完整性</Title>
+    <OpenControlSubtitle>打开控制字幕</OpenControlSubtitle>
+    <ControlSubtitleError>控制字幕为空或无法加载。</ControlSubtitleError>
+    <ControlSubtitleX>控制字幕：{0}</ControlSubtitleX>
+    <Coverage>覆盖率</Coverage>
+    <CoveragePercentageX>{0:0.##}%</CoveragePercentageX>
+    <SortByCoverage>按覆盖率排序</SortByCoverage>
+    <SortByTime>按时间排序</SortByTime>
+    <Reload>重新验证</Reload>
+    <Insert>插入</Insert>
+    <InsertAndNext>插入并转到下一条</InsertAndNext>
+    <Dismiss>忽略</Dismiss>
+    <DismissAndNext>忽略并转到下一条</DismissAndNext>
+  </VerifyCompleteness>
   <VisualSync>
     <Title>影音对照同步</Title>
     <StartScene>起始场景</StartScene>
@@ -3270,6 +3353,13 @@ Command line: {1} {2}
     <InspectItems>检查项目</InspectItems>
     <AddBetterMatch>添加最佳匹配</AddBetterMatch>
     <Add>添加</Add>
+    <AddBetterMultiMatch>添加更好的多重匹配</AddBetterMultiMatch>
+    <AddOrUpdateMatch>添加或更新匹配</AddOrUpdateMatch>
+    <SelectPrevousMatch>选择上一匹配项</SelectPrevousMatch>
+    <SelectNextMatch>选择下一匹配项</SelectNextMatch>
+    <JumpPreviousMissingMatch>跳转到上一缺失的匹配项</JumpPreviousMissingMatch>
+    <JumpNextMissingMatch>跳转到下一缺失的匹配项</JumpNextMissingMatch>
+    <FocusTextbox>聚焦文本输入</FocusTextbox>
   </VobSubOcrCharacterInspect>
   <VobSubOcrNewFolder>
     <Title>新建文件夹</Title>
@@ -3322,6 +3412,7 @@ Command line: {1} {2}
     <SplitAtCursor>在光标处分割</SplitAtCursor>
     <MergeWithPrevious>与上一行合并</MergeWithPrevious>
     <MergeWithNext>与下一行合并</MergeWithNext>
+    <RunWhisperSelectedParagraph>在选定的段落上运行 Whisper...</RunWhisperSelectedParagraph>
     <ExtendToPrevious>延伸至上一行</ExtendToPrevious>
     <ExtendToNext>延伸至下一行</ExtendToNext>
     <PlaySelection>播放所选</PlaySelection>
@@ -3333,7 +3424,8 @@ Command line: {1} {2}
     <RemoveShotChangesFromSelection>从所选中移除场景切换</RemoveShotChangesFromSelection>
     <GuessTimeCodes>猜测时间码...</GuessTimeCodes>
     <SeekSilence>搜索静音...</SeekSilence>
-    <InsertSubtitleHere>在这里插入字幕...</InsertSubtitleHere>
+    <InsertSubtitleHere>在此插入文本</InsertSubtitleHere>
+    <InsertSubtitleFileHere>在此插入字幕文件...</InsertSubtitleFileHere>
     <CharsSecX>CPS: {0:0.00}</CharsSecX>
     <WordsMinX>WPM: {0:0.00}</WordsMinX>
   </Waveform>
@@ -3361,6 +3453,7 @@ Command line: {1} {2}
   <WebVttProperties>
     <UseXTimeStamp>使用 X-TIMESTAMP-MAP 标头值</UseXTimeStamp>
     <MergeLines>加载时合并具有相同文本的行</MergeLines>
+    <MergeStyleTags>合并样式标签</MergeStyleTags>
   </WebVttProperties>
   <WebVttStyleManager>
     <Title>WebVTT 样式</Title>
@@ -3369,5 +3462,10 @@ Command line: {1} {2}
     <Title>Whisper Advanced - 额外的命令行参数</Title>
     <CommandLineArguments>Whisper 命令行的额外参数：</CommandLineArguments>
     <Info>注意：不同的 Whisper 实现有不同的命令行参数！</Info>
+    <Standard>标准</Standard>
+    <StandardAsia>标准 亚洲</StandardAsia>
+    <HighlightCurrentWord>突出显示当前单词</HighlightCurrentWord>
+    <SingleWords>单字</SingleWords>
+    <Sentence>句子</Sentence>
   </WhisperAdvanced>
 </Language>

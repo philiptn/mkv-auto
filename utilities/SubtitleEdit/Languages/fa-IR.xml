@@ -2,7 +2,7 @@
 <Language Name="فارسي">
   <General>
     <Title>Subtitle Edit</Title>
-    <Version>4.0.3</Version>
+    <Version>4.0.11</Version>
     <TranslatedBy>ترجمه توسط:سید مهدی حسینی، نیما، مجید عبدالهی</TranslatedBy>
     <CultureName>fa-IR</CultureName>
     <HelpFile />
@@ -711,7 +711,7 @@
     <RemovedEmptyLineAtTop>خط خالی حذف شده از بالا</RemovedEmptyLineAtTop>
     <RemovedEmptyLineAtBottom>خط خالی حذف شده از پایین</RemovedEmptyLineAtBottom>
     <RemovedEmptyLineInMiddle>حذف خطوط خالی از وسط</RemovedEmptyLineInMiddle>
-    <RemovedEmptyLinesUnsedLineBreaks>خطهای خالی را حذف کن</RemovedEmptyLinesUnsedLineBreaks>
+    <RemovedEmptyLinesUnusedLineBreaks>خطهای خالی را حذف کن</RemovedEmptyLinesUnusedLineBreaks>
     <FixOverlappingDisplayTimes>زمانهای هم پوشانی را اصلاح کن</FixOverlappingDisplayTimes>
     <FixShortDisplayTimes>اصلاح زمانهای کوتاه نمایش</FixShortDisplayTimes>
     <FixLongDisplayTimes>اصلاح زمانهای طولانی نمایش</FixLongDisplayTimes>
@@ -3017,7 +3017,7 @@
     <RemoveShotChangesFromSelection>حذف تغییرات صحنه از انتخاب</RemoveShotChangesFromSelection>
     <GuessTimeCodes>حدس بزنید کدهای زمان...</GuessTimeCodes>
     <SeekSilence>جستجو برای سکوت...</SeekSilence>
-    <InsertSubtitleHere>قرار دادن زیرنویس در اینجا...</InsertSubtitleHere>
+    <InsertSubtitleHere>قرار دادن زیرنویس در اینجا</InsertSubtitleHere>
     <CharsSecX>CPS: {0:0.00}</CharsSecX>
     <WordsMinX>WPM: {0:0.00}</WordsMinX>
   </Waveform>

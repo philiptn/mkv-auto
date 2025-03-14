@@ -2,7 +2,7 @@
 <Language Name="Vietnamese">
   <General>
     <Title>Subtitle Edit</Title>
-    <Version>4.0.3</Version>
+    <Version>4.0.11</Version>
     <TranslatedBy>Ghé thăm www.nikse.dk của chủ phần mềm - Nikse
 thường xuyên để biết thêm thông tin và tải về phiên bản mới nhất.
 Rất hân hạnh chào đón các bạn :))
@@ -711,7 +711,7 @@ Các video hướng dẫn Subtitle Edit
     <RemovedEmptyLineAtTop>Xóa dòng trống ở đầu phụ đề</RemovedEmptyLineAtTop>
     <RemovedEmptyLineAtBottom>Xóa dòng trống ở cuối phụ đề</RemovedEmptyLineAtBottom>
     <RemovedEmptyLineInMiddle>Xóa dòng trống ở giữa phụ đề</RemovedEmptyLineInMiddle>
-    <RemovedEmptyLinesUnsedLineBreaks>Xóa các dòng trống sau khi xuống hàng</RemovedEmptyLinesUnsedLineBreaks>
+    <RemovedEmptyLinesUnusedLineBreaks>Xóa các dòng trống sau khi xuống hàng</RemovedEmptyLinesUnusedLineBreaks>
     <FixOverlappingDisplayTimes>(TIẾNG VIỆT KHÔNG CHỌN) Sửa lỗi time trùng lặp</FixOverlappingDisplayTimes>
     <FixShortDisplayTimes>(TIẾNG VIỆT KHÔNG CHỌN) Sửa lỗi CPS quá cao</FixShortDisplayTimes>
     <FixLongDisplayTimes>Sửa lỗi CPS quá thấp</FixLongDisplayTimes>
@@ -2257,8 +2257,6 @@ có thể chỉnh sửa trong cùng một tập tin phụ đề (hợp tác vớ
     <CpsLineLengthStyleCalcNoSpace>Đếm tất cả ngoại trừ dấu cách</CpsLineLengthStyleCalcNoSpace>
     <CpsLineLengthStyleCalcCjk>CJK 1, latin 0,5</CpsLineLengthStyleCalcCjk>
     <CpsLineLengthStyleCalcCjkNoSpace>CJK 1, latin 0,5, dấu cách 0</CpsLineLengthStyleCalcCjkNoSpace>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacritics>Bỏ qua các dấu phụ tiếng Ả Rập</CpsLineLengthStyleCalcIgnoreArabicDiacritics>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>Bỏ qua dấu/dấu cách tiếng Ả Rập</CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>
     <MusicSymbol>Kí hiệu Âm nhạc</MusicSymbol>
     <MusicSymbolsReplace>Các ký hiệu âm nhạc cần thay thế (phân tách bằng dấu phẩy)</MusicSymbolsReplace>
     <FixCommonOcrErrorsUseHardcodedRules>Sửa lỗi OCR phổ biến - cũng sử dụng quy tắc hardcoded</FixCommonOcrErrorsUseHardcodedRules>
@@ -2675,11 +2673,11 @@ Cài đặt font cho phụ đề thường được dùng cho trình phát video
     <NumberOfAlignmentTags>Số thẻ liên kết: {0}</NumberOfAlignmentTags>
     <LineLengthMinimum>Chiều dài phụ đề - tối thiểu: {0}</LineLengthMinimum>
     <LineLengthMaximum>Chiều dài phụ đề - tối đa: {0}</LineLengthMaximum>
-    <LineLengthAverage>Phụ đề dài - trung bình: {0}</LineLengthAverage>
+    <LineLengthAverage>Phụ đề dài - trung bình: {0:#.###}</LineLengthAverage>
     <LinesPerSubtitleAverage>Phụ đề, số dòng- trung bình: {0:0.0}</LinesPerSubtitleAverage>
     <SingleLineLengthMinimum>Chiều dài dòng đơn - tối thiểu: {0} chiều dài</SingleLineLengthMinimum>
     <SingleLineLengthMaximum>Dòng đơn - tối đa: {0}</SingleLineLengthMaximum>
-    <SingleLineLengthAverage>Chiều dài dòng đơn - trung bình: {0}Thời gian</SingleLineLengthAverage>
+    <SingleLineLengthAverage>Chiều dài dòng đơn - trung bình: {0:#.###}Thời gian</SingleLineLengthAverage>
     <SingleLineWidthMinimum>Chiều rộng dòng đơn - tối thiểu: {0} pixel</SingleLineWidthMinimum>
     <SingleLineWidthMaximum>Chiều rộng dòng đơn - tối đa: {0} pixel</SingleLineWidthMaximum>
     <SingleLineWidthAverage>Chiều rộng dòng đơn - trung bình: {0} pixel</SingleLineWidthAverage>
@@ -3013,7 +3011,7 @@ Cài đặt font cho phụ đề thường được dùng cho trình phát video
     <RemoveShotChangesFromSelection>Xóa các scene change khỏi lựa chọn</RemoveShotChangesFromSelection>
     <GuessTimeCodes>Tự tạo time...</GuessTimeCodes>
     <SeekSilence>Tìm vùng im lặng...</SeekSilence>
-    <InsertSubtitleHere>Chèn phụ đề ở đây...</InsertSubtitleHere>
+    <InsertSubtitleHere>Chèn phụ đề ở đây</InsertSubtitleHere>
     <CharsSecX>CPS: {0:0.00}</CharsSecX>
     <WordsMinX>WPM: {0:0.00}</WordsMinX>
   </Waveform>

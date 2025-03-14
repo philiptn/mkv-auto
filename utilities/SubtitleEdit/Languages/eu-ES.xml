@@ -2,7 +2,7 @@
 <Language Name="euskara">
   <General>
     <Title>Subtitle Edit</Title>
-    <Version>4.0.3</Version>
+    <Version>4.0.11</Version>
     <TranslatedBy>Itzultzailea: Xabier Aramendi</TranslatedBy>
     <CultureName>eu-ES</CultureName>
     <HelpFile>https://www.nikse.dk/SubtitleEdit/HelpEU</HelpFile>
@@ -639,7 +639,7 @@ Oharra: Egiaztatu diskako toki askea.</WaveFileMalformed>
     <RemovedEmptyLineAtTop>Kenduta goiko lerro hutsa</RemovedEmptyLineAtTop>
     <RemovedEmptyLineAtBottom>Kenduta beheko lerro hutsa</RemovedEmptyLineAtBottom>
     <RemovedEmptyLineInMiddle>Kendu erdiko lerro hutsa</RemovedEmptyLineInMiddle>
-    <RemovedEmptyLinesUnsedLineBreaks>Kendu lerro hutsak/ez erabilitako lerro hautsiak</RemovedEmptyLinesUnsedLineBreaks>
+    <RemovedEmptyLinesUnusedLineBreaks>Kendu lerro hutsak/ez erabilitako lerro hautsiak</RemovedEmptyLinesUnusedLineBreaks>
     <FixOverlappingDisplayTimes>Zuzendu erakus denbora gainjartzea</FixOverlappingDisplayTimes>
     <FixShortDisplayTimes>Zuzendu erakus denbora laburrak</FixShortDisplayTimes>
     <FixLongDisplayTimes>Zuzendu erakus denbora luzeak</FixLongDisplayTimes>
@@ -2506,14 +2506,14 @@ bezala hizkiaren argibideak barnebiltzen dituen azpidatzi heuskarri bat erabiliz
     <NumberOfAlignmentTags>Lerrokapen etiketa zenbatekoa: {0}</NumberOfAlignmentTags>
     <LineLengthMinimum>Azpidatzi luzera - gutxiena: {0}</LineLengthMinimum>
     <LineLengthMaximum>Azpidatzi luzera - gehiena: {0}</LineLengthMaximum>
-    <LineLengthAverage>Azpidatzi luzera - bataz-bestekoa: {0}</LineLengthAverage>
+    <LineLengthAverage>Azpidatzi luzera - bataz-bestekoa: {0:#.###}</LineLengthAverage>
     <LinesPerSubtitleAverage>Azpidatzia, lerro zenbatekoa - bataz-bestekoa: {0:0.0}</LinesPerSubtitleAverage>
     <SingleLineLengthMinimum>Lerro bakarraren luzera - gutxiena: {0}</SingleLineLengthMinimum>
     <SingleLineLengthMaximum>Lerro bakarraren luzera - gehiena: {0}</SingleLineLengthMaximum>
-    <SingleLineLengthAverage>Lerroa bakarraren luzera - bataz-bestekoa: {0}</SingleLineLengthAverage>
+    <SingleLineLengthAverage>Lerroa bakarraren luzera - bataz-bestekoa: {0:#.###}</SingleLineLengthAverage>
     <SingleLineWidthMinimum>Lerro bakarraren zabalera - gutxienez: {0} pixel</SingleLineWidthMinimum>
     <SingleLineWidthMaximum>Lerro bakarraren zabalera - gehienez: {0} pixel</SingleLineWidthMaximum>
-    <SingleLineWidthAverage>Lerro bakarraren zabalera - bataz-bestekoa: {0} pixel</SingleLineWidthAverage>
+    <SingleLineWidthAverage>Lerro bakarraren zabalera - bataz-bestekoa: {0:#.###} pixel</SingleLineWidthAverage>
     <DurationMinimum>Iraupena - gutxiena: {0:0.000} segundu</DurationMinimum>
     <DurationMaximum>Iraupena - gehiena: {0:0.000} segundu</DurationMaximum>
     <DurationAverage>Iraupena - bataz-bestekoa: {0:0.000} segundu</DurationAverage>
@@ -2827,7 +2827,7 @@ Gorde aldaketak?</KeepChangesMessage>
     <RemoveShotChange>Kendu agerraldi aldaketa</RemoveShotChange>
     <GuessTimeCodes>Ustezko denbora kodeak...</GuessTimeCodes>
     <SeekSilence>Bilatu isiltasuna</SeekSilence>
-    <InsertSubtitleHere>Txertatu azpidatzia hemen...</InsertSubtitleHere>
+    <InsertSubtitleHere>Txertatu azpidatzia hemen</InsertSubtitleHere>
     <CharsSecX>HKSG-ko: {0:0.00}</CharsSecX>
     <WordsMinX>HZMN-ko: {0:0.00}</WordsMinX>
   </Waveform>

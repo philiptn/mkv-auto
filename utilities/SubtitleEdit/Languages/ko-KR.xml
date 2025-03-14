@@ -2,7 +2,7 @@
 <Language Name="Korean (한국어)">
   <General>
     <Title>Subtitle Edit</Title>
-    <Version>4.0.3</Version>
+    <Version>4.0.11</Version>
     <TranslatedBy>☞ 한글화: 도움돌 (domddol@gmail.com)</TranslatedBy>
     <CultureName>ko-KR</CultureName>
     <HelpFile />
@@ -10,6 +10,7 @@
     <Cancel>취소(&amp;A)</Cancel>
     <Yes>예</Yes>
     <No>아니오</No>
+    <Close>닫기</Close>
     <Apply>적용</Apply>
     <ApplyTo>적용 대상</ApplyTo>
     <None>없음</None>
@@ -17,6 +18,7 @@
     <Preview>미리 보기</Preview>
     <ShowPreview>미리보기 표시</ShowPreview>
     <HidePreview>미리보기 숨김</HidePreview>
+    <SubtitleFile>자막 파일</SubtitleFile>
     <SubtitleFiles>자막 파일</SubtitleFiles>
     <AllFiles>모든 파일</AllFiles>
     <VideoFiles>비디오 파일</VideoFiles>
@@ -104,7 +106,7 @@
     <Warning>경고</Warning>
     <UseLargerFontForThisWindow>이 창에 더 큰 글꼴 사용</UseLargerFontForThisWindow>
     <ChangeLanguageFilter>언어 필터 변경...</ChangeLanguageFilter>
-    <MoreInfo>더 많은 정보</MoreInfo>
+    <MoreInfo>자세한 정보</MoreInfo>
   </General>
   <About>
     <Title>* Subtitle Edit 정보</Title>
@@ -192,9 +194,6 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Engine>엔진</Engine>
     <VoskWebsite>Vosk 홈페이지</VoskWebsite>
     <WhisperWebsite>Whisper 웹사이트</WhisperWebsite>
-    <WhisperNotFound>Whisper을 찾을 수 없음!
-
-더 많은 정보(웹)를 참조하시겠습니까?</WhisperNotFound>
     <Model>모델</Model>
     <Models>모델</Models>
     <LanguagesAndModels>언어 및 모델</LanguagesAndModels>
@@ -209,14 +208,16 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <UsePostProcessing>post-processing 사용 (줄 병합, 케이싱 수정, 문장 부호 등)</UsePostProcessing>
     <AutoAdjustTimings>타이밍 자동 조정</AutoAdjustTimings>
     <BatchMode>일괄 모드</BatchMode>
-    <KeepPartialTranscription>일부 전사 유지</KeepPartialTranscription>
+    <KeepPartialTranscription>작업 부분 보존</KeepPartialTranscription>
     <TranslateToEnglish>영어로 번역</TranslateToEnglish>
-    <MaxCharsPerSubtitle>자막 줄당 최대 문자 수</MaxCharsPerSubtitle>
     <RemoveTemporaryFiles>임시 파일 제거</RemoveTemporaryFiles>
     <SetCppConstMeFolder>CPP/Const-me 모델 폴더 설정...</SetCppConstMeFolder>
     <OnlyRunPostProcessing>후처리 및 타이밍 조정만 실행</OnlyRunPostProcessing>
     <DownloadFasterWhisperCuda>Faster-Whisper를 위한 cuBLAS 및 cuDNN 라이브러리 다운로드</DownloadFasterWhisperCuda>
     <NoTextFound>텍스트를 찾을 수 없습니다!</NoTextFound>
+    <FixCasing>대/소문자 수정</FixCasing>
+    <AddPeriods>마침표 추가</AddPeriods>
+    <FixShortDuration>짧은 표시시간 수정</FixShortDuration>
   </AudioToText>
   <AssaAttachments>
     <Title>Advanced Sub Station Alpha 첨부파일</Title>
@@ -400,6 +401,11 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <BatchAlignTimeCodes>타임코드를 프레임 타임코드에 맞춤</BatchAlignTimeCodes>
     <BatchUseExactTimeCodes>정확한 타임코드 사용 (사용 가능한 경우)</BatchUseExactTimeCodes>
     <BatchSnapToShotChanges>큐를 장면전환에 맞춤 (사용 가능한 경우)</BatchSnapToShotChanges>
+    <UnfixableParagraphsTitle>완전히 연결되지 않은 자막 검토</UnfixableParagraphsTitle>
+    <UnfixableParagraphsInstructions>일부 자막은 프로필에 따라 완전히 연결되지 않았으며 너무 조밀한 샷 변경으로 인해 발생했을 가능성이 큽니다(오탐 가능성 있음). 이러한 경우에 수동으로 검토하여 큐가 올바른(실제) 샷 변경에 맞게 스냅되도록 할 수 있습니다.</UnfixableParagraphsInstructions>
+    <UnfixableParagraphsColumnParagraphs>줄</UnfixableParagraphsColumnParagraphs>
+    <UnfixableParagraphsColumnParagraphsFormat>#{0} – #{1}</UnfixableParagraphsColumnParagraphsFormat>
+    <UnfixableParagraphsColumnGap>간격(프레임)</UnfixableParagraphsColumnGap>
   </BeautifyTimeCodes>
   <BeautifyTimeCodesProfile>
     <Title>프로필 편집</Title>
@@ -423,6 +429,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Chaining>체이닝</Chaining>
     <InCueOnShot>장면전환 상의 시작 큐</InCueOnShot>
     <OutCueOnShot>장면전환 상의 종료 큐</OutCueOnShot>
+    <CheckGeneral>영향을 받지 않는 경우에도 일반 규칙 적용함</CheckGeneral>
     <MaxGap>최대 간격:</MaxGap>
     <ShotChangeBehavior>중간에 장면전환이 있는 경우:</ShotChangeBehavior>
     <DontChain>체이닝 안 함</DontChain>
@@ -720,6 +727,8 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <ChooseColor>색상 선택 :</ChooseColor>
     <TotalSeconds>총 시간(초):</TotalSeconds>
     <EndDelayInSeconds>종료 지연 시간(초):</EndDelayInSeconds>
+    <WordEffect>단어 효과</WordEffect>
+    <CharacterEffect>문자 효과</CharacterEffect>
   </EffectKaraoke>
   <EffectTypewriter>
     <Title>타자기 효과</Title>
@@ -874,7 +883,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <RemovedEmptyLineAtTop>첫번째 빈 줄 제거</RemovedEmptyLineAtTop>
     <RemovedEmptyLineAtBottom>마지막 빈 줄 제거</RemovedEmptyLineAtBottom>
     <RemovedEmptyLineInMiddle>가운데 빈 줄 제거</RemovedEmptyLineInMiddle>
-    <RemovedEmptyLinesUnsedLineBreaks>빈 줄 및 불필요한 줄의 줄바꿈 제거</RemovedEmptyLinesUnsedLineBreaks>
+    <RemovedEmptyLinesUnusedLineBreaks>빈 줄 및 불필요한 줄바꿈 제거</RemovedEmptyLinesUnusedLineBreaks>
     <FixOverlappingDisplayTimes>중복된 표시시간 수정하기</FixOverlappingDisplayTimes>
     <FixShortDisplayTimes>짧은 표시시간 수정하기</FixShortDisplayTimes>
     <FixLongDisplayTimes>긴 표시시간 수정하기</FixLongDisplayTimes>
@@ -951,7 +960,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <FixDoubleDash>'--' -&gt; '...' 로 수정하기</FixDoubleDash>
     <FixDoubleGreaterThan>&gt;&gt; 제거하기</FixDoubleGreaterThan>
     <FixEllipsesStart>말머리에 쓰인 '...' 제거하기</FixEllipsesStart>
-    <FixMissingOpenBracket>줄 안에 누락된 '[' 수정하기</FixMissingOpenBracket>
+    <FixMissingOpenBracket>줄 안에 잘못된 '[' 또는 '(' 수정하기</FixMissingOpenBracket>
     <FixMusicNotation>음표(예: âTª)를 기본으로 바꾸기</FixMusicNotation>
     <FixDoubleDashExample>'음-- 맛있구나!' -&gt; '음... 맛있구나!'</FixDoubleDashExample>
     <FixDoubleGreaterThanExample>'&gt;&gt; 영희: 뛰어!' -&gt; '영희: 뛰어!'</FixDoubleGreaterThanExample>
@@ -1000,21 +1009,28 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Audio>오디오</Audio>
     <Stereo>스테레오</Stereo>
     <Preset>프리셋</Preset>
+    <PixelFormat>픽셀 형식</PixelFormat>
     <Crf>CRF</Crf>
     <TuneFor>튜닝</TuneFor>
     <AlignRight>오른쪽 정렬</AlignRight>
     <GetStartPosition>시작 지점 얻기</GetStartPosition>
     <GetEndPosition>끝 지점 얻기</GetEndPosition>
+    <UseSource>원본 사용</UseSource>
+    <UseSourceResolution>원본 해상도 사용</UseSourceResolution>
+    <OutputSettings>출력 파일/폴더...</OutputSettings>
   </GenerateVideoWithBurnedInSubs>
   <GenerateVideoWithEmbeddedSubs>
     <Title>자막이 내장된 비디오 파일 생성</Title>
     <InputVideoFile>비디오 파일</InputVideoFile>
     <SubtitlesX>자막 ({0})</SubtitlesX>
     <SetLanguage>언어 설정...</SetLanguage>
+    <LanguageAndTitle>언어/제목</LanguageAndTitle>
     <ToggleForced>적용값</ToggleForced>
     <ToggleDefault>기본값</ToggleDefault>
     <Default>기본</Default>
     <XGeneratedWithEmbeddedSubs>"{0}"에 자막을 내장했습니다!</XGeneratedWithEmbeddedSubs>
+    <DeleteInputVideo>"생성" 후 입력 비디오 파일 삭제</DeleteInputVideo>
+    <OutputFileNameSettings>출력 파일 이름 설정...</OutputFileNameSettings>
   </GenerateVideoWithEmbeddedSubs>
   <GetDictionaries>
     <Title>* 사전 다운로드</Title>
@@ -1041,16 +1057,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <To>번역 후:</To>
     <Translate>번역</Translate>
     <PleaseWait>번역 중... 잠시 기다려 주세요.</PleaseWait>
-    <PoweredByGoogleTranslate>Google 번역기 실행</PoweredByGoogleTranslate>
-    <PoweredByMicrosoftTranslate>Microsoft 번역기 실행</PoweredByMicrosoftTranslate>
     <PoweredByX>{0}으로 번역 제공</PoweredByX>
-    <MsClientSecretNeeded>죄송합니다,  최신 Microsoft 번역기를 사용하려면, Microsoft에서 인지 가능한 'Translator Text' 키 필요합니다.
-
-키를 입력하려면 "옵션 -&gt; 환경설정 -&gt; 도구" 로 이동하십시오.</MsClientSecretNeeded>
-    <GoogleNoApiKeyWarning>API 키 없이 번역... (느리고 데이터가 제한됨)
-	
-	API 키를 사용하려면, "옵션 -&gt; 환경설정 -&gt; 도구"로 이동하여 Google 번역 API 키를 입력하십시오.</GoogleNoApiKeyWarning>
-    <Service>서비스:</Service>
     <LineMergeHandling>줄 병합:</LineMergeHandling>
     <ProcessorMergeNext>최대 두 줄 병합</ProcessorMergeNext>
     <ProcessorSentence>문장 병합</ProcessorSentence>
@@ -1069,6 +1076,14 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <XRequiresALocalWebServer>"{0}"를 사용하려면 로컬에서 실행되는 웹 서버가 필요합니다!</XRequiresALocalWebServer>
     <XRequiresAnApiKey>"{0}"에는 API 키가 필요합니다.</XRequiresAnApiKey>
     <ReadMore>더 많은 정보를 보시겠습니까?</ReadMore>
+    <Formality>형식</Formality>
+    <TranslateCurrentLine>현재 줄만 번역</TranslateCurrentLine>
+    <ReTranslateCurrentLine>현재 줄 다시 번역</ReTranslateCurrentLine>
+    <MergeSplitStrategy>분할/병합 처리</MergeSplitStrategy>
+    <Delay>서버 호출 간 지연</Delay>
+    <MaxBytes>각 서버 호출의 최대 바이트 수</MaxBytes>
+    <PromptX>{0}개의 프롬프트</PromptX>
+    <TranslateLinesSeparately>각 줄을 개별적으로 번역</TranslateLinesSeparately>
   </GoogleTranslate>
   <GoogleOrMicrosoftTranslate>
     <Title>Google | Microsoft 번역기</Title>
@@ -1314,6 +1329,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
         <CloseTranslation>번역된 자막 닫기</CloseTranslation>
         <OpenContainingFolder>현재 폴더 열기</OpenContainingFolder>
         <Compare>자막 비교(&amp;C)...</Compare>
+        <VerifyCompleteness>완성도 확인...</VerifyCompleteness>
         <Statistics>통계 자료(&amp;T)...</Statistics>
         <Plugins>플러그 인(&amp;P)...</Plugins>
         <ImportSubtitleFromVideoFile>비디오(mkv,mp4) 파일에서...</ImportSubtitleFromVideoFile>
@@ -1427,12 +1443,14 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
         <GenerateBlankVideo>빈 비디오 생성...</GenerateBlankVideo>
         <GenerateVideoWithBurnedInSub>자막이 입혀진 비디오 파일 생성...</GenerateVideoWithBurnedInSub>
         <GenerateVideoWithEmbeddedSubs>자막이 내장된 비디오 파일 생성...</GenerateVideoWithEmbeddedSubs>
+        <GenerateTransparentVideoWithSubs>자막이 있는 투명한 비디오 생성...</GenerateTransparentVideoWithSubs>
         <VideoAudioToTextX>오디오를 텍스트로 ({0})...</VideoAudioToTextX>
         <ImportChaptersFromVideo>비디오에서 챕터 가져오기</ImportChaptersFromVideo>
         <GenerateImportShotChanges>장면전환 생성/가져오기...</GenerateImportShotChanges>
         <RemoveOrExportShotChanges>장면전환 제거/내보내기...</RemoveOrExportShotChanges>
         <WaveformBatchGenerate>파형 일괄 생성...</WaveformBatchGenerate>
         <ShowHideWaveformAndSpectrogram>파형 및 스펙트로그램 표시 | 숨김</ShowHideWaveformAndSpectrogram>
+        <TextToSpeechAndAddToVideo>텍스트를 음성으로 변환하고 비디오에 추가...</TextToSpeechAndAddToVideo>
         <UnDockVideoControls>비디오 컨트롤 분리</UnDockVideoControls>
         <ReDockVideoControls>비디오 컨트롤 연결</ReDockVideoControls>
       </Video>
@@ -1561,6 +1579,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
         <Subscript>아래 첨자 </Subscript>
         <Alignment>표시 위치</Alignment>
         <AutoBalanceSelectedLines>줄 자동 조정...</AutoBalanceSelectedLines>
+        <EvenlyDistributeSelectedLines>선택한 줄을 균등하게 분배 (CPS)</EvenlyDistributeSelectedLines>
         <RemoveLineBreaksFromSelectedLines>줄바꿈 제거...</RemoveLineBreaksFromSelectedLines>
         <TypewriterEffect>타자기 효과</TypewriterEffect>
         <KaraokeEffect>노래방 효과</KaraokeEffect>
@@ -1590,6 +1609,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
         <GoToSourceView>소스 보기로 이동</GoToSourceView>
         <GoToListView>자막 보기로 이동</GoToListView>
         <ExtractAudio>오디오 추출...</ExtractAudio>
+        <MediaInfo>미디어 정보</MediaInfo>
       </ContextMenu>
     </Menu>
     <Controls>
@@ -1626,6 +1646,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
       <StillTypingAutoContinueStopped>입력하는 중... 자동 진행이 중지되었습니다.</StillTypingAutoContinueStopped>
       <InsertNewSubtitleAtVideoPosition>재생 위치에 새 자막 삽입</InsertNewSubtitleAtVideoPosition>
       <InsertNewSubtitleAtVideoPositionNoTextBoxFocus>비디오 위치에 새 자막 삽입 (포커스 텍스트 상자 없음)</InsertNewSubtitleAtVideoPositionNoTextBoxFocus>
+      <InsertNewSubtitleAtVideoPositionMax>비디오 위치에 새 자막 삽입 (가능한 한 길게)</InsertNewSubtitleAtVideoPositionMax>
       <Auto>자동</Auto>
       <PlayFromJustBeforeText>텍스트 직전부터 재생</PlayFromJustBeforeText>
       <PlayFromBeginning>비디오 시작점에서 재생</PlayFromBeginning>
@@ -1833,6 +1854,8 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <SortedByX>{0} 정렬</SortedByX>
     <BeforeAutoBalanceSelectedLines>선택된 줄의 자동 조정 전</BeforeAutoBalanceSelectedLines>
     <NumberOfLinesAutoBalancedX>자동 조정된 줄: {0}개</NumberOfLinesAutoBalancedX>
+    <BeforeEvenlyDistributeSelectedLines>선택한 줄을 균등하게 분배하기 전</BeforeEvenlyDistributeSelectedLines>
+    <NumberOfLinesEvenlyDistributedX>균등하게 분배된 줄 수: {0}</NumberOfLinesEvenlyDistributedX>
     <BeforeRemoveLineBreaksInSelectedLines>선택한 줄에서 줄바꿈을 제거하기 전</BeforeRemoveLineBreaksInSelectedLines>
     <NumberOfWithRemovedLineBreakX>줄바꿈이 제거된 줄: {0}개</NumberOfWithRemovedLineBreakX>
     <BeforeMultipleReplace>다중 바꾸기 전</BeforeMultipleReplace>
@@ -2076,7 +2099,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <IncludeIncrementing>증가한 줄 포함</IncludeIncrementing>
   </MergeDoubleLines>
   <MergedShortLines>
-    <Title>* 짧은 줄 병합 (다음 조건으로 자막 합치기 - 병합된 텍스트를 클릭하면 병합전 자막 줄로 이동함)</Title>
+    <Title>짧은 줄 병합</Title>
     <MaximumCharacters>다음 문자수 이하로 병합</MaximumCharacters>
     <MaximumMillisecondsBetween>자막 사이의 간격 - 다음 시간 이하 (밀리초)</MaximumMillisecondsBetween>
     <NumberOfMergesX>미리 보기 - 병합: {0}개</NumberOfMergesX>
@@ -2110,6 +2133,10 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <EvenLines>짝수 라인</EvenLines>
     <DurationLessThan>표시시간 미달</DurationLessThan>
     <DurationGreaterThan>표시시간 초과</DurationGreaterThan>
+    <CpsLessThan>CPS 미달</CpsLessThan>
+    <CpsGreaterThan>CPS 초과</CpsGreaterThan>
+    <LengthLessThan>다음 보다 짧게</LengthLessThan>
+    <LengthGreaterThan>다음 보다 길게</LengthGreaterThan>
     <ExactlyOneLine>정확히 한 줄</ExactlyOneLine>
     <ExactlyTwoLines>정확히 두 줄</ExactlyTwoLines>
     <MoreThanTwoLines>두 줄 이상</MoreThanTwoLines>
@@ -2449,6 +2476,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <WaveformUseFFmpeg>파형 추출을 위해 FFmpeg 사용</WaveformUseFFmpeg>
     <WaveformUseCenterChannelOnly>전면 중앙 채널만 사용 (5.1/7.1용)</WaveformUseCenterChannelOnly>
     <DownloadX>{0} 다운로드</DownloadX>
+    <ExtractingX>{0} 추출 중</ExtractingX>
     <WaveformFFmpegPath>- FFmpeg 경로</WaveformFFmpegPath>
     <WaveformBrowseToFFmpeg>FFmpeg 찾기...</WaveformBrowseToFFmpeg>
     <WaveformBrowseToVLC>VLC 포터블 찾기...</WaveformBrowseToVLC>
@@ -2511,14 +2539,14 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <ContinuationStyleCustom>사용자 지정</ContinuationStyleCustom>
     <CpsLineLengthStyle>초당 문자 수/줄 길이</CpsLineLengthStyle>
     <CpsLineLengthStyleCalcAll>모든 문자 수</CpsLineLengthStyleCalcAll>
-    <CpsLineLengthStyleCalcNoSpaceCpsOnly>모든 공백을 제외한 수, 초당 문자만</CpsLineLengthStyleCalcNoSpaceCpsOnly>
+    <CpsLineLengthStyleCalcNoSpaceCpsOnly>모든 공백을 제외한 수, CPS만</CpsLineLengthStyleCalcNoSpaceCpsOnly>
     <CpsLineLengthStyleCalcNoSpace>모든 공백을 제외한 수</CpsLineLengthStyleCalcNoSpace>
     <CpsLineLengthStyleCalcCjk>한중일 1, 라틴어 0.5</CpsLineLengthStyleCalcCjk>
     <CpsLineLengthStyleCalcCjkNoSpace>한중일 1, 라틴어 0.5, 공백 0</CpsLineLengthStyleCalcCjkNoSpace>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacritics>아랍어 분음부 무시</CpsLineLengthStyleCalcIgnoreArabicDiacritics>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>아랍어 분음부/공백 무시</CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>
+    <CpsLineLengthStyleCalcIncludeCompositionCharacters>합성 문자 포함</CpsLineLengthStyleCalcIncludeCompositionCharacters>
+    <CpsLineLengthStyleCalcIncludeCompositionCharactersNotSpace>합성 문자 포함, 공백 무시</CpsLineLengthStyleCalcIncludeCompositionCharactersNotSpace>
     <CpsLineLengthStyleCalcNoSpaceOrPunctuation>공백 또는 구두점()[]-:;,.!? 없음</CpsLineLengthStyleCalcNoSpaceOrPunctuation>
-    <CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>공백 또는 구두점 없음, cps 만</CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>
+    <CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>공백 또는 구두점 없음, CPS만</CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>
     <MusicSymbol>음표</MusicSymbol>
     <MusicSymbolsReplace>대체 음표 (쉼표로 구분)</MusicSymbolsReplace>
     <FixCommonOcrErrorsUseHardcodedRules>일반적인 OCR 오류 해결 - 하드 코딩 규칙 포함</FixCommonOcrErrorsUseHardcodedRules>
@@ -2557,6 +2585,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <AdjustViaEndAutoStart>끝 지점을 통해 조정</AdjustViaEndAutoStart>
     <AdjustViaEndAutoStartAndGoToNext>끝 지점을 통해 조정하고 다음으로 이동</AdjustViaEndAutoStartAndGoToNext>
     <AdjustSetEndMinusGapAndStartNextHere>끝 지점의 음수 간격 조정, 다음으로 이동하고 여기에서 다음 시작</AdjustSetEndMinusGapAndStartNextHere>
+    <AdjustSetEndAndStartNextAfterGap>간격 후 다음의 시작 지점과 끝 지점 설정</AdjustSetEndAndStartNextAfterGap>
     <AdjustSetStartTimeAndGoToNext>시작 지점을 정하고 다음으로 이동</AdjustSetStartTimeAndGoToNext>
     <AdjustSetEndTimeAndGoToNext>끝 지점 정하고 다음으로 이동</AdjustSetEndTimeAndGoToNext>
     <AdjustSetEndTimeAndPause>끝 지점 정하고 일시 중지</AdjustSetEndTimeAndPause>
@@ -2608,6 +2637,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <MergeDialogWithNext>대화를 다음 대화와 병합 (대시 삽입)</MergeDialogWithNext>
     <MergeDialogWithPrevious>대화를 이전 대화와 병합 (대시 삽입)</MergeDialogWithPrevious>
     <AutoBalanceSelectedLines>선택한 줄 자동 균형</AutoBalanceSelectedLines>
+    <EvenlyDistributeSelectedLines>선택한 줄을 균등하게 분배 (CPS)</EvenlyDistributeSelectedLines>
     <GoToNext>다음 줄로 이동</GoToNext>
     <GoToNextPlayTranslate>다음 줄로 이동 (그리고 '번역 모드'에서 재생)</GoToNextPlayTranslate>
     <GoToNextCursorAtEnd>다음 줄로 이동하여 끝에 커서 설정</GoToNextCursorAtEnd>
@@ -2661,6 +2691,8 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <WaveformGoToPreviousShotChange>이전 장면전환으로 이동</WaveformGoToPreviousShotChange>
     <WaveformGoToNextShotChange>다음 장면전환으로 이동</WaveformGoToNextShotChange>
     <WaveformToggleShotChange>장면전환</WaveformToggleShotChange>
+    <WaveformAllShotChangesOneFrameForward>모든 장면전환을 한 프레임 앞으로 이동</WaveformAllShotChangesOneFrameForward>
+    <WaveformAllShotChangesOneFrameBack>모든 장면전환을 한 프레임 뒤로 이동</WaveformAllShotChangesOneFrameBack>
     <WaveformRemoveOrExportShotChanges>장면전환 제거/내보내기</WaveformRemoveOrExportShotChanges>
     <WaveformGuessStart>볼륨/장면전환을 통한 자동 조정</WaveformGuessStart>
     <GoBack1Frame>1프레임 뒤로</GoBack1Frame>
@@ -2707,6 +2739,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <AudioExtractSelectedLines>오디오 추출 (선택한 줄)</AudioExtractSelectedLines>
     <AudioToTextSelectedLinesX>선택한 줄 오디오를 텍스트로 ({0})</AudioToTextSelectedLinesX>
     <VideoToggleBrightness>밝기 전환 (mpv 만)</VideoToggleBrightness>
+    <AutoTranslateSelectedLines>선택한 줄 자동 번역</AutoTranslateSelectedLines>
     <CustomSearch1>번역, 사용자 지정 검색 1</CustomSearch1>
     <CustomSearch2>번역, 사용자 지정 검색 2</CustomSearch2>
     <CustomSearch3>번역, 사용자 지정 검색 3</CustomSearch3>
@@ -2764,6 +2797,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <MainTextBoxMoveFirstWordFromNextUp>다음 줄의 첫 단어를 위로 이동</MainTextBoxMoveFirstWordFromNextUp>
     <MainTextBoxMoveFirstWordUpCurrent>다음 줄의 첫 단어를 위로 이동 (현재 자막)</MainTextBoxMoveFirstWordUpCurrent>
     <MainTextBoxMoveFromCursorToNext>커서 위치를 다음 자막에 둔 후 텍스트 이동하고 다음으로 이동</MainTextBoxMoveFromCursorToNext>
+    <MainTextBoxMoveFirstWordToPrev>첫 단어를 이전 자막으로 이동</MainTextBoxMoveFirstWordToPrev>
     <MainTextBoxMoveLastWordDownCurrent>첫째 줄의 마지막 단어를 아래로 이동 (현재 자막)</MainTextBoxMoveLastWordDownCurrent>
     <MainTextBoxSelectionToLower>선택한 영역 소문자로...</MainTextBoxSelectionToLower>
     <MainTextBoxSelectionToUpper>선택한 영역 대문자로...</MainTextBoxSelectionToUpper>
@@ -2836,6 +2870,8 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <ExportAsHtml>HTML로 내보내기...</ExportAsHtml>
     <SetNewActor>새 배우/음성 설정</SetNewActor>
     <SetActorX>배우/음성 설정 {0}</SetActorX>
+    <Used>사용</Used>
+    <Unused>미사용</Unused>
   </Settings>
   <SettingsMpv>
     <DownloadMpv>mpv lib 다운로드</DownloadMpv>
@@ -2935,7 +2971,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Basic>기본</Basic>
   </Split>
   <SplitLongLines>
-    <Title>* 긴 줄 분할/줄바꿈</Title>
+    <Title>긴 줄 분할/줄바꿈</Title>
     <SingleLineMaximumLength>줄의 문자수가 다음 이상이면 분할:</SingleLineMaximumLength>
     <LineMaximumLength>다음 문자수 이상인 자막 분할:</LineMaximumLength>
     <LineContinuationBeginEndStrings>줄의 시작/끝부분에 다음 문자열 추가:</LineContinuationBeginEndStrings>
@@ -2986,15 +3022,15 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <NumberOfAlignmentTags>정렬 태그 수: {0}</NumberOfAlignmentTags>
     <LineLengthMinimum>자막 길이 - 최소: {0}</LineLengthMinimum>
     <LineLengthMaximum>자막 길이 - 최대: {0}</LineLengthMaximum>
-    <LineLengthAverage>자막 길이 - 평균: {0}</LineLengthAverage>
-    <LinesPerSubtitleAverage>자막 안의 줄 수 - 평균: {0:0.0}</LinesPerSubtitleAverage>
+    <LineLengthAverage>자막 길이 - 평균: {0:#.###}</LineLengthAverage>
+    <LinesPerSubtitleAverage>자막 안의 줄 수 - 평균: {0:0.###}</LinesPerSubtitleAverage>
     <SingleLineLengthMinimum>한 줄의 길이 - 최소: {0}</SingleLineLengthMinimum>
     <SingleLineLengthMaximum>한 줄의 길이 - 최대: {0}</SingleLineLengthMaximum>
-    <SingleLineLengthAverage>한 줄의 길이 - 평균: {0}</SingleLineLengthAverage>
+    <SingleLineLengthAverage>한 줄의 길이 - 평균: {0:#.###}</SingleLineLengthAverage>
     <SingleLineLengthExceedingMaximum>한 줄의 길이 - 최대값 초과 ({0} 문자): {1} ({2:0.00}%)</SingleLineLengthExceedingMaximum>
     <SingleLineWidthMinimum>한 줄의 너비 - 최소: {0} 픽셀</SingleLineWidthMinimum>
     <SingleLineWidthMaximum>한 줄의 너비 - 최대: {0} 픽셀</SingleLineWidthMaximum>
-    <SingleLineWidthAverage>한 줄의 너비 - 평균: {0} 픽셀</SingleLineWidthAverage>
+    <SingleLineWidthAverage>한 줄의 너비 - 평균: {0:#.###} 픽셀</SingleLineWidthAverage>
     <SingleLineWidthExceedingMaximum>한 줄의 너비 - 최대값 초과 ({0} 픽셀): {1} ({2:0.00}%)</SingleLineWidthExceedingMaximum>
     <DurationMinimum>표시시간 - 최소: {0:0.000}초</DurationMinimum>
     <DurationMaximum>표시시간 - 최대: {0:0.000}초</DurationMaximum>
@@ -3105,6 +3141,10 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Angle>각도</Angle>
     <BoxPerLine>줄마다 별도로 (테두리 색 사용)</BoxPerLine>
     <BoxMultiLine>단일 상자로 (그림자 색 사용)</BoxMultiLine>
+    <BoxPerLineShort>줄마다 상자</BoxPerLineShort>
+    <BoxMultiLineShort>단일 상자</BoxMultiLineShort>
+    <BoxType>상자 유형
+</BoxType>
     <DuplicateStyleNames>중복 스타일 이름: {0}</DuplicateStyleNames>
   </SubStationAlphaStyles>
   <SubStationAlphaStylesCategoriesManager>
@@ -3131,6 +3171,27 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Info>※ 하나의 동기화 지점을 정한 후 나머지 지점들의 위치와 속도를 정하고 조정합니다.</Info>
     <ApplySync>동기화 적용</ApplySync>
   </PointSync>
+  <TextToSpeech>
+    <Title>텍스트를 음성으로 변환</Title>
+    <Voice>음성</Voice>
+    <TestVoice>음성 테스트</TestVoice>
+    <DefaultVoice>기본 음성</DefaultVoice>
+    <AddAudioToVideo>비디오 파일에 오디오 추가 (새 파일)</AddAudioToVideo>
+    <GenerateSpeech>텍스트에서 음성 생성</GenerateSpeech>
+    <ActorInfo>우클릭하여 음성 할당</ActorInfo>
+    <AdjustingSpeedXOfY>속도 조정: {0} / {1}...</AdjustingSpeedXOfY>
+    <MergingAudioTrackXOfY>오디오 트랙 병합: {0} / {1}...</MergingAudioTrackXOfY>
+    <GeneratingSpeechFromTextXOfY>텍스트에서 음성 생성: {0} / {1}...</GeneratingSpeechFromTextXOfY>
+    <ReviewAudioClips>오디오 클립 검토</ReviewAudioClips>
+    <CustomAudioEncoding>사용자 지정 오디오 인코딩</CustomAudioEncoding>
+    <ReviewInfo>오디오 클립 검토 및 편집/제거</ReviewInfo>
+    <Play>재생</Play>
+    <AutoContinue>자동 계속</AutoContinue>
+    <Regenerate>재생성</Regenerate>
+    <Speed>속도</Speed>
+    <Stability>안정성</Stability>
+    <Similarity>유사성</Similarity>
+  </TextToSpeech>
   <TimedTextSmpteTiming>
     <Title>SMPTE 타이밍</Title>
     <UseSmpteTiming>현재 자막에 SMPTE 타이밍을 사용하시겠습니까?</UseSmpteTiming>
@@ -3150,6 +3211,21 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
 # 이메일 주소: mailto:niksedk@gmail.com</Message>
     <ImportAsPlainText>일반 텍스트로 가져오기...</ImportAsPlainText>
   </UnknownSubtitle>
+  <VerifyCompleteness>
+    <Title>다른 자막과 비교해 완성도 확인</Title>
+    <OpenControlSubtitle>컨트롤 자막 열기</OpenControlSubtitle>
+    <ControlSubtitleError>컨트롤 자막이 비어 있거나 로드할 수 없습니다.</ControlSubtitleError>
+    <ControlSubtitleX>컨트롤 자막: {0}</ControlSubtitleX>
+    <Coverage>적용 범위</Coverage>
+    <CoveragePercentageX>{0:0.##}%</CoveragePercentageX>
+    <SortByCoverage>적용 범위별로 정렬</SortByCoverage>
+    <SortByTime>시간순으로 정렬</SortByTime>
+    <Reload>다시 검증</Reload>
+    <Insert>삽입</Insert>
+    <InsertAndNext>삽입하고 다음으로 이동</InsertAndNext>
+    <Dismiss>무시</Dismiss>
+    <DismissAndNext>무시하고 다음으로 이동</DismissAndNext>
+  </VerifyCompleteness>
   <VisualSync>
     <Title>시각 동기화</Title>
     <StartScene>처음 장면: 현재 로드된 자막의 최초 표시 지점</StartScene>
@@ -3284,6 +3360,13 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <InspectItems>항목 검사</InspectItems>
     <AddBetterMatch>일치 항목 추가</AddBetterMatch>
     <Add>추가</Add>
+    <AddBetterMultiMatch>다중 일치 항목 추가</AddBetterMultiMatch>
+    <AddOrUpdateMatch>일치 항목 추가 또는 업데이트</AddOrUpdateMatch>
+    <SelectPrevousMatch>이전 일치 항목 선택</SelectPrevousMatch>
+    <SelectNextMatch>다음 일치 항목 선택</SelectNextMatch>
+    <JumpPreviousMissingMatch>이전 누락된 일치 항목으로 이동</JumpPreviousMissingMatch>
+    <JumpNextMissingMatch>다음 누락된 일치 항목으로 이동</JumpNextMissingMatch>
+    <FocusTextbox>텍스트 입력에 포커스</FocusTextbox>
   </VobSubOcrCharacterInspect>
   <VobSubOcrNewFolder>
     <Title>새 폴더</Title>
@@ -3325,7 +3408,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Seconds>초</Seconds>
     <ZoomIn>확대</ZoomIn>
     <ZoomOut>축소</ZoomOut>
-    <AddParagraphHere>여기에 텍스트 쓰기</AddParagraphHere>
+    <AddParagraphHere>여기에 텍스트 추가 (입력)</AddParagraphHere>
     <AddParagraphHereAndPasteText>여기에 복사한 텍스트 추가...</AddParagraphHereAndPasteText>
     <SetParagraphAsSelection>현재를 새로운 선택으로 설정</SetParagraphAsSelection>
     <FocusTextBox>텍스트 입력 창으로 이동...</FocusTextBox>
@@ -3336,6 +3419,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <SplitAtCursor>커서 위치에서 분할</SplitAtCursor>
     <MergeWithPrevious>이전과 병합</MergeWithPrevious>
     <MergeWithNext>이후와 병합</MergeWithNext>
+    <RunWhisperSelectedParagraph>선택한 단락에서 Whisper 실행...</RunWhisperSelectedParagraph>
     <ExtendToPrevious>이전으로 확장</ExtendToPrevious>
     <ExtendToNext>다음으로 확장</ExtendToNext>
     <PlaySelection>선택한 영역 재생하기</PlaySelection>
@@ -3347,7 +3431,8 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <RemoveShotChangesFromSelection>선택에서 장면전환 제거</RemoveShotChangesFromSelection>
     <GuessTimeCodes>타임코드 알아내기</GuessTimeCodes>
     <SeekSilence>무음 탐색...</SeekSilence>
-    <InsertSubtitleHere>여기에 자막 삽입...</InsertSubtitleHere>
+    <InsertSubtitleHere>여기에 텍스트 삽입</InsertSubtitleHere>
+    <InsertSubtitleFileHere>여기에 자막 파일 삽입...</InsertSubtitleFileHere>
     <CharsSecX>문자/초: {0:0.00}</CharsSecX>
     <WordsMinX>단어/분: {0:0.00}</WordsMinX>
   </Waveform>
@@ -3375,6 +3460,7 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
   <WebVttProperties>
     <UseXTimeStamp>X-TIMESTAMP-MAP 헤더 값 사용</UseXTimeStamp>
     <MergeLines>로드 시 동일한 텍스트가 있는 줄 병합</MergeLines>
+    <MergeStyleTags>스타일 태그 병합</MergeStyleTags>
   </WebVttProperties>
   <WebVttStyleManager>
     <Title>WebVTT 스타일</Title>
@@ -3383,5 +3469,10 @@ FFmpeg를 다운로드하고 사용하시겠습니까?</FfmpegNotFound>
     <Title>Whisper Advanced - 추가 명령줄 인수</Title>
     <CommandLineArguments>Whisper 명령줄에 대한 추가 매개변수:</CommandLineArguments>
     <Info>참고: Whisper 구현에 따라 명령줄 매개 변수는 다릅니다!</Info>
+    <Standard>표준</Standard>
+    <StandardAsia>표준 아시아</StandardAsia>
+    <HighlightCurrentWord>현재 단어 강조 표시</HighlightCurrentWord>
+    <SingleWords>단일 단어</SingleWords>
+    <Sentence>문장</Sentence>
   </WhisperAdvanced>
 </Language>
