@@ -826,7 +826,7 @@ def print_media_info(logger, filenames):
             seasons = sorted(tv_shows_hdr[show].keys())
             if len(seasons) == 1:
                 season = seasons[0]
-                episode_list = compact_episode_list(sorted(tv_shows[show][season]))
+                episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
                 tv_shows_hdr_print = f"(Season {season}, Episode {episode_list})"
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
