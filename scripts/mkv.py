@@ -1219,12 +1219,17 @@ def process_external_subs(logger, debug, dirpath, input_files, all_missing_subs_
     return subtitle_tracks_to_be_processed, updated_all_missing_subs_langs
 
 
+def normalize_title(title):
+    title = re.sub(r'\(\d{4}\)', '', title)
+    title = re.sub(r'[\W_]+', '', title)
+    return title.lower()
+
+
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
     download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
-    pattern = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
-    input_file_with_path = os.path.join(dirpath, input_file)
 
-    match = pattern.search(input_file)
+    pattern_season_episode = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
+    match = pattern_season_episode.search(input_file)
     if match:
         season, episode = match.groups()
         season_episode = f's{season}e{episode}'.lower()
@@ -1232,31 +1237,28 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
         season_episode = None
 
     base, extension = os.path.splitext(input_file)
-    base_name_normalized = os.path.splitext(os.path.basename(input_file))[0].strip()
+    raw_name_no_ext = os.path.splitext(os.path.basename(input_file))[0]
 
+    base_name_normalized = normalize_title(raw_name_no_ext)
+
+    input_file_with_path = os.path.join(dirpath, input_file)
     all_langs = []
     all_sub_files = []
     updated_missing_subs_langs = []
     num = 1000
 
-    # Collect and sort subtitle files
     subtitle_files = sorted(
-        [f for f in os.listdir(dirpath) if f.split('.')[-1] in ['srt', 'ass', 'sup', 'sub', 'idx']]
+        [f for f in os.listdir(dirpath) if f.split('.')[-1].lower() in ['srt', 'ass', 'sup', 'sub', 'idx']]
     )
 
-    # Dictionary to store idx-sub pairs
     subtitle_pairs = {}
-
     for subtitle in subtitle_files:
         sub_base, sub_ext = os.path.splitext(subtitle)
-
-        # Find an existing base that starts the same to pair .idx and .sub files
         matched_base = None
-        for existing_base in subtitle_pairs.keys():
-            if sub_base.startswith(existing_base):  # Ensuring `.idx` and `.sub` match
+        for existing_base in subtitle_pairs:
+            if sub_base.startswith(existing_base):
                 matched_base = existing_base
                 break
-
         if sub_ext == ".idx":
             if matched_base:
                 subtitle_pairs[matched_base]["idx"] = subtitle
@@ -1275,43 +1277,50 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
             continue
 
         sub_base, sub_ext = os.path.splitext(subtitle)
-
         subtitle_path = os.path.join(dirpath, subtitle)
 
-        if (season_episode and season_episode in subtitle.lower()) or sub_base.startswith(
-                base_name_normalized) or base_name_normalized in sub_base:
+        sub_base_normalized = normalize_title(sub_base)
 
+        if season_episode:
+            match_condition = (season_episode in sub_base.lower() and base_name_normalized in sub_base_normalized)
+        else:
+            match_condition = (base_name_normalized in sub_base_normalized)
+
+        if match_condition:
             lang_match = re.search(r'\.([a-z]{2,3})\.[^.]+$', subtitle, re.IGNORECASE)
             if lang_match:
-                if len(lang_match.group(1)) == 2:
+                lang_part = lang_match.group(1)
+                if len(lang_part) == 2:
                     try:
-                        lang_code = pycountry.languages.get(alpha_2=lang_match.group(1)).alpha_3
+                        lang_code = pycountry.languages.get(alpha_2=lang_part).alpha_3
                     except:
-                        lang_code = lang_match.group(1)
+                        lang_code = lang_part
                 else:
-                    lang_code = lang_match.group(1)
+                    lang_code = lang_part
             else:
-                file_info, pretty = get_mkv_info(False, input_file_with_path, False)
+                file_info, _ = get_mkv_info(False, input_file_with_path, False)
                 main_audio_track_lang = get_main_audio_track_language(file_info)
-                lang_code = 'eng' if main_audio_track_lang == "und" else pycountry.languages.get(name=main_audio_track_lang).alpha_3
+                if main_audio_track_lang == "und":
+                    lang_code = 'eng'
+                else:
+                    try:
+                        lang_code = pycountry.languages.get(name=main_audio_track_lang).alpha_3
+                    except:
+                        lang_code = 'eng'
 
             all_langs.append(lang_code)
             language = pycountry.languages.get(alpha_3=lang_code)
             language_name = language.name if language else ''
-
             if sub_ext in ('.idx', '.sub', '.sup'):
                 language_name = 'Original'
-
             output_name_b64 = base64.b64encode(language_name.encode("utf-8")).decode("utf-8")
 
-            # Ensure idx and sub files get the SAME num
-            if sub_base in subtitle_pairs:
-                if subtitle_pairs[sub_base]["num"] is None:
-                    subtitle_pairs[sub_base]["num"] = num  # Assign shared num for pair
-                    num += 1
+            if sub_base in subtitle_pairs and subtitle_pairs[sub_base]["num"] is None:
+                subtitle_pairs[sub_base]["num"] = num
+                num += 1
 
+            if sub_base in subtitle_pairs and subtitle_pairs[sub_base]["num"] is not None:
                 assigned_num = subtitle_pairs[sub_base]["num"]
-
                 for ext in ['idx', 'sub']:
                     if ext in subtitle_pairs[sub_base]:
                         orig_name = subtitle_pairs[sub_base][ext]
@@ -1321,13 +1330,12 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                         os.rename(os.path.join(dirpath, orig_name), new_path)
                         processed_subs.add(orig_name)
             else:
-                # For standalone subtitles (srt, ass, etc.)
                 new_subtitle_name = f"{base}_0_'{output_name_b64}'_{num}_{lang_code}.{sub_ext.lstrip('.')}"
                 new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
                 all_sub_files.append(new_subtitle_path)
                 os.rename(subtitle_path, new_subtitle_path)
                 processed_subs.add(subtitle)
-                num += 1  # Increment after standalone processing
+                num += 1
 
     for lang in missing_subs_langs:
         if lang not in all_langs:
