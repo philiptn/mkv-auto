@@ -490,12 +490,22 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     unmatched_original_audio_track_names = []
     unmatched_original_audio_track_codecs = []
 
+    unmatched_compatibility_audio_track_ids = []
+    unmatched_compatibility_audio_track_languages = []
+    unmatched_compatibility_audio_track_names = []
+    unmatched_compatibility_audio_track_codecs = []
+
     audio_track_codecs = []
 
     original_audio_track_ids = []
     original_audio_track_languages = []
     original_audio_track_names = []
     original_audio_track_codecs = []
+
+    compatibility_audio_track_ids = []
+    compatibility_audio_track_languages = []
+    compatibility_audio_track_names = []
+    compatibility_audio_track_codecs = []
 
     first_audio_track_id = -1
     first_audio_track_lang = ''
@@ -575,6 +585,13 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                 elif not all(track_name == name for name in all_track_names):
                     add_track = True
 
+                if 'compatibility' in track_name.lower():
+                    compatibility_audio_track_ids.append(track["id"])
+                    compatibility_audio_track_names.append(track_name)
+                    compatibility_audio_track_languages.append(track_language)
+                    compatibility_audio_track_codecs.append(audio_codec)
+                    add_track = False
+
                 if add_track:
                     total_audio_tracks += 1
 
@@ -609,6 +626,13 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                     add_track = True
                 elif not all(track_name == name for name in all_track_names):
                     add_track = True
+
+                if 'compatibility' in track_name.lower():
+                    unmatched_compatibility_audio_track_ids.append(track["id"])
+                    unmatched_compatibility_audio_track_names.append(track_name)
+                    unmatched_compatibility_audio_track_languages.append(track_language)
+                    unmatched_compatibility_audio_track_codecs.append(audio_codec)
+                    add_track = False
 
                 if add_track:
                     total_audio_tracks += 1
@@ -652,6 +676,21 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             tracks_ids_to_be_converted = unmatched_audio_track_ids
             tracks_langs_to_be_converted = unmatched_audio_track_languages
             tracks_names_to_be_converted = unmatched_audio_track_names
+
+    # Only add compatibility tracks if no other match has been found
+    if not all_audio_track_ids and (unmatched_compatibility_audio_track_ids or compatibility_audio_track_ids):
+        if compatibility_audio_track_ids:
+            default_audio_track = compatibility_audio_track_ids[0]
+            all_audio_track_ids = compatibility_audio_track_ids
+            tracks_ids_to_be_converted = compatibility_audio_track_ids
+            tracks_langs_to_be_converted = compatibility_audio_track_languages
+            tracks_names_to_be_converted = compatibility_audio_track_names
+        if not compatibility_audio_track_ids and unmatched_compatibility_audio_track_ids:
+            default_audio_track = unmatched_compatibility_audio_track_ids[0]
+            all_audio_track_ids = unmatched_compatibility_audio_track_ids
+            tracks_ids_to_be_converted = unmatched_compatibility_audio_track_ids
+            tracks_langs_to_be_converted = unmatched_compatibility_audio_track_languages
+            tracks_names_to_be_converted = unmatched_compatibility_audio_track_names
 
     # If there is no audio tracks at all, no processing is needed
     if first_audio_track_id == -1:
@@ -711,6 +750,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
         tracks_ids_to_be_converted = []
         tracks_langs_to_be_converted = []
         tracks_names_to_be_converted = []
+        needs_processing = False
 
     if debug:
         print(f"{BLUE}preferred audio codec found in all tracks{RESET}: {pref_audio_formats_found}")

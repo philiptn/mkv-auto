@@ -79,9 +79,11 @@ def mkv_auto(args):
         print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
 
     done_info = {'skipped_files': 0}
+    total_files_input = 0
     if move_files:
         remaining_files = wait_for_stable_files(input_dir)
         while remaining_files:
+            total_files_input += count_files(input_dir)
             files_in_temp = count_files(temp_dir)
             all_files = remaining_files + files_in_temp
             done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)
@@ -97,7 +99,7 @@ def mkv_auto(args):
     desc = "Moving file" if move_files else "Copying file"
     total_files_temp = count_files(temp_dir)
     if done_info['skipped_files'] > 0:
-        print_final_spin_files(logger, total_files_temp, total_files, header='INFO', description=desc)
+        print_final_spin_files(logger, total_files_temp, total_files_input, header='INFO', description=desc)
     else:
         print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
 
