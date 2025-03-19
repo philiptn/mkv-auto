@@ -520,6 +520,26 @@ def check_config(config, section, option):
         return None
 
 
+def decompose_subtitle_filename(subtitle_file):
+    base_lang_id_name_forced, _, extension = subtitle_file.rpartition('.')
+    base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
+    base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
+    base_forced, _, name_encoded = base_name_forced.rpartition('_')
+    name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
+        "'") else name_encoded
+    name = base64.b64decode(name_encoded).decode("utf-8")
+    base, _, forced = base_forced.rpartition('_')
+
+    return {
+        'base': base,
+        'forced': forced,
+        'name': name,
+        'track_id': track_id,
+        'language': language,
+        'extension': extension
+    }
+
+
 def to_sentence_case(s):
     if s == s.lower():
         return ' '.join(word.capitalize() for word in s.split(' '))

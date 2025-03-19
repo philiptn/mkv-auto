@@ -712,8 +712,11 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
                              f"{all_replacements_list_count} OCR {print_multi_or_single(all_replacements_list_count, 'error')}.")
     all_errored_subs_count = len([item for list in all_errored_subs for item in list])
     if all_errored_subs_count:
-        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_subs_count} "
-                             f"{print_multi_or_single(all_errored_subs_count, 'subtitle')} failed to be converted.")
+        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} The following "
+                             f"{print_multi_or_single(all_errored_subs_count, 'subtitle')} failed to be converted:")
+        for errored_sub in all_errored_subs:
+            custom_print(logger, f"{GREY}[SUBTITLES]{RESET} '{errored_sub}'")
+
     return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed,
             all_missing_subs_langs, all_errored_subs, main_audio_track_langs_list)
 
@@ -975,39 +978,45 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     mkv_base, _, mkv_extension = input_file.rpartition('.')
     input_file_with_path = os.path.join(dirpath, input_file)
 
+    file_info = reformat_filename(input_file, True)
+    media_type = file_info["media_type"]
+    base, ext = os.path.splitext(filename)
+    is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
+
     downloaded_subs = []
     failed_downloads = []
 
     if debug:
         print('\n')
 
-    for index, lang in enumerate(missing_subs_langs):
+    if not media_type == 'other' and not is_extra:
+        for index, lang in enumerate(missing_subs_langs):
 
-        command = [
-            'subliminal', '--debug', '--config', './subliminal.toml', 'download', '-l', lang, input_file
-        ]
+            command = [
+                'subliminal', '--debug', '--config', './subliminal.toml', 'download', '-l', lang, input_file
+            ]
 
-        if debug:
-            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
-            print(f"{RESET}")
+            if debug:
+                print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
+                print(f"{RESET}")
 
-        # Sleep for random 1-3 seconds to not overwhelm the subliminal service providers
-        time.sleep(random.uniform(1.0, 3.0))
+            # Sleep for random 1-3 seconds to not overwhelm the subliminal service providers
+            time.sleep(random.uniform(1.0, 3.0))
 
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=dirpath)
-        stdout, stderr = process.communicate()
-        return_code = process.returncode
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=dirpath)
+            stdout, stderr = process.communicate()
+            return_code = process.returncode
 
-        if debug:
-            print(
-                f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}\n\n{stderr.decode('utf-8')}{RESET}")
+            if debug:
+                print(
+                    f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}\n\n{stderr.decode('utf-8')}{RESET}")
 
-        if os.path.exists(os.path.join(dirpath, f"{mkv_base}.{lang}.srt")):
-            shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"),
-                        os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
-            downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
-        else:
-            failed_downloads.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
+            if os.path.exists(os.path.join(dirpath, f"{mkv_base}.{lang}.srt")):
+                shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"),
+                            os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
+                downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
+            else:
+                failed_downloads.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
 
     return downloaded_subs, failed_downloads
 

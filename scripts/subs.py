@@ -589,7 +589,8 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
         else:
             if output_subtitle in ('ERROR', 'SKIP'):
                 if output_subtitle == "ERROR":
-                    errored_ocr.append(original_file)
+                    subtitle_file_info = decompose_subtitle_filename(original_file)
+                    errored_ocr.append(os.path.basename(subtitle_file_info['base']))
                 if language not in ('ERROR', 'SKIP'):
                     missing_subs_langs.append(language)
             if name not in ('ERROR', 'SKIP'):
