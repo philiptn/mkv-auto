@@ -980,7 +980,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
 
     file_info = reformat_filename(input_file, True)
     media_type = file_info["media_type"]
-    base, ext = os.path.splitext(filename)
+    base = os.path.basename(input_file)
     is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
 
     downloaded_subs = []
