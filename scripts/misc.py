@@ -12,6 +12,8 @@ import time
 import pycountry
 import threading
 import psutil
+import base64
+
 
 # ANSI color codes
 BLUE = '\033[94m'
