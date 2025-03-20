@@ -190,7 +190,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     return {
         "total_files": total_files,
         "actual_file_sizes": actual_file_sizes / (1024 ** 3),
-        "actual_moved_file_sizes": actual_file_sizes / (1024 ** 3),
+        "actual_moved_file_sizes": actual_moved_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": initial_available_space / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
@@ -265,7 +265,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     return {
         "total_files": total_files,
         "actual_file_sizes": actual_file_sizes / (1024 ** 3),
-        "actual_copied_file_sizes": actual_file_sizes / (1024 ** 3),
+        "actual_copied_file_sizes": actual_copied_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": available_space / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]

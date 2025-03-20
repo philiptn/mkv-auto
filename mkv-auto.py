@@ -94,8 +94,6 @@ def mkv_auto(args):
         remaining_files = wait_for_stable_files(input_dir)
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=remaining_files)
 
-    total_data = get_folder_size_gb(temp_dir)
-
     desc = "Moving file" if move_files else "Copying file"
     total_files_temp = count_files(temp_dir)
     if done_info['skipped_files'] > 0:
