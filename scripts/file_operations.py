@@ -129,6 +129,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     skipped_files_counter = [0]
     all_required_space = 0.0
     actual_file_sizes = 0.0
+    actual_moved_file_sizes = 0.0
     space_lock = Lock()
     file_counter_lock = Lock()
 
@@ -151,7 +152,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     items.sort(key=sort_key)
 
     def move_item(rel_path):
-        nonlocal available_space, actual_file_sizes, all_required_space
+        nonlocal available_space, actual_file_sizes, all_required_space, actual_moved_file_sizes
         s = os.path.join(source_directory, rel_path)
         d = os.path.join(destination_directory, rel_path)
 
@@ -168,6 +169,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
 
                 if initial_available_space >= all_required_space:
                     available_space -= file_size
+                    actual_moved_file_sizes += file_size
                     os.makedirs(os.path.dirname(d), exist_ok=True)
                     shutil.move(s, d)
                     with file_counter_lock:
@@ -188,6 +190,7 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
     return {
         "total_files": total_files,
         "actual_file_sizes": actual_file_sizes / (1024 ** 3),
+        "actual_moved_file_sizes": actual_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": initial_available_space / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]
@@ -203,6 +206,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     skipped_files_counter = [0]
     all_required_space = 0.0
     actual_file_sizes = 0.0
+    actual_copied_file_sizes = 0.0
     space_lock = Lock()
     file_counter_lock = Lock()
 
@@ -225,7 +229,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     items.sort(key=sort_key)
 
     def copy_item(rel_path):
-        nonlocal available_space, actual_file_sizes, all_required_space
+        nonlocal available_space, actual_file_sizes, all_required_space, actual_copied_file_sizes
         s = os.path.join(source_directory, rel_path)
         d = os.path.join(destination_directory, rel_path)
 
@@ -242,6 +246,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
                 if initial_available_space >= all_required_space:
                     available_space -= file_size
+                    actual_copied_file_sizes += file_size
                     os.makedirs(os.path.dirname(d), exist_ok=True)
                     shutil.copy(s, d)
                     with file_counter_lock:
@@ -260,6 +265,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     return {
         "total_files": total_files,
         "actual_file_sizes": actual_file_sizes / (1024 ** 3),
+        "actual_copied_file_sizes": actual_file_sizes / (1024 ** 3),
         "required_space_gib": all_required_space / (1024 ** 3),
         "available_space_gib": available_space / (1024 ** 3),
         "skipped_files": skipped_files_counter[0]

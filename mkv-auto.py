@@ -106,10 +106,10 @@ def mkv_auto(args):
     method = 'moved' if move_files else 'copied'
     if done_info['skipped_files'] == 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {total_data} GB to TEMP.")
+                             f"Successfully {method} {done_info[f'actual_{method}_file_sizes']:.2f} GB to TEMP.")
     elif done_info['skipped_files'] > 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {total_data} GB to TEMP.")
+                             f"Successfully {method} {done_info[f'actual_{method}_file_sizes']:.2f} GB to TEMP.")
         custom_print(logger,
                      f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                      f"had to be skipped due to insufficient storage capacity.")
