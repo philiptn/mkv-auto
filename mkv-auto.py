@@ -2,7 +2,7 @@ import configparser
 import sys
 import traceback
 import argparse
-from itertools import groupby
+from itertools import groupby, zip_longest
 
 from scripts.file_operations import *
 from scripts.mkv import *
@@ -218,9 +218,14 @@ def mkv_auto(args):
                 if not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs.lower() != 'false':
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, filenames_mkv_only, dirpath, total_external_subs,
                                                     all_missing_subs_langs)
-                    all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, all_downloaded_subs)]
 
-                if total_external_subs or all_downloaded_subs and any(sub for sub in all_subtitle_files):
+                    all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, all_downloaded_subs, fillvalue=[])]
+
+                    if download_missing_subs.lower() == 'always':
+                        subtitle_files_to_process = all_subtitle_files
+                        subtitle_tracks_to_be_merged = get_subtitle_tracks_metadata_for_repack(logger, all_subtitle_files)
+
+                if total_external_subs or (all_downloaded_subs and any(sub for sub in all_subtitle_files)):
                     # Filter the nested lists to only include .srt files
                     subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in all_subtitle_files]
                     if any(sub for sub in subtitle_files):
@@ -237,8 +242,8 @@ def mkv_auto(args):
                                                                           total_external_subs,
                                                                           all_missing_subs_langs)
 
-                    subtitle_files_to_process = [[*a, *b] for a, b in zip(subtitle_files_to_process, all_downloaded_subs)]
-                    all_subtitle_files = [[*a, *b] for a, b in zip(all_subtitle_files, subtitle_files_to_process)]
+                    subtitle_files_to_process = [[*(a or []), *(b or [])] for a, b in zip_longest(subtitle_files_to_process, all_downloaded_subs, fillvalue=[])]
+                    all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, subtitle_files_to_process, fillvalue=[])]
 
                     if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
                         # Filter the nested lists to only include .srt files
