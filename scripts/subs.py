@@ -506,6 +506,10 @@ def extract_subtitle(debug, filename, track, output_filetype, language, forced, 
         print(f"{RESET}")
     result.check_returncode()
 
+    if output_filetype == 'srt':
+        if not is_valid_srt(subtitle_filename):
+            return
+
     return subtitle_filename
 
 
