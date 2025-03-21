@@ -20,7 +20,8 @@ def convert_path(win_path):
     drive_mapping = {
         'Z:': '/media/share',
         'Y:': '/media/single',
-        'X:': '/media/vault'
+        'X:': '/media/vault',
+        'W:': '/media/extra'
     }
 
     # Check if the path starts with a mapped drive letter
