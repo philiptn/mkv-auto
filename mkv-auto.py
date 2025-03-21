@@ -80,6 +80,9 @@ def mkv_auto(args):
 
     done_info = {'skipped_files': 0}
     total_files_input = 0
+    actual_total_file_sizes = 0.0
+    method = 'moved' if move_files else 'copied'
+
     if move_files:
         remaining_files = wait_for_stable_files(input_dir)
         while remaining_files:
@@ -87,12 +90,14 @@ def mkv_auto(args):
             files_in_temp = count_files(temp_dir)
             all_files = remaining_files + files_in_temp
             done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)
+            actual_total_file_sizes += done_info[f'actual_{method}_file_sizes']
             remaining_files = wait_for_stable_files(input_dir)
             if done_info['skipped_files'] > 0:
                 break
     else:
         remaining_files = wait_for_stable_files(input_dir)
         done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=remaining_files)
+        actual_total_file_sizes += done_info[f'actual_{method}_file_sizes']
 
     desc = "Moving file" if move_files else "Copying file"
     total_files_temp = count_files(temp_dir)
@@ -101,13 +106,12 @@ def mkv_auto(args):
     else:
         print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
 
-    method = 'moved' if move_files else 'copied'
     if done_info['skipped_files'] == 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {done_info[f'actual_{method}_file_sizes']:.2f} GB to TEMP.")
+                             f"Successfully {method} {actual_total_file_sizes:.2f} GB to TEMP.")
     elif done_info['skipped_files'] > 0:
         custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {done_info[f'actual_{method}_file_sizes']:.2f} GB to TEMP.")
+                             f"Successfully {method} {actual_total_file_sizes:.2f} GB to TEMP.")
         custom_print(logger,
                      f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
                      f"had to be skipped due to insufficient storage capacity.")
