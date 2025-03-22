@@ -238,7 +238,7 @@ def mkv_auto(args):
                      all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, filenames_mkv_only, dirpath, all_subtitle_files)
 
                 if (not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs)
-                        and any(sub for sub in errored_ocr_list)):
+                        and any(sub for sub in errored_ocr_list) and download_missing_subs.lower() != 'false'):
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug,
                                                                           filenames_mkv_only, dirpath,
                                                                           total_external_subs,
