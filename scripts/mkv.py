@@ -714,9 +714,12 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     if all_errored_subs_count:
         custom_print(logger, f"{RED}[SUBTITLES]{RESET} The following "
                              f"{print_multi_or_single(all_errored_subs_count, 'subtitle')} failed to be converted:")
+        errored_subs_print = []
         for errored_sub in all_errored_subs:
             if errored_sub:
-                custom_print(logger, f"{RED}[SUBTITLES]{RESET} {errored_sub[0]}")
+                errored_subs_print.append(errored_sub[0])
+        for sub in sorted(errored_subs_print):
+            custom_print(logger, f"{RED}[SUBTITLES]{RESET} {sub}")
 
     return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed,
             all_missing_subs_langs, all_errored_subs, main_audio_track_langs_list)
