@@ -977,12 +977,8 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
 
 def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_subs_langs, internal_threads):
     mkv_base, _, mkv_extension = input_file.rpartition('.')
-    input_file_with_path = os.path.join(dirpath, input_file)
-
-    file_info = reformat_filename(input_file, True)
-    media_type = file_info["media_type"]
-    base = os.path.basename(input_file)
-    is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
+    extra_pattern = r"S00E\d{1,3}"
+    is_extra = bool(re.search(extra_pattern, input_file))
 
     downloaded_subs = []
     failed_downloads = []
@@ -990,7 +986,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     if debug:
         print('\n')
 
-    if not media_type == 'other' and not is_extra:
+    if not is_extra:
         for index, lang in enumerate(missing_subs_langs):
 
             command = [
