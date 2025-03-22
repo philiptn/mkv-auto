@@ -275,6 +275,8 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 def move_file_to_output(input_file_path, output_folder, folder_structure):
     filename = os.path.basename(input_file_path)
     base, ext = os.path.splitext(filename)
+    new_folders_str = filename
+    full_info = {}
 
     tv_extra_match = re.search(r"S00E\d+\s*-\s*(?P<original>.+)$", base, re.IGNORECASE)
     if tv_extra_match:
@@ -291,7 +293,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
             if movie_extra_match:
                 restored_filename = movie_extra_match.group("extra") + ext
             else:
-                if normalize_filenames:
+                if normalize_filenames.lower() in ('full', 'simple'):
                     if media_type == 'movie_hdr':
                         restored_filename = f"{media_name} - HDR{ext}"
                     else:
@@ -303,11 +305,23 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
             if season and episodes:
                 episode_list = compact_episode_list(episodes, True)
                 formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
-                if normalize_filenames:
+                if normalize_filenames.lower() in ('full', 'simple'):
+                    if normalize_filenames.lower() == 'full':
+                        full_info = get_tv_episode_metadata(f"{media_name} - S{formatted_season}E{episode_list}")
+                        new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
+                                           f"S{formatted_season}E{episode_list} - {full_info['episode_title']}.mkv")
                     if media_type == 'tv_show_hdr':
-                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
+                        if full_info['episode_title']:
+                            restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}) - "
+                                                 f"S{formatted_season}E{episode_list} - {full_info['episode_title']} - HDR{ext}")
+                        else:
+                            restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
                     else:
-                        restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
+                        if full_info['episode_title']:
+                            restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}) - "
+                                                 f"S{formatted_season}E{episode_list} - {full_info['episode_title']}{ext}")
+                        else:
+                            restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
                 else:
                     restored_filename = filename
             else:
@@ -315,7 +329,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
         else:
             restored_filename = filename
 
-    new_folders, _ = reformat_filename(filename, False)
+    new_folders, _ = reformat_filename(new_folders_str, False)
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

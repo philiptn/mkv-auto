@@ -13,6 +13,7 @@ import pycountry
 import threading
 import psutil
 import base64
+import requests
 
 
 # ANSI color codes
@@ -717,6 +718,43 @@ def reformat_filename(filename, names_only):
             return others_folder, media_name
 
 
+def get_tv_episode_metadata(input_str):
+    # Extract show name and episode code
+    match = re.match(r'^(.*?)\s*-\s*S(\d{2})E(\d{2})$', input_str, re.IGNORECASE)
+    if not match:
+        print(input_str)
+        raise ValueError("Input must be in the format: 'Show Name - S01E01'")
+
+    show_name, season, episode = match.groups()
+    show_name = show_name.strip()
+    season = int(season)
+    episode = int(episode)
+
+    # Query the show
+    show_url = f'https://api.tvmaze.com/singlesearch/shows?q={show_name}'
+    show_res = requests.get(show_url)
+    show_data = show_res.json()
+
+    # Query episode
+    episode_url = f'https://api.tvmaze.com/shows/{show_data["id"]}/episodebynumber?season={season}&number={episode}'
+    episode_res = requests.get(episode_url)
+    ep_data = episode_res.json()
+
+    # Combine into one metadata dictionary
+    metadata = {
+        "show_name": show_data.get("name"),
+        "show_year": show_data.get("premiered", "")[:4],
+        "episode_title": ep_data.get("name"),
+        "season": ep_data.get("season"),
+        "episode_number": ep_data.get("number"),
+        "airdate": ep_data.get("airdate"),
+        "summary": ep_data.get("summary", "").strip() if ep_data.get("summary") else None,
+        "tvmaze_url": ep_data.get("url"),
+    }
+
+    return metadata
+
+
 def hide_cursor():
     sys.stdout.write("\033[?25l")
 
@@ -915,7 +953,7 @@ config = {
         'keep_original': get_config('general', 'KEEP_ORIGINAL', variables_defaults).lower() == "true",
         'ini_temp_dir': get_config('general', 'TEMP_DIR', variables_defaults),
         'file_tag': get_config('general', 'FILE_TAG', variables_defaults),
-        'normalize_filenames': get_config('general', 'NORMALIZE_FILENAMES', variables_defaults).lower() == "true",
+        'normalize_filenames': get_config('general', 'NORMALIZE_FILENAMES', variables_defaults),
         'remove_samples': get_config('general', 'REMOVE_SAMPLES', variables_defaults).lower() == "true",
         'movies_folder': get_config('general', 'MOVIES_FOLDER', variables_defaults),
         'movies_hdr_folder': get_config('general', 'MOVIES_HDR_FOLDER', variables_defaults),
@@ -927,32 +965,25 @@ config = {
         'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true"
     },
     'audio': {
-        'pref_audio_langs': [item.strip() for item in
-                             get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
+        'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
         'pref_audio_formats': get_config('audio', 'PREFERRED_AUDIO_FORMATS', variables_defaults),
         'remove_commentary': get_config('audio', 'REMOVE_COMMENTARY_TRACK', variables_defaults).lower() == "true"
     },
     'subtitles': {
-        'pref_subs_langs': [item.strip() for item in
-                            get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
-        'pref_subs_langs_short': [item.strip()[:-1] for item in
-                                  get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
-        'pref_subs_ext': [item.strip() for item in
-                          get_config('subtitles', 'PREFERRED_SUBS_EXT', variables_defaults).split(',')],
-        'ocr_languages': [item.strip() for item in
-                          get_config('subtitles', 'OCR_LANGUAGES', variables_defaults).split(',')],
+        'pref_subs_langs': [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
+        'pref_subs_langs_short': [item.strip()[:-1] for item in get_config('subtitles', 'PREFERRED_SUBS_LANG', variables_defaults).split(',')],
+        'pref_subs_ext': [item.strip() for item in get_config('subtitles', 'PREFERRED_SUBS_EXT', variables_defaults).split(',')],
+        'ocr_languages': [item.strip() for item in get_config('subtitles', 'OCR_LANGUAGES', variables_defaults).split(',')],
         'always_enable_subs': get_config('subtitles', 'ALWAYS_ENABLE_SUBS', variables_defaults).lower() == "true",
         'always_remove_sdh': get_config('subtitles', 'REMOVE_SDH', variables_defaults).lower() == "true",
         'remove_music': get_config('subtitles', 'REMOVE_MUSIC', variables_defaults).lower() == "true",
         'resync_subtitles': get_config('subtitles', 'RESYNC_SUBTITLES', variables_defaults).lower() == "true",
-        'keep_original_subtitles': get_config('subtitles', 'KEEP_ORIGINAL_SUBTITLES',
-                                              variables_defaults).lower() == "true",
+        'keep_original_subtitles': get_config('subtitles', 'KEEP_ORIGINAL_SUBTITLES', variables_defaults).lower() == "true",
         'forced_subtitles_priority': get_config('subtitles', 'FORCED_SUBTITLES_PRIORITY', variables_defaults),
         'prioritize_subtitles': get_config('subtitles', 'PRIORITIZE_SUBTITLES', variables_defaults),
         'download_missing_subs': get_config('subtitles', 'DOWNLOAD_MISSING_SUBS', variables_defaults),
         'remove_all_subtitles': get_config('subtitles', 'REMOVE_ALL_SUBTITLES', variables_defaults).lower() == "true",
-        'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY',
-                                                    variables_defaults).lower() == "true",
+        'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY', variables_defaults).lower() == "true",
         'redo_casing': get_config('subtitles', 'REDO_CASING', variables_defaults).lower() == "true"
     }
 }
