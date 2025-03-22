@@ -979,7 +979,7 @@ def get_max_ocr_threads():
         cpu_limit = 0  # No available CPU capacity
 
     # --- Memory constraint ---
-    memory_per_thread = 3.0  # Approximate max GB used per thread
+    memory_per_thread = 2.0  # Approximate max GB used per thread
     max_ram_conf = int(check_config(config, 'general', 'max_ram_usage'))  # e.g. 85 for 85%
 
     vm = psutil.virtual_memory()
