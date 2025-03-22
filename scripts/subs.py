@@ -85,13 +85,9 @@ def find_and_replace(input_file, replacement_file, output_file):
 
 def get_active_xvfb_displays():
     active_displays = set()
-
     try:
-        # Run the command and capture the output
         command = "pgrep Xvfb | xargs -I{} ps -p {} -o args | grep -oP '(?<=:)\d+'"
         result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, text=True)
-
-        # Process each line of output, converting it to an integer and adding to the set
         for line in result.stdout.splitlines():
             try:
                 display_number = int(line)
@@ -100,17 +96,13 @@ def get_active_xvfb_displays():
                 continue
     except Exception as e:
         print(f"Error while checking active Xvfb displays: {e}")
-
     return active_displays
 
 
 def find_available_display():
     while True:
         with x11_lock:
-            # Get currently active Xvfb displays
             active_displays = get_active_xvfb_displays()
-
-            # Generate a random display number and check if it's available
             display_number = random.randint(50, 9000)
             if display_number not in reserved_displays and display_number not in active_displays:
                 reserved_displays.add(display_number)
@@ -119,8 +111,41 @@ def find_available_display():
 
 def release_display(display_number):
     with x11_lock:
-        # Remove the display number from the reserved set
         reserved_displays.remove(display_number)
+
+
+def _monitor_memory_usage(xvfb_pid, cmd_pid, limit_bytes):
+    """
+    Monitors the total RSS (in bytes) of Xvfb and the command process.
+    If usage exceeds limit_bytes, the entire process group is killed.
+    """
+    xvfb_proc = psutil.Process(xvfb_pid)
+    cmd_proc = psutil.Process(cmd_pid)
+
+    while True:
+        try:
+            # If main command is no longer running, stop monitoring
+            if not cmd_proc.is_running():
+                break
+
+            # Calculate total RSS of Xvfb + main command
+            total_rss = xvfb_proc.memory_info().rss + cmd_proc.memory_info().rss
+
+            if total_rss > limit_bytes:
+                # Kill the entire process group
+                os.killpg(os.getpgid(xvfb_pid), signal.SIGTERM)
+                os.killpg(os.getpgid(cmd_pid), signal.SIGTERM)
+                break
+        except psutil.NoSuchProcess:
+            # If either process ended, just exit monitor
+            break
+        except Exception as e:
+            # Catch-all for safety
+            print("Error in memory monitoring:", e)
+            break
+
+        # Check memory every second
+        time.sleep(1)
 
 
 def run_with_xvfb(command):
@@ -131,35 +156,55 @@ def run_with_xvfb(command):
     command_process = None
 
     try:
-        # Start Xvfb in the background with a new process group
+        # Start Xvfb
         xvfb_cmd = ["Xvfb", f":{display_number}", "-screen", "0", "1024x768x24",
                     "-ac", "-nolisten", "tcp", "-nolisten", "unix"]
-        xvfb_process = subprocess.Popen(xvfb_cmd, preexec_fn=os.setsid)
+        xvfb_process = subprocess.Popen(
+            xvfb_cmd,
+            preexec_fn=os.setsid
+        )
 
         # Set the DISPLAY environment variable
         env = os.environ.copy()
         env['DISPLAY'] = f":{display_number}"
 
-        # Start the main command in the same new process group
-        command_process = subprocess.Popen(command, env=env, preexec_fn=os.setsid,
-                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Start the main command
+        command_process = subprocess.Popen(
+            command,
+            env=env,
+            preexec_fn=os.setsid,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
 
-        # Wait for the command to complete and capture output
+        # Start a separate thread to watch memory usage
+        monitor_thread = threading.Thread(
+            target=_monitor_memory_usage,
+            args=(xvfb_process.pid, command_process.pid, 1_000_000_000),  # 1 GB
+            daemon=True
+        )
+        monitor_thread.start()
+
+        # Capture the command's output
         stdout, stderr = command_process.communicate()
         return_code = command_process.returncode
 
-        # Terminate Xvfb process after the command completes
-        os.killpg(os.getpgid(xvfb_process.pid), signal.SIGTERM)
-        xvfb_process.wait()
+        # Stop Xvfb after the command completes
+        if xvfb_process.poll() is None:
+            os.killpg(os.getpgid(xvfb_process.pid), signal.SIGTERM)
+            xvfb_process.wait()
 
         return return_code
+
     except:
-        # If any exception occurs, kill both processes to prevent them from lingering
+        # Clean up on error
         if xvfb_process and xvfb_process.poll() is None:
             os.killpg(os.getpgid(xvfb_process.pid), signal.SIGTERM)
         if command_process and command_process.poll() is None:
             os.killpg(os.getpgid(command_process.pid), signal.SIGTERM)
         return -1
+
     finally:
         release_display(display_number)
 
@@ -594,8 +639,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
             if output_subtitle in ('ERROR', 'SKIP'):
                 if output_subtitle == "ERROR":
                     subtitle_file_info = decompose_subtitle_filename(original_file)
-                    errored_ocr.append(os.path.basename(subtitle_file_info['base']))
-                if language not in ('ERROR', 'SKIP'):
+                    errored_ocr.append(os.path.basename(f"{subtitle_file_info['base']}.{subtitle_file_info['extension']}"))
                     missing_subs_langs.append(language)
             if name not in ('ERROR', 'SKIP'):
                 output_subtitles.append(original_file)
@@ -701,7 +745,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             if result_code != 0:
                 final_subtitle = 'ERROR'
                 name = 'ERROR'
-            if not is_valid_srt(final_subtitle):
+            elif not is_valid_srt(final_subtitle):
                 final_subtitle = 'ERROR'
                 original_subtitle = 'ERROR'
                 language = 'ERROR'

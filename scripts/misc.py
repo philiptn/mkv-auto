@@ -79,7 +79,7 @@ class ContinuousSpinner:
             frame = self.frames[self._idx]
             # Call the function that includes real-time UTC
             line_text = self._make_line()
-            sys.stdout.write(f"\r\033[?25l{line_text}{ACTIVE}{frame}{RESET} ")
+            sys.stdout.write(f"\r\033[?25l{line_text}{ACTIVE}{frame}{RESET} \033[?25l")
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)
 
@@ -979,7 +979,7 @@ def get_max_ocr_threads():
         cpu_limit = 0  # No available CPU capacity
 
     # --- Memory constraint ---
-    memory_per_thread = 4.5  # Approximate GB used per thread
+    memory_per_thread = 1.0  # Approximate GB used per thread
     max_ram_conf = int(check_config(config, 'general', 'max_ram_usage'))  # e.g. 85 for 85%
 
     vm = psutil.virtual_memory()
