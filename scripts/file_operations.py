@@ -278,15 +278,21 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
     new_folders_str = filename
     full_info = {}
 
+    normalize_filenames = check_config(config, 'general', 'normalize_filenames')
+    file_info = reformat_filename(filename, True)
+    media_type = file_info["media_type"]
+    media_name = file_info["media_name"]
+
     tv_extra_match = re.search(r"S00E\d+\s*-\s*(?P<original>.+)$", base, re.IGNORECASE)
     if tv_extra_match:
         restored_filename = tv_extra_match.group("original") + ext
+        if normalize_filenames.lower() in ('full', 'simple'):
+            if normalize_filenames.lower() == 'full':
+                # Using S01E01 as a placeholder to get the full show name with year
+                full_info = get_tv_episode_metadata(f"{media_name} - S01E01")
+                new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
+                                   f"S01E01.mkv")
     else:
-        normalize_filenames = check_config(config, 'general', 'normalize_filenames')
-        file_info = reformat_filename(filename, True)
-        media_type = file_info["media_type"]
-        media_name = file_info["media_name"]
-
         if media_type in ['movie', 'movie_hdr']:
             pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
             movie_extra_match = pattern.match(base)
