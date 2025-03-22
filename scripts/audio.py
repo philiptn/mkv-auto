@@ -522,6 +522,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     for transformation, codec, ch_str in audio_preferences:
         all_pref_settings_codecs.append(codec)
     copy_all_audio_tracks = True if len(all_pref_settings_codecs) == 1 and "COPY" in all_pref_settings_codecs else False
+    only_orig_pref = True if len(all_pref_settings_codecs) == 1 and "ORIG" in all_pref_settings_codecs else False
 
     if len(all_pref_settings_codecs) == 1 and "COPY" in all_pref_settings_codecs:
         pref_audio_formats_found = True
@@ -723,10 +724,10 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     if not tracks_ids_to_be_converted and all_audio_track_ids:
         needs_processing = False
 
-    # If the wanted audio track ids are smaller than the total amount of
-    # audio tracks, then it needs processing (track reduction)
     if len(all_audio_track_ids) != 0 and len(all_audio_track_ids) < total_audio_tracks:
         needs_processing = True
+    elif len(all_audio_track_ids) != 0 and len(all_audio_track_ids) == total_audio_tracks and only_orig_pref:
+        needs_processing = False
 
     # If original tracks are found, only keep those
     if original_audio_track_ids or unmatched_original_audio_track_ids:
