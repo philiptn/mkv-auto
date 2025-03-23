@@ -37,3 +37,7 @@ subliminal==2.2.1
 # For calculating max OCR threads based on available system RAM
 # https://pypi.org/project/psutil/
 psutil==6.1.1
+
+# For sanitizing filenames
+# https://pypi.org/project/pathvalidate/
+pathvalidate==3.2.3

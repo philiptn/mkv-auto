@@ -211,6 +211,9 @@ https://github.com/Diaoul/subliminal
 Giampaolo Rodola and billiejoex for psutil (calculating max OCR threads based on available system RAM)  
 https://github.com/giampaolo/psutil
 
+thombashi for pathvalidate (sanitizing filenames)
+https://github.com/thombashi/pathvalidate
+
 ## Donations
 This utility is completely free to use, but if you want to support me and my work you can buy me a coffee using the link below:  
 

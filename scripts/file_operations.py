@@ -7,6 +7,8 @@ from datetime import datetime
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
+from pathvalidate import sanitize_filename
+
 from scripts.misc import *
 from scripts.logger import *
 
@@ -336,6 +338,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
         else:
             restored_filename = filename
 
+    restored_filename = sanitize_filename(restored_filename)
     new_folders, _ = reformat_filename(new_folders_str, False)
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
