@@ -1368,9 +1368,15 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 
 def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnames, output_dir):
     total_files = len(input_files)
+    normalize_filenames = check_config(config, 'general', 'normalize_filenames')
 
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
+
+    # If filenames are to be fully normalized, limit workers to 1
+    # to not hit TVMAZE rate limiting
+    if normalize_filenames.lower() == 'full':
+        num_workers = 1
 
     header = "INFO"
     description = f"Move {print_multi_or_single(total_files, 'file')} to destination folder"
