@@ -17,6 +17,7 @@ COPY subliminal_defaults.toml /mkv-auto/
 COPY mkv-auto.py /mkv-auto/
 COPY entrypoint.sh /mkv-auto/
 COPY service-entrypoint.sh /mkv-auto/
+RUN mkdir -p /mkv-auto/files/.cache
 RUN chown -R mkv-auto:mkv-auto /mkv-auto
 
 # Switch to the non-root user
