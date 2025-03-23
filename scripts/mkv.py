@@ -1369,14 +1369,16 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnames, output_dir):
     total_files = len(input_files)
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
+    files = input_files
+    files.sort()
 
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
-    # If filenames are to be fully normalized, limit workers to 1
-    # to not hit TVMAZE rate limiting
+    # If filenames are to be fully normalized,
+    # limit workers to not hit TVMAZE rate limiting
     if normalize_filenames.lower() == 'full':
-        num_workers = 1
+        num_workers = min(2, max_worker_threads)
 
     header = "INFO"
     description = f"Move {print_multi_or_single(total_files, 'file')} to destination folder"
@@ -1387,7 +1389,7 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(move_files_to_output_process_worker, debug, input_file, dirpath, all_dirnames,
-                                   output_dir): input_file for index, input_file in enumerate(input_files)}
+                                   output_dir): input_file for index, input_file in enumerate(files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -1396,7 +1398,7 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
             except Exception as e:
                 # Fetch the variables that were passed to the thread
                 index = futures[future]
-                input_file = input_files[index]
+                input_file = files[index]
 
                 # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
