@@ -983,13 +983,16 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     extra_pattern = r"S00E\d{1,3}"
     is_extra = bool(re.search(extra_pattern, input_file))
 
+    file_info = reformat_filename(input_file, True)
+    media_type = file_info["media_type"]
+
     downloaded_subs = []
     failed_downloads = []
 
     if debug:
         print('\n')
 
-    if not is_extra:
+    if not media_type == 'other' and not is_extra:
         for index, lang in enumerate(missing_subs_langs):
 
             command = [

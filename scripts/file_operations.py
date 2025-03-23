@@ -290,8 +290,9 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
             if normalize_filenames.lower() == 'full':
                 # Using S01E01 as a placeholder to get the full show name with year
                 full_info = get_tv_episode_metadata(f"{media_name} - S01E01")
-                new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
-                                   f"S01E01.mkv")
+                if full_info['show_year']:
+                    new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
+                                       f"S01E01.mkv")
     else:
         if media_type in ['movie', 'movie_hdr']:
             pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")

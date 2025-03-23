@@ -729,28 +729,32 @@ def get_tv_episode_metadata(input_str):
     show_name = show_name.strip()
     season = int(season)
     episode = int(episode)
+    metadata = {}
 
-    # Query the show
-    show_url = f'https://api.tvmaze.com/singlesearch/shows?q={show_name}'
-    show_res = requests.get(show_url)
-    show_data = show_res.json()
+    try:
+        # Query the show
+        show_url = f'https://api.tvmaze.com/singlesearch/shows?q={show_name}'
+        show_res = requests.get(show_url)
+        show_data = show_res.json()
 
-    # Query episode
-    episode_url = f'https://api.tvmaze.com/shows/{show_data["id"]}/episodebynumber?season={season}&number={episode}'
-    episode_res = requests.get(episode_url)
-    ep_data = episode_res.json()
+        # Query episode
+        episode_url = f'https://api.tvmaze.com/shows/{show_data["id"]}/episodebynumber?season={season}&number={episode}'
+        episode_res = requests.get(episode_url)
+        ep_data = episode_res.json()
 
-    # Combine into one metadata dictionary
-    metadata = {
-        "show_name": show_data.get("name"),
-        "show_year": show_data.get("premiered", "")[:4],
-        "episode_title": ep_data.get("name"),
-        "season": ep_data.get("season"),
-        "episode_number": ep_data.get("number"),
-        "airdate": ep_data.get("airdate"),
-        "summary": ep_data.get("summary", "").strip() if ep_data.get("summary") else None,
-        "tvmaze_url": ep_data.get("url"),
-    }
+        # Combine into one metadata dictionary
+        metadata = {
+            "show_name": show_data.get("name"),
+            "show_year": show_data.get("premiered", "")[:4],
+            "episode_title": ep_data.get("name"),
+            "season": ep_data.get("season"),
+            "episode_number": ep_data.get("number"),
+            "airdate": ep_data.get("airdate"),
+            "summary": ep_data.get("summary", "").strip() if ep_data.get("summary") else None,
+            "tvmaze_url": ep_data.get("url"),
+        }
+    except:
+        pass
 
     return metadata
 
