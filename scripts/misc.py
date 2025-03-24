@@ -171,7 +171,7 @@ def process_extras(input_folder):
             if 'tv_show' in media_type:
                 # TV show extras:
                 episode_num = f"{extras_counter:03d}"
-                new_filename = f"{media_name} - S00E{episode_num} - {extras_title}{matching_tag}{ext}"
+                new_filename = f"{media_name} - S000E{episode_num} - {extras_title}{matching_tag}{ext}"
                 extras_counter += 1
             else:
                 # Movie extras:
@@ -185,7 +185,7 @@ def process_extras(input_folder):
 
 
 def restore_extras(filenames_mkv_only, dirpath):
-    tv_pattern = re.compile(r"^(.*?) - S00E\d+ - (.+)$")
+    tv_pattern = re.compile(r"^(.*?) - S000E\d+ - (.+)$")
     movie_pattern = re.compile(r"^(.*?) - (.+)$")
 
     for fname in filenames_mkv_only:
@@ -620,9 +620,9 @@ def reformat_filename(filename, names_only):
     others_folder = check_config(config, 'general', 'others_folder')
 
     # Regular expression to match TV shows with season and episode, with or without year
-    tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2})e(\d{2})", re.IGNORECASE)
+    tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})e(\d{2,3})", re.IGNORECASE)
     # Regular expression to match TV shows with season range, with or without year
-    tv_show_pattern2 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2})-s(\d{2})", re.IGNORECASE)
+    tv_show_pattern2 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})-s(\d{2,3})", re.IGNORECASE)
     # Regular expression to match movies
     movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.*)$", re.IGNORECASE)
 
@@ -880,7 +880,7 @@ def print_media_info(logger, filenames):
                 else:
                     tv_shows_hdr_extras[media_name].append(filename)
             else:
-                if season and episodes:
+                if season is not None and episodes:
                     if media_type == 'tv_show':
                         tv_shows[media_name][season].update(episodes)
                     else:
