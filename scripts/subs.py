@@ -280,13 +280,13 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     if debug:
         print(f'\n{GREY}[UTC {get_timestamp()}] [SDH DEBUG]{GREEN} Current language is set to "{language}"{RESET}')
     if language == 'eng':
-        current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_eng_only.csv', subtitle_tmp)
+        current_replacements = find_and_replace(input_file, 'ocr-replacements/replacements_srt_eng_only.csv', subtitle_tmp)
         replacements = replacements + current_replacements
-        current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements_srt_only.csv', input_file)
+        current_replacements = find_and_replace(subtitle_tmp, 'ocr-replacements/replacements_srt_only.csv', input_file)
         os.remove(subtitle_tmp)
         replacements = replacements + current_replacements
     else:
-        current_replacements = find_and_replace(input_file, 'scripts/replacements_srt_only.csv', subtitle_tmp)
+        current_replacements = find_and_replace(input_file, 'ocr-replacements/replacements_srt_only.csv', subtitle_tmp)
         os.rename(subtitle_tmp, input_file)
         replacements = replacements + current_replacements
 
@@ -653,16 +653,6 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
             if forced not in ('ERROR', 'SKIP'):
                 all_track_forced.append(forced)
 
-    if debug and all_replacements:
-        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} During OCR, the following words were fixed:\n")
-        replacements_counter = Counter(all_replacements)
-        for replacement, count in replacements_counter.items():
-            if count > 1:
-                print(f"{replacement} {GREY}({count} times){RESET}")
-            else:
-                print(replacement)
-        print('')
-
     return (output_subtitles, updated_subtitle_languages, all_track_ids, all_track_names,
             all_track_forced, updated_sub_filetypes, all_replacements, errored_ocr, missing_subs_langs)
 
@@ -756,21 +746,21 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
 
             if final_subtitle != 'ERROR':
                 if language == 'eng':
-                    current_replacements = find_and_replace(final_subtitle, 'scripts/replacements_eng_only.csv',
+                    current_replacements = find_and_replace(final_subtitle, 'ocr-replacements/replacements_eng_only.csv',
                                                             subtitle_tmp)
                     replacements = replacements + current_replacements
-                    current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', final_subtitle)
+                    current_replacements = find_and_replace(subtitle_tmp, 'ocr-replacements/replacements.csv', final_subtitle)
                     os.remove(subtitle_tmp)
                     replacements = replacements + current_replacements
                 elif language == 'nor':
-                    current_replacements = find_and_replace(final_subtitle, 'scripts/replacements_nor_only.csv',
+                    current_replacements = find_and_replace(final_subtitle, 'ocr-replacements/replacements_nor_only.csv',
                                                             subtitle_tmp)
                     replacements = replacements + current_replacements
-                    current_replacements = find_and_replace(subtitle_tmp, 'scripts/replacements.csv', final_subtitle)
+                    current_replacements = find_and_replace(subtitle_tmp, 'ocr-replacements/replacements.csv', final_subtitle)
                     os.remove(subtitle_tmp)
                     replacements = replacements + current_replacements
                 else:
-                    current_replacements = find_and_replace(final_subtitle, 'scripts/replacements.csv', subtitle_tmp)
+                    current_replacements = find_and_replace(final_subtitle, 'ocr-replacements/replacements.csv', subtitle_tmp)
                     os.rename(subtitle_tmp, final_subtitle)
                     replacements = replacements + current_replacements
 

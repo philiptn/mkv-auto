@@ -3,6 +3,7 @@ import sys
 from datetime import datetime
 from backports import configparser
 import re
+import subprocess
 from collections import defaultdict
 import traceback
 import shutil
@@ -523,6 +524,42 @@ def check_config(config, section, option):
         return None
 
 
+def update_replacement_lists():
+    repo_url = 'https://github.com/philiptn/ocr-replacements.git'
+    local_path = 'ocr-replacements'
+
+    def run_git_command(command, cwd=None):
+        subprocess.run(
+            command,
+            cwd=cwd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+
+    if not os.path.exists(local_path):
+        run_git_command(['git', 'clone', repo_url, local_path])
+
+    # Move into the repo directory
+    original_cwd = os.getcwd()
+    os.chdir(local_path)
+
+    try:
+        run_git_command(['git', 'checkout', 'main'])
+        run_git_command(['git', 'pull', 'origin', 'main'])
+
+        # Get the last commit date (still capture this output)
+        result = subprocess.run(
+            ['git', 'log', '-1', '--format=%cd', '--date=short'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout.strip()
+    finally:
+        os.chdir(original_cwd)
+
+
 def decompose_subtitle_filename(subtitle_file):
     base_lang_id_name_forced, _, extension = subtitle_file.rpartition('.')
     base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
@@ -754,7 +791,7 @@ def get_tv_episode_metadata(input_str):
             "tvmaze_url": ep_data.get("url"),
         }
     except:
-        pass
+        return
 
     return metadata
 

@@ -9,7 +9,9 @@ import time
 import pycountry
 import concurrent.futures
 import base64
-from collections import defaultdict
+from collections import defaultdict, Counter
+from itertools import chain
+
 from scripts.misc import *
 from scripts.audio import *
 from scripts.subs import *
@@ -710,6 +712,20 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     if all_replacements_list_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
                              f"{all_replacements_list_count} OCR {print_multi_or_single(all_replacements_list_count, 'error')}.")
+
+    if all_replacements_list_count:
+        log_debug(logger, '')
+        log_debug(logger, f"{GREY}[DEBUG]{RESET} During OCR, the following words were fixed:")
+
+        flattened_replacements = list(chain.from_iterable(all_replacements_list))
+        replacements_counter = Counter(flattened_replacements)
+        for replacement, count in replacements_counter.items():
+            if count > 1:
+                log_debug(logger, f"{replacement} {GREY}({count} times){RESET}")
+            else:
+                log_debug(logger, replacement)
+        log_debug(logger, '')
+
     all_errored_subs_count = len([item for list in all_errored_subs for item in list])
     if all_errored_subs_count:
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_subs_count} "
