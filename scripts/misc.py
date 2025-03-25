@@ -764,9 +764,12 @@ def get_tv_episode_metadata(input_str):
 
     show_name, season, episode = match.groups()
     show_name = show_name.strip()
+
+    # Remove year in parentheses, e.g., (2005)
+    show_name = re.sub(r'\(\d{4}\)', '', show_name).strip()
+
     season = int(season)
     episode = int(episode)
-    metadata = {}
 
     try:
         # Query the show
