@@ -756,36 +756,107 @@ def reformat_filename(filename, names_only):
 
 
 def get_tv_episode_metadata(input_str):
-    # Extract show name and episode code
     match = re.match(r'^(.*?)\s*-\s*S(\d{2})E(\d{2})$', input_str, re.IGNORECASE)
     if not match:
-        print(input_str)
         raise ValueError("Input must be in the format: 'Show Name - S01E01'")
 
-    show_name, season, episode = match.groups()
-    show_name = show_name.strip()
+    user_show_name, season_str, episode_str = match.groups()
+    user_show_name = user_show_name.strip()
 
-    # Remove year in parentheses, e.g., (2005)
-    show_name = re.sub(r'\(\d{4}\)', '', show_name).strip()
+    season = int(season_str)
+    episode = int(episode_str)
 
-    season = int(season)
-    episode = int(episode)
+    search_show_name = user_show_name
+
+    year_found = None
+    year_pattern = re.compile(r'\((\d{4})\)')
+    year_match = year_pattern.search(search_show_name)
+    if year_match:
+        year_found = year_match.group(1)
+        search_show_name = year_pattern.sub('', search_show_name).strip()
+
+    # 4. Look for trailing country code in search_show_name
+    recognized_code = None
+
+    # Split off the last "word" to see if it's a known country code
+    parts = search_show_name.rsplit(" ", 1)
+    if len(parts) > 1:
+        last_word = parts[-1]
+        last_word_upper = last_word.upper()
+
+        # Special-case "UK" -> alpha_2 = "GB"
+        if last_word_upper == "UK":
+            recognized_code = "GB"
+            # remove trailing "UK" from the search_show_name
+            search_show_name = parts[0]
+        else:
+            # Try alpha_2 and alpha_3 lookups
+            country_obj = (pycountry.countries.get(alpha_2=last_word_upper) or
+                           pycountry.countries.get(alpha_3=last_word_upper))
+            if country_obj:
+                recognized_code = country_obj.alpha_2
+                search_show_name = parts[0]
 
     try:
-        # Query the show
-        show_url = f'https://api.tvmaze.com/singlesearch/shows?q={show_name}'
-        show_res = requests.get(show_url)
-        show_data = show_res.json()
+        # 5. Query TVmaze search endpoint
+        search_url = f'https://api.tvmaze.com/search/shows?q={search_show_name}'
+        resp = requests.get(search_url)
+        results = resp.json()
+        if not results:
+            return None
 
-        # Query episode
-        episode_url = f'https://api.tvmaze.com/shows/{show_data["id"]}/episodebynumber?season={season}&number={episode}'
-        episode_res = requests.get(episode_url)
-        ep_data = episode_res.json()
+        # Sort descending by score so [0] is the best
+        results.sort(key=lambda x: x['score'], reverse=True)
 
-        # Combine into one metadata dictionary
+        # 6. Filter pass #1: Match recognized_code if present
+        filtered_by_code = []
+        if recognized_code:
+            for item in results:
+                show = item["show"]
+                net_country = (show.get("network") or {}).get("country") or {}
+                web_country = (show.get("webChannel") or {}).get("country") or {}
+                net_code = net_country.get("code")
+                web_code = web_country.get("code")
+
+                if net_code == recognized_code or web_code == recognized_code:
+                    filtered_by_code.append(item)
+
+            # If nothing matched the code, we’ll use all results
+            if not filtered_by_code:
+                filtered_by_code = results
+        else:
+            filtered_by_code = results
+
+        # 7. Filter pass #2: Match year_found if present
+        filtered_by_year = []
+        if year_found:
+            for item in filtered_by_code:
+                show = item["show"]
+                premiered = show.get("premiered")  # e.g. "2011-01-09"
+                if premiered and premiered.startswith(year_found):
+                    filtered_by_year.append(item)
+
+            # If none matched the year, revert to the code-based filter
+            if not filtered_by_year:
+                filtered_by_year = filtered_by_code
+        else:
+            filtered_by_year = filtered_by_code
+
+        # Now 'filtered_by_year' is the final candidate list, sorted by descending score
+        best_show_data = filtered_by_year[0]
+        show_data = best_show_data["show"]
+
+        # 8. Lookup the specific episode by season & episode number
+        episode_url = (
+            f'https://api.tvmaze.com/shows/{show_data["id"]}'
+            f'/episodebynumber?season={season}&number={episode}'
+        )
+        ep_resp = requests.get(episode_url)
+        ep_data = ep_resp.json()
+
         metadata = {
-            "show_name": show_data.get("name"),
-            "show_year": show_data.get("premiered", "")[:4],
+            "show_name": user_show_name,
+            "show_year": show_data.get("premiered", "")[:4] if show_data.get("premiered") else "",
             "episode_title": ep_data.get("name"),
             "season": ep_data.get("season"),
             "episode_number": ep_data.get("number"),
@@ -793,8 +864,9 @@ def get_tv_episode_metadata(input_str):
             "summary": ep_data.get("summary", "").strip() if ep_data.get("summary") else None,
             "tvmaze_url": ep_data.get("url"),
         }
-    except:
-        return
+
+    except Exception:
+        return None
 
     return metadata
 
