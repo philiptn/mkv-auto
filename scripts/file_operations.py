@@ -274,7 +274,7 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     }
 
 
-def move_file_to_output(input_file_path, output_folder, folder_structure):
+def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure):
     filename = os.path.basename(input_file_path)
     base, ext = os.path.splitext(filename)
     new_folders_str = filename
@@ -291,7 +291,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
         if normalize_filenames.lower() in ('full', 'simple'):
             if normalize_filenames.lower() == 'full':
                 # Using S01E01 as a placeholder to get the full show name with year
-                full_info = get_tv_episode_metadata(f"{media_name} - S01E01")
+                full_info = get_tv_episode_metadata(logger, debug, f"{media_name} - S01E01")
                 if full_info:
                     new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
                                        f"S01E01.mkv")
@@ -316,7 +316,7 @@ def move_file_to_output(input_file_path, output_folder, folder_structure):
                 formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
                 if normalize_filenames.lower() in ('full', 'simple'):
                     if normalize_filenames.lower() == 'full':
-                        full_info = get_tv_episode_metadata(f"{media_name} - S{formatted_season}E{episode_list}")
+                        full_info = get_tv_episode_metadata(logger, debug, f"{media_name} - S{formatted_season}E{episode_list}")
                         if full_info:
                             new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
                                                f"S{formatted_season}E{episode_list} - {full_info['episode_title']}.mkv")

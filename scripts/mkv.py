@@ -1405,7 +1405,7 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(move_files_to_output_process_worker, debug, input_file, dirpath, all_dirnames,
+        futures = {executor.submit(move_files_to_output_process_worker, logger, debug, input_file, dirpath, all_dirnames,
                                    output_dir): input_file for index, input_file in enumerate(files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
@@ -1428,10 +1428,10 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
                 raise
 
 
-def move_files_to_output_process_worker(debug, input_file, dirpath, all_dirnames, output_dir):
+def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_dirnames, output_dir):
     input_file_with_path = os.path.join(dirpath, input_file)
 
-    move_file_to_output(input_file_with_path, output_dir, all_dirnames)
+    move_file_to_output(logger, debug, input_file_with_path, output_dir, all_dirnames)
 
 
 def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,

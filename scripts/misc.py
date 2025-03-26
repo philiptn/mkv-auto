@@ -755,35 +755,46 @@ def reformat_filename(filename, names_only):
             return others_folder, media_name
 
 
-def get_tv_episode_metadata(input_str):
+def get_tv_episode_metadata(logger, debug, input_str):
+    if debug:
+        custom_print(logger, f"Input string: '{input_str}'")
+
     match = re.match(r'^(.*?)\s*-\s*S(\d{2})E(\d{2})$', input_str, re.IGNORECASE)
     if not match:
         raise ValueError("Input must be in the format: 'Show Name - S01E01'")
     raw_show_name, s, e = match.groups()
     season, episode = int(s), int(e)
 
-    user_show_name = re.sub(r'\(\d{4}\)', '', raw_show_name).strip()
-    search_show_name = user_show_name
+    # Remove any year in parentheses
+    show_name = re.sub(r'\(\d{4}\)', '', raw_show_name).strip()
+
+    if debug:
+        custom_print(logger, f"Will search for show: '{show_name}'")
 
     year_found = None
     ymatch = re.search(r'\((\d{4})\)', raw_show_name)
     if ymatch:
         year_found = ymatch.group(1)
 
-    recognized_code = None
-    parts = search_show_name.rsplit(' ', 1)
-    if len(parts) > 1:
-        lw = parts[-1].upper()
-        if lw == 'UK':
-            recognized_code = 'GB'
-            search_show_name = parts[0]
-        else:
-            c = pycountry.countries.get(alpha_2=lw) or pycountry.countries.get(alpha_3=lw)
-            if c:
-                recognized_code = c.alpha_2
-                search_show_name = parts[0]
+    if debug:
+        debug_year_str = f"Year match: {bool(ymatch)} ({year_found})" if bool(ymatch) else f"Year match: {bool(ymatch)}"
+        custom_print(logger, debug_year_str)
 
-    r = requests.get(f'https://api.tvmaze.com/search/shows?q={search_show_name}')
+    recognized_code = None
+    parts = show_name.rsplit(' ', 1)
+    if len(parts) > 1:
+        last_word = parts[-1].upper()
+        if last_word == 'US':
+            recognized_code = 'US'
+            show_name = parts[0]
+        elif last_word == 'UK':
+            recognized_code = 'GB'
+            show_name = parts[0]
+
+    r = requests.get(f'https://api.tvmaze.com/search/shows?q={show_name}')
+    if debug:
+        custom_print(logger, f"Sending request:")
+        custom_print(logger, f"{r}")
     if not r.ok:
         return None
     results = r.json()
@@ -818,21 +829,34 @@ def get_tv_episode_metadata(input_str):
     show_data = best['show']
 
     er = requests.get(f"https://api.tvmaze.com/shows/{show_data['id']}/episodebynumber?season={season}&number={episode}")
+    if debug:
+        custom_print(logger, f"Getting show data from id {show_data['id']} - S{season}E{episode}:")
+        custom_print(logger, f"{er}")
     if not er.ok:
         return None
     ep_data = er.json()
     if not ep_data:
         return None
+    if debug:
+        custom_print(logger, f"Response:")
+        custom_print(logger, f"{ep_data}")
+
+    if debug:
+        custom_print(logger, f"All fields:")
+        custom_print(logger, f"'show_name': {show_name}")
+        custom_print(logger, f"'show_year': {(show_data.get('premiered') or '')[:4]}")
+        custom_print(logger, f"'episode_title': {ep_data.get('name')}")
+        custom_print(logger, f"'season': {ep_data.get('season')}")
+        custom_print(logger, f"'episode_number': {ep_data.get('number')}")
+        custom_print(logger, f"'airdate': {ep_data.get('airdate')}")
 
     return {
-        'show_name': user_show_name,
+        'show_name': show_name,
         'show_year': (show_data.get('premiered') or '')[:4],
         'episode_title': ep_data.get('name'),
         'season': ep_data.get('season'),
         'episode_number': ep_data.get('number'),
         'airdate': ep_data.get('airdate'),
-        'summary': ep_data.get('summary', '').strip() if ep_data.get('summary') else None,
-        'tvmaze_url': ep_data.get('url')
     }
 
 
