@@ -768,9 +768,6 @@ def get_tv_episode_metadata(logger, debug, input_str):
     # Remove any year in parentheses
     show_name = re.sub(r'\(\d{4}\)', '', raw_show_name).strip()
 
-    if debug:
-        custom_print(logger, f"Will search for show: '{show_name}'")
-
     year_found = None
     ymatch = re.search(r'\((\d{4})\)', raw_show_name)
     if ymatch:
@@ -782,16 +779,19 @@ def get_tv_episode_metadata(logger, debug, input_str):
 
     recognized_code = None
     parts = show_name.rsplit(' ', 1)
+    search_show_name = show_name
     if len(parts) > 1:
         last_word = parts[-1].upper()
         if last_word == 'US':
             recognized_code = 'US'
-            show_name = parts[0]
+            search_show_name = parts[0]
         elif last_word == 'UK':
             recognized_code = 'GB'
-            show_name = parts[0]
+            search_show_name = parts[0]
 
-    r = requests.get(f'https://api.tvmaze.com/search/shows?q={show_name}')
+    if debug:
+        custom_print(logger, f"Will search for show: '{search_show_name}'")
+    r = requests.get(f'https://api.tvmaze.com/search/shows?q={search_show_name}')
     if debug:
         custom_print(logger, f"Sending request:")
         custom_print(logger, f"{r}")
