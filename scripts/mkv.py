@@ -908,7 +908,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
 
         truly_missing_subs_langs = []
         for lang in all_missing_subs_langs[index]:
-            if lang != 'none':
+            if lang != 'none' and lang:
                 if any(sub for sub in total_external_subs):
                     input_file_base = re.sub(r'^[^/]+/', '', input_files[index]).replace(".mkv", "")
                     if any(input_file_base in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in
