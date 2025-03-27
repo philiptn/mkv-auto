@@ -333,6 +333,7 @@ def remove_sdh(max_threads, debug, input_files, remove_music, track_names, exter
 def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
     output_subtitles = []
     errored_ass_subs = []
+    missing_subs_langs = []
     keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
 
     for index, file in enumerate(subtitle_files):
@@ -345,8 +346,6 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
                 "'") else name_encoded
             name = base64.b64decode(name_encoded).decode("utf-8")
             base, _, forced = base_forced.rpartition('_')
-
-            output_subtitle = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.srt"
 
             if name:
                 original_name_b64 = name_encoded
@@ -374,21 +373,22 @@ def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
             with open(final_subtitle, "w") as srt_file:
                 srt_file.write(srt_output)
 
-            if is_valid_srt(output_subtitle):
-                os.rename(output_subtitle, final_subtitle)
+            if is_valid_srt(final_subtitle):
                 if keep_original_subtitles:
                     output_subtitles = output_subtitles + [final_subtitle, original_subtitle]
                 else:
                     output_subtitles = output_subtitles + [final_subtitle]
             else:
-                errored_ass_subs.append(original_subtitle)
+                subtitle_file_info = decompose_subtitle_filename(original_subtitle)
+                errored_ass_subs.append(os.path.basename(f"{subtitle_file_info['base']} ({subtitle_file_info['extension'].upper()})"))
+                missing_subs_langs.append(language)
                 if keep_original_subtitles:
                     output_subtitles = output_subtitles + [original_subtitle]
 
         else:
             output_subtitles = output_subtitles + [file]
 
-    return output_subtitles, errored_ass_subs
+    return output_subtitles, errored_ass_subs, missing_subs_langs
 
 
 def resync_srt_subs(max_threads, debug, input_file, subtitle_files):
@@ -639,7 +639,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
             if output_subtitle in ('ERROR', 'SKIP'):
                 if output_subtitle == "ERROR":
                     subtitle_file_info = decompose_subtitle_filename(original_file)
-                    errored_ocr.append(os.path.basename(f"{subtitle_file_info['base']}"))
+                    errored_ocr.append(os.path.basename(f"{subtitle_file_info['base']} ({subtitle_file_info['extension'].upper()})"))
                     missing_subs_langs.append(language)
             if name not in ('ERROR', 'SKIP'):
                 output_subtitles.append(original_file)

@@ -758,7 +758,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
      subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(False, file_info, pref_subs_langs)
 
     if "ass" in sub_filetypes:
-        all_subtitles, errored_ass_subs = convert_ass_to_srt(subtitle_files_to_process, main_audio_track_lang)
+        all_subtitles, errored_ass_subs, missing_subs_langs = convert_ass_to_srt(subtitle_files_to_process, main_audio_track_lang)
         subtitle_files_to_process = all_subtitles
 
     (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
@@ -908,7 +908,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
 
         truly_missing_subs_langs = []
         for lang in all_missing_subs_langs[index]:
-            if lang != 'none' and lang:
+            if lang != 'none' and lang and lang.lower() != 'und':
                 if any(sub for sub in total_external_subs):
                     input_file_base = re.sub(r'^[^/]+/', '', input_files[index]).replace(".mkv", "")
                     if any(input_file_base in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in
