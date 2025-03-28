@@ -427,7 +427,7 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
         strip_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track,
                             wanted_subs_tracks, default_subs_track, always_enable_subs)
 
-    if download_missing_subs.lower() == 'always':
+    if download_missing_subs.lower() == 'override':
         needs_processing_subs = True
         if pref_subs_langs != ['']:
             missing_subs_langs = pref_subs_langs

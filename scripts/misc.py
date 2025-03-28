@@ -430,6 +430,8 @@ def get_main_audio_track_language(file_info):
                 if key == 'language':
                     if value == 'nob' or value == 'nno':
                         value = 'nor'
+                    if value == 'und':
+                        value = 'eng'
                     language = pycountry.languages.get(alpha_3=value)
                     if language:
                         main_audio_track_lang = language.name

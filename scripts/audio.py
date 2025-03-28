@@ -516,6 +516,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     total_audio_tracks = 0
     needs_processing = False
     first_audio_track_found = False
+    und_track_found = False
 
     all_pref_settings_codecs = []
     audio_preferences = parse_preferred_codecs(pref_audio_formats)
@@ -560,6 +561,9 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                         track_name = value
                 if key == 'language':
                     track_language = value
+                    if track_language == 'und':
+                        track_language = 'eng'
+                        und_track_found = True
                 if key == 'codec_id':
                     audio_codec = value
             if not first_audio_track_found:
@@ -724,7 +728,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
     if not tracks_ids_to_be_converted and all_audio_track_ids:
         needs_processing = False
 
-    if len(all_audio_track_ids) != 0 and len(all_audio_track_ids) < total_audio_tracks:
+    if (len(all_audio_track_ids) != 0 and len(all_audio_track_ids) < total_audio_tracks) or und_track_found:
         needs_processing = True
     elif len(all_audio_track_ids) != 0 and len(all_audio_track_ids) == total_audio_tracks and only_orig_pref:
         needs_processing = False
