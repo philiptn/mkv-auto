@@ -317,19 +317,20 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                 if normalize_filenames.lower() in ('full', 'simple'):
                     if normalize_filenames.lower() == 'full':
                         full_info = get_tv_episode_metadata(logger, debug, f"{media_name} - S{formatted_season}E{episode_list}")
-                        if full_info:
-                            new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
-                                               f"S{formatted_season}E{episode_list} - {full_info['episode_title']}.mkv")
                     if media_type == 'tv_show_hdr':
                         if full_info:
                             restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}) - "
                                                  f"S{formatted_season}E{episode_list} - {full_info['episode_title']} - HDR{ext}")
+                            new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
+                                               f"S{formatted_season}E{episode_list} - {full_info['episode_title']} - HDR{ext}")
                         else:
                             restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
                     else:
                         if full_info:
                             restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}) - "
                                                  f"S{formatted_season}E{episode_list} - {full_info['episode_title']}{ext}")
+                            new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
+                                               f"S{formatted_season}E{episode_list} - {full_info['episode_title']}{ext}")
                         else:
                             restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
                 else:
