@@ -992,37 +992,29 @@ def return_media_info_string(filenames):
         for show in sorted(tv_shows):
             show_no_year = re.sub(r'\(\d{4}\)', '', show).strip()
             seasons = sorted(tv_shows[show].keys())
-            if len(seasons) == 1:
-                season = seasons[0]
+            for index, season in enumerate(seasons):
                 episode_list = compact_episode_list(sorted(tv_shows[show][season]))
                 tv_shows_print = f"(Season {season} - Episode {episode_list})"
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
-                return_str += f"{show_no_year} {tv_shows_print}"
-            else:
-                total_episodes = sum(len(tv_shows[show][s]) for s in seasons)
-                tv_shows_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
-                if tv_shows_extras[show]:
-                    tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
-                return_str += f"{show_no_year} {tv_shows_print}"
+                if index + 1 == len(seasons) or index == 0:
+                    return_str += f"{show_no_year} {tv_shows_print}"
+                else:
+                    return_str += f" + {show_no_year} {tv_shows_print}"
 
     if tv_shows_hdr:
         for show in sorted(tv_shows_hdr):
             show_no_year = re.sub(r'\(\d{4}\)', '', show).strip()
             seasons = sorted(tv_shows_hdr[show].keys())
-            if len(seasons) == 1:
-                season = seasons[0]
+            for index, season in enumerate(seasons):
                 episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
                 tv_shows_hdr_print = f"(Season {season} - Episode {episode_list})"
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
-                return_str += f"{show_no_year} {tv_shows_hdr_print}"
-            else:
-                total_episodes = sum(len(tv_shows_hdr[show][s]) for s in seasons)
-                tv_shows_hdr_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
-                if tv_shows_hdr_extras[show]:
-                    tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
-                return_str += f"{show_no_year} {tv_shows_hdr_print}"
+                if index + 1 == len(seasons) or index == 0:
+                    return_str += f"{show_no_year} {tv_shows_hdr_print}"
+                else:
+                    return_str += f" + {show_no_year} {tv_shows_hdr_print}"
 
     if movies:
         movies.sort()
