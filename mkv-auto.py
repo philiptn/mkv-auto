@@ -227,7 +227,7 @@ def mkv_auto(args):
 
                 if not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs.lower() != 'false':
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, filenames_mkv_only, dirpath, total_external_subs,
-                                                    all_missing_subs_langs)
+                                                                          all_missing_subs_langs)
 
                     all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, all_downloaded_subs, fillvalue=[])]
                     downloaded_or_external_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, total_external_subs, fillvalue=[])]

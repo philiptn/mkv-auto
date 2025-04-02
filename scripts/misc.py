@@ -938,6 +938,116 @@ def compact_episode_list(episodes, zfill=False):
     )
 
 
+def return_media_info_string(filenames):
+    tv_shows = defaultdict(lambda: defaultdict(set))
+    tv_shows_extras = defaultdict(list)
+    tv_shows_hdr = defaultdict(lambda: defaultdict(set))
+    tv_shows_hdr_extras = defaultdict(list)
+    movies = []
+    movie_extras = defaultdict(list)
+    movies_hdr = []
+    movie_hdr_extras = defaultdict(list)
+    uncategorized = []
+
+    return_str = ''
+
+    for filename in filenames:
+        file_info = reformat_filename(filename, True)
+        media_type = file_info["media_type"]
+        media_name = file_info["media_name"]
+        base, ext = os.path.splitext(filename)
+
+        # Determine if this is an extra by checking trailing excluded tags.
+        is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
+
+        if media_type in ['tv_show', 'tv_show_hdr']:
+            season, episodes = extract_season_episode(filename)
+            if is_extra:
+                if media_type == 'tv_show':
+                    tv_shows_extras[media_name].append(filename)
+                else:
+                    tv_shows_hdr_extras[media_name].append(filename)
+            else:
+                if season is not None and episodes:
+                    if media_type == 'tv_show':
+                        tv_shows[media_name][season].update(episodes)
+                    else:
+                        tv_shows_hdr[media_name][season].update(episodes)
+                else:
+                    uncategorized.append(media_name)
+        elif media_type in ['movie', 'movie_hdr']:
+            if is_extra:
+                if media_type == 'movie':
+                    movie_extras[media_name].append(filename)
+                else:
+                    movie_hdr_extras[media_name].append(filename)
+            else:
+                if media_type == 'movie':
+                    movies.append(media_name)
+                else:
+                    movies_hdr.append(media_name)
+        else:
+            uncategorized.append(media_name)
+    if tv_shows:
+        for show in sorted(tv_shows):
+            show_no_year = re.sub(r'\(\d{4}\)', '', show).strip()
+            seasons = sorted(tv_shows[show].keys())
+            if len(seasons) == 1:
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(tv_shows[show][season]))
+                tv_shows_print = f"(Season {season} - Episode {episode_list})"
+                if tv_shows_extras[show]:
+                    tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
+                return_str += f"{show_no_year} {tv_shows_print}"
+            else:
+                total_episodes = sum(len(tv_shows[show][s]) for s in seasons)
+                tv_shows_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                if tv_shows_extras[show]:
+                    tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
+                return_str += f"{show_no_year} {tv_shows_print}"
+
+    if tv_shows_hdr:
+        for show in sorted(tv_shows_hdr):
+            show_no_year = re.sub(r'\(\d{4}\)', '', show).strip()
+            seasons = sorted(tv_shows_hdr[show].keys())
+            if len(seasons) == 1:
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
+                tv_shows_hdr_print = f"(Season {season} - Episode {episode_list})"
+                if tv_shows_hdr_extras[show]:
+                    tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
+                return_str += f"{show_no_year} {tv_shows_hdr_print}"
+            else:
+                total_episodes = sum(len(tv_shows_hdr[show][s]) for s in seasons)
+                tv_shows_hdr_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                if tv_shows_hdr_extras[show]:
+                    tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
+                return_str += f"{show_no_year} {tv_shows_hdr_print}"
+
+    if movies:
+        movies.sort()
+        for movie in movies:
+            if movie_extras[movie]:
+                return_str += f"{movie} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})"
+            else:
+                return_str += f"{movie}"
+
+    if movies_hdr:
+        movies_hdr.sort()
+        for movie in movies_hdr:
+            if movie_hdr_extras[movie]:
+                return_str += f"{movie} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})"
+            else:
+                return_str += f"{movie}"
+
+    if uncategorized:
+        uncategorized.sort()
+        for item in uncategorized:
+            return_str += f"{item}"
+
+    return return_str
+
+
 def print_media_info(logger, filenames):
     # Ignore subtitles
     filenames = [f for f in filenames if f.endswith('.mkv')]

@@ -902,6 +902,8 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
     all_truly_missing_subs_langs = []
     all_downloaded_subs = [None] * total_files
     all_failed_downloads = [None] * total_files
+    all_downloaded_subs_simple = [None] * total_files
+    all_failed_downloads_simple = [None] * total_files
 
     header = "SUBTITLES"
     description = f"Process missing subtitles"
@@ -949,11 +951,15 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
-                downloaded_subs, failed_downloads = future.result()
+                downloaded_subs, failed_downloads, downloaded_subs_simple, failed_downloads_simple = future.result()
                 if downloaded_subs is not None:
                     all_downloaded_subs[index] = downloaded_subs
                 if failed_downloads is not None:
                     all_failed_downloads[index] = failed_downloads
+                if downloaded_subs_simple is not None:
+                    all_downloaded_subs_simple[index] = downloaded_subs_simple
+                if failed_downloads_simple is not None:
+                    all_failed_downloads_simple[index] = failed_downloads_simple
             except Exception as e:
                 # Fetch the variables that were passed to the thread
                 index = futures[future]
@@ -990,10 +996,26 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
     )
 
     if success_len or failed_len:
+        print()
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
-        custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
-                             f"{GREEN}{CHECK} {success_len}{RESET}  {RED}{CROSS} {failed_len}{RESET}")
+
+        combined_downloaded = [item for sublist in all_downloaded_subs_simple for item in sublist]
+        combined_failed = [item for sublist in all_failed_downloads_simple for item in sublist]
+
+        if combined_downloaded:
+            downloaded_subs_info = return_media_info_string(combined_downloaded)
+            if not combined_failed:
+                custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} "
+                                                f"{GREEN}{success_len} {CHECK} {downloaded_subs_info}{RESET}")
+            else:
+                custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
+                                     f"{GREEN}{success_len} {CHECK} {downloaded_subs_info}{RESET}")
+
+        if combined_failed:
+            failed_downloads_info = return_media_info_string(combined_failed)
+            custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} "
+                                            f"{RED}{failed_len} {CROSS} {failed_downloads_info}{RESET}")
 
     return all_downloaded_subs
 
@@ -1008,7 +1030,9 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     media_type = file_info["media_type"]
 
     downloaded_subs = []
+    downloaded_subs_simple = []
     failed_downloads = []
+    failed_downloads_simple = []
 
     if debug:
         print('\n')
@@ -1039,10 +1063,12 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
                 shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"),
                             os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
                 downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
+                downloaded_subs_simple.append(mkv_base)
             else:
                 failed_downloads.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
+                failed_downloads_simple.append(mkv_base)
 
-    return downloaded_subs, failed_downloads
+    return downloaded_subs, failed_downloads, downloaded_subs_simple, failed_downloads_simple
 
 
 def resync_sub_process(logger, debug, input_files, dirpath, subtitle_files_to_process_list):
