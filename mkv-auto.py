@@ -198,8 +198,8 @@ def mkv_auto(args):
 
         last_updated_replacements = update_replacement_lists()
         if last_updated_replacements:
-            custom_print(logger, f"{GREY}[INFO]{RESET} Updating "
-                                 f"replacement lists ({last_updated_replacements})")
+            custom_print_no_newline(logger, f"{GREY}[INFO]{RESET} Updating "
+                                            f"replacement lists ({last_updated_replacements})")
 
         start_time = time.time()
 
@@ -280,6 +280,7 @@ def mkv_auto(args):
             end_time = time.time()
             processing_time = end_time - start_time
 
+            print()
             print_no_timestamp(logger, '')
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} "
                                        f"{'successfully ' if not any(sub for sub in errored_ocr_list) else ''}processed.")

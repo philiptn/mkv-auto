@@ -72,9 +72,9 @@ class ContinuousSpinner:
         if self._thread:
             self._thread.join()
         if final_line:
-            sys.stdout.write(f"\033[?25l\r{final_line} \n")
+            sys.stdout.write(f"\033[?25l\r{final_line} ")
         else:
-            sys.stdout.write("\033[?25l\r\n")
+            sys.stdout.write("\033[?25l\r")
 
     def _spin(self):
         while not self._stop_event.is_set():
@@ -231,6 +231,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
     global SPINNER
     if current == 0:
         SPINNER = ContinuousSpinner(interval=0.15)
+        print()
 
     def line_func():
         return (
@@ -282,6 +283,7 @@ def print_final_spin_files(logger, current, total, header, description="Processi
         SPINNER.stop(final_line)
         SPINNER = None
 
+        print()
         logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
         logger.color(
@@ -294,6 +296,18 @@ def custom_print(logger, message):
     message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
     # Print the message to the console with color
     sys.stdout.write(message_with_timestamp + "\n")
+    # Log the message without color to the plain text log
+    plain_message = remove_color_codes(message_with_timestamp)
+    logger.info(plain_message)
+    logger.debug(plain_message)
+    # Log the message with color to the color log
+    logger.color(message_with_timestamp)
+
+
+def custom_print_no_newline(logger, message):
+    message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
+    # Print the message to the console with color
+    sys.stdout.write(message_with_timestamp)
     # Log the message without color to the plain text log
     plain_message = remove_color_codes(message_with_timestamp)
     logger.info(plain_message)
@@ -761,11 +775,15 @@ def get_tv_episode_metadata(logger, debug, input_str):
     if debug:
         custom_print(logger, f"Input string: '{input_str}'")
 
-    match = re.match(r'^(.*?)\s*-\s*S(\d{2})E(\d{2})$', input_str, re.IGNORECASE)
+    # Supports: S01E01, S01E01-E03, S01E01-03
+    match = re.match(r'^(.*?)\s*-\s*S(\d{2})E(\d{2})(?:-E?(\d{2}))?$', input_str, re.IGNORECASE)
     if not match:
-        raise ValueError("Input must be in the format: 'Show Name - S01E01'")
-    raw_show_name, s, e = match.groups()
-    season, episode = int(s), int(e)
+        raise ValueError(f"Input '{input_str}' must be in the format: 'Show Name - S01E01' or 'Show Name - S01E01-E03'")
+
+    raw_show_name, s, e_start, e_end = match.groups()
+    season = int(s)
+    episode_start = int(e_start)
+    episode_end = int(e_end) if e_end else episode_start
 
     # Remove any year in parentheses
     show_name = re.sub(r'\(\d{4}\)', '', raw_show_name).strip()
@@ -793,6 +811,7 @@ def get_tv_episode_metadata(logger, debug, input_str):
 
     if debug:
         custom_print(logger, f"Will search for show: '{search_show_name}'")
+
     r = requests.get(f'https://api.tvmaze.com/search/shows?q={search_show_name}')
     if debug:
         custom_print(logger, f"Sending request:")
@@ -830,35 +849,39 @@ def get_tv_episode_metadata(logger, debug, input_str):
     best = year_filtered[0]
     show_data = best['show']
 
-    er = requests.get(f"https://api.tvmaze.com/shows/{show_data['id']}/episodebynumber?season={season}&number={episode}")
-    if debug:
-        custom_print(logger, f"Getting show data from id {show_data['id']} - S{season}E{episode}:")
-        custom_print(logger, f"{er}")
-    if not er.ok:
-        return None
-    ep_data = er.json()
-    if not ep_data:
-        return None
-    if debug:
-        custom_print(logger, f"Response:")
-        custom_print(logger, f"{ep_data}")
+    episode_titles = []
+    first_ep_data = None
 
-    if debug:
-        custom_print(logger, f"All fields:")
-        custom_print(logger, f"'show_name': {show_name}")
-        custom_print(logger, f"'show_year': {(show_data.get('premiered') or '')[:4]}")
-        custom_print(logger, f"'episode_title': {ep_data.get('name')}")
-        custom_print(logger, f"'season': {ep_data.get('season')}")
-        custom_print(logger, f"'episode_number': {ep_data.get('number')}")
-        custom_print(logger, f"'airdate': {ep_data.get('airdate')}")
+    for episode in range(episode_start, episode_end + 1):
+        er = requests.get(
+            f"https://api.tvmaze.com/shows/{show_data['id']}/episodebynumber?season={season}&number={episode}")
+        if debug:
+            custom_print(logger, f"Getting show data from id {show_data['id']} - S{season}E{episode}:")
+            custom_print(logger, f"{er}")
+        if not er.ok:
+            continue
+        ep_data = er.json()
+        if not ep_data:
+            continue
+        if debug:
+            custom_print(logger, f"Response:")
+            custom_print(logger, f"{ep_data}")
 
+        episode_titles.append(ep_data.get('name'))
+        if first_ep_data is None:
+            first_ep_data = ep_data  # store first episode data for shared fields
+
+    if not episode_titles or not first_ep_data:
+        return None
+
+    # Combine into single metadata dict
     return {
         'show_name': show_name,
         'show_year': (show_data.get('premiered') or '')[:4],
-        'episode_title': ep_data.get('name'),
-        'season': ep_data.get('season'),
-        'episode_number': ep_data.get('number'),
-        'airdate': ep_data.get('airdate'),
+        'episode_title': ' & '.join(episode_titles),
+        'season': season,
+        'episode_number': episode_start,
+        'airdate': first_ep_data.get('airdate'),
     }
 
 
