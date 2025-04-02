@@ -464,10 +464,14 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
     description = f"Process audio {print_multi_or_single(len(audio_format_preferences), 'format')}"
 
     if not disable_print:
+        print()
         custom_print(logger,
                      f"{GREY}[AUDIO]{RESET} Requested {print_multi_or_single(len(audio_format_preferences_print), 'format')}:")
-        for pref in audio_format_preferences_print:
-            custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
+        for index, pref in enumerate(audio_format_preferences_print):
+            if index + 1 == len(audio_format_preferences_print):
+                custom_print_no_newline(logger, f"{GREY}[AUDIO]{RESET} {pref}")
+            else:
+                custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
 
     if not disable_print:
         # Initialize progress
