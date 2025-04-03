@@ -938,7 +938,7 @@ def compact_episode_list(episodes, zfill=False):
     )
 
 
-def return_media_info_string(filenames):
+def return_media_info_string(filenames, type):
     tv_shows = defaultdict(lambda: defaultdict(set))
     tv_shows_extras = defaultdict(list)
     tv_shows_hdr = defaultdict(lambda: defaultdict(set))
@@ -949,7 +949,7 @@ def return_media_info_string(filenames):
     movie_hdr_extras = defaultdict(list)
     uncategorized = []
 
-    return_str = ''
+    return_str_list = []
 
     for filename in filenames:
         file_info = reformat_filename(filename, True)
@@ -994,13 +994,13 @@ def return_media_info_string(filenames):
             seasons = sorted(tv_shows[show].keys())
             for index, season in enumerate(seasons):
                 episode_list = compact_episode_list(sorted(tv_shows[show][season]))
-                tv_shows_print = f"(Season {season} - Episode {episode_list})"
+                tv_shows_print = f"Season {season}: Episode {episode_list}"
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
-                if index + 1 == len(seasons) or index == 0:
-                    return_str += f"{show_no_year} {tv_shows_print}"
+                if index == 0:
+                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_print})")
                 else:
-                    return_str += f" + {show_no_year} {tv_shows_print}"
+                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_print})")
 
     if tv_shows_hdr:
         for show in sorted(tv_shows_hdr):
@@ -1008,36 +1008,42 @@ def return_media_info_string(filenames):
             seasons = sorted(tv_shows_hdr[show].keys())
             for index, season in enumerate(seasons):
                 episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
-                tv_shows_hdr_print = f"(Season {season} - Episode {episode_list})"
+                tv_shows_hdr_print = f"Season {season}: Episode {episode_list}"
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
-                if index + 1 == len(seasons) or index == 0:
-                    return_str += f"{show_no_year} {tv_shows_hdr_print}"
+                if index == 0:
+                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_hdr_print})")
                 else:
-                    return_str += f" + {show_no_year} {tv_shows_hdr_print}"
+                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_hdr_print})")
 
     if movies:
         movies.sort()
         for movie in movies:
+            return_str = ''
             if movie_extras[movie]:
                 return_str += f"{movie} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})"
             else:
                 return_str += f"{movie}"
+            return_str_list.append(return_str)
 
     if movies_hdr:
         movies_hdr.sort()
         for movie in movies_hdr:
+            return_str = ''
             if movie_hdr_extras[movie]:
                 return_str += f"{movie} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})"
             else:
                 return_str += f"{movie}"
+            return_str_list.append(return_str)
 
     if uncategorized:
         uncategorized.sort()
         for item in uncategorized:
+            return_str = ''
             return_str += f"{item}"
+            return_str_list.append(return_str)
 
-    return return_str
+    return return_str_list
 
 
 def print_media_info(logger, filenames):

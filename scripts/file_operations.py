@@ -176,7 +176,6 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
                     shutil.move(s, d)
                     with file_counter_lock:
                         file_counter[0] += 1
-                        log_debug(logger, f"Moving file '{s}' to '{d}'")
                         print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file')
                 else:
                     skipped_files_counter[0] += 1
@@ -254,7 +253,6 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
                     shutil.copy(s, d)
                     with file_counter_lock:
                         file_counter[0] += 1
-                        log_debug(logger, f"Copying file '{s}' to '{d}'")
                         print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file')
                 else:
                     skipped_files_counter[0] += 1
@@ -347,6 +345,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    log_debug(logger, f"Moving file '{input_file_path}' to '{output_path}'")
     shutil.move(input_file_path, output_path)
 
 

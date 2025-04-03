@@ -999,23 +999,27 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
         print()
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"Requested {print_multi_or_single(truly_missing_subs_count, 'language')}: {unique_vals_print}")
+        custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
+                             f"{GREEN}{CHECK} {success_len}{RESET}  {RED}{CROSS} {failed_len}{RESET}")
 
         combined_downloaded = [item for sublist in all_downloaded_subs_simple for item in sublist]
         combined_failed = [item for sublist in all_failed_downloads_simple for item in sublist]
 
         if combined_downloaded:
-            downloaded_subs_info = return_media_info_string(combined_downloaded)
-            if not combined_failed:
-                custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} "
-                                                f"{GREEN}{success_len} {CHECK} {downloaded_subs_info}{RESET}")
-            else:
-                custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
-                                     f"{GREEN}{success_len} {CHECK} {downloaded_subs_info}{RESET}")
+            downloaded_subs_info = return_media_info_string(combined_downloaded, GREEN)
+            for index, info in enumerate(downloaded_subs_info):
+                if index + 1 == len(downloaded_subs_info) and not combined_failed:
+                    custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
+                else:
+                    custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
 
         if combined_failed:
-            failed_downloads_info = return_media_info_string(combined_failed)
-            custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} "
-                                            f"{RED}{failed_len} {CROSS} {failed_downloads_info}{RESET}")
+            failed_downloads_info = return_media_info_string(combined_failed, RED)
+            for index, info in enumerate(failed_downloads_info):
+                if index + 1 == len(failed_downloads_info):
+                    custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
+                else:
+                    custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
 
     return all_downloaded_subs
 
