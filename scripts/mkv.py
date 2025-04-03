@@ -713,9 +713,6 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
                 raise
 
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
-    if all_replacements_list_count:
-        custom_print(logger, f"{GREY}[SUBTITLES]{RESET} Fixed "
-                             f"{all_replacements_list_count} OCR {print_multi_or_single(all_replacements_list_count, 'error')}.")
 
     if all_replacements_list_count:
         log_debug(logger, '')
@@ -732,14 +729,19 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
 
     all_errored_subs_count = len([item for list in all_errored_subs for item in list])
     if all_errored_subs_count:
+        print()
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_subs_count} "
                              f"{print_multi_or_single(all_errored_subs_count, 'subtitle')} failed to be converted:")
         errored_subs_print = []
         for errored_sub in all_errored_subs:
             if errored_sub:
                 errored_subs_print.append(errored_sub[0])
-        for sub in sorted(errored_subs_print):
-            custom_print(logger, f"{RED}[SUBTITLES]{RESET} {sub}")
+        errored_subs_print.sort()
+        for index, sub in enumerate(errored_subs_print):
+            if index + 1 == len(errored_subs_print):
+                custom_print_no_newline(logger, f"{RED}[SUBTITLES]{RESET} {sub}")
+            else:
+                custom_print(logger, f"{RED}[SUBTITLES]{RESET} {sub}")
 
     return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed,
             all_missing_subs_langs, all_errored_subs, main_audio_track_langs_list)
