@@ -181,7 +181,7 @@ def run_with_xvfb(command):
         # Start a separate thread to watch memory usage
         monitor_thread = threading.Thread(
             target=_monitor_memory_usage,
-            args=(xvfb_process.pid, command_process.pid, 8_800_000_000),  # 8.8 GB max usage before terminated
+            args=(xvfb_process.pid, command_process.pid, 9_800_000_000),  # 9.8 GB max usage before terminated
             daemon=True
         )
         monitor_thread.start()
@@ -734,7 +734,6 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
 
             if result_code != 0:
                 final_subtitle = 'ERROR'
-                name = 'ERROR'
             elif not is_valid_srt(final_subtitle):
                 final_subtitle = 'ERROR'
                 original_subtitle = 'ERROR'

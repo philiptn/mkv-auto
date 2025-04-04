@@ -2,10 +2,11 @@
 
 :: Ask runtime option
 echo Runtime options:
-echo 1. Latest (philiptn/mkv-auto)
-echo 2. Build locally
+echo 1. Latest (philiptn/mkv-auto:latest)
+echo 2. Dev (philiptn/mkv-auto:dev)
+echo 3. Build locally
 echo.
-set "default_runtime=latest"
+set "default_runtime=1"
 set /p runtime="Select an option [%default_runtime%]: "
 if "%runtime%"=="" set runtime=%default_runtime%
 
@@ -17,9 +18,13 @@ if "%runtime%" NEQ "1" if "%runtime%" NEQ "2" (
 
 :: Perform selected actions
 if "%runtime%"=="1" (
-    docker pull philiptn/mkv-auto
+    docker pull philiptn/mkv-auto:latest
     echo.
-    docker run --rm -it -v "%cd%:/mkv-auto/files" philiptn/mkv-auto --docker %operation_flag%
+    docker run --rm -it -v "%cd%:/mkv-auto/files" philiptn/mkv-auto:latest --docker
+) else if "%runtime%"=="2" (
+    docker pull philiptn/mkv-auto:dev
+    echo.
+    docker run --rm -it -v "%cd%:/mkv-auto/files" philiptn/mkv-auto:dev --docker
 ) else (
     docker build -t mkv-auto-local . >nul 2>nul
     echo.
