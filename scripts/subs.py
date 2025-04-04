@@ -181,7 +181,7 @@ def run_with_xvfb(command):
         # Start a separate thread to watch memory usage
         monitor_thread = threading.Thread(
             target=_monitor_memory_usage,
-            args=(xvfb_process.pid, command_process.pid, 4_500_000_000),  # 4.5 GB max usage before terminated
+            args=(xvfb_process.pid, command_process.pid, 8_800_000_000),  # 8.8 GB max usage before terminated
             daemon=True
         )
         monitor_thread.start()

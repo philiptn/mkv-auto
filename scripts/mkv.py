@@ -1008,20 +1008,20 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
         combined_failed = [item for sublist in all_failed_downloads_simple for item in sublist]
 
         if combined_downloaded:
-            downloaded_subs_info = return_media_info_string(combined_downloaded, GREEN)
+            downloaded_subs_info = return_media_info_string(combined_downloaded, RESET)
             for index, info in enumerate(downloaded_subs_info):
                 if index + 1 == len(downloaded_subs_info) and not combined_failed:
-                    custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
+                    custom_print_no_newline(logger, f"{GREEN}[SUBLIMINAL]{RESET} {info}")
                 else:
-                    custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
+                    custom_print(logger, f"{GREEN}[SUBLIMINAL]{RESET} {info}")
 
         if combined_failed:
-            failed_downloads_info = return_media_info_string(combined_failed, RED)
+            failed_downloads_info = return_media_info_string(combined_failed, RESET)
             for index, info in enumerate(failed_downloads_info):
                 if index + 1 == len(failed_downloads_info):
-                    custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
+                    custom_print_no_newline(logger, f"{RED}[SUBLIMINAL]{RESET} {info}")
                 else:
-                    custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
+                    custom_print(logger, f"{RED}[SUBLIMINAL]{RESET} {info}")
 
     return all_downloaded_subs
 
