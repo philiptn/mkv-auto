@@ -148,7 +148,7 @@ def _monitor_memory_usage(xvfb_pid, cmd_pid, limit_bytes):
         time.sleep(1)
 
 
-def run_with_xvfb(command):
+def run_with_xvfb(command, memory_per_thread):
     time.sleep(random.uniform(0.5, 1.5))
     display_number = find_available_display()
 
@@ -181,7 +181,7 @@ def run_with_xvfb(command):
         # Start a separate thread to watch memory usage
         monitor_thread = threading.Thread(
             target=_monitor_memory_usage,
-            args=(xvfb_process.pid, command_process.pid, 9_800_000_000),  # 9.8 GB max usage before terminated
+            args=(xvfb_process.pid, command_process.pid, memory_per_thread * 1024 ** 3),  # Use dynamic memory limit
             daemon=True
         )
         monitor_thread.start()
@@ -242,7 +242,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
-    run_with_xvfb(command)
+    run_with_xvfb(command, 1)
     os.remove(input_file)
     shutil.move(f"{input_file}_tmp.srt", input_file)
 
@@ -569,7 +569,7 @@ def get_output_subtitle_string(filename, track_numbers, output_filetypes, subs_l
     return subtitle_filenames
 
 
-def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
+def ocr_subtitles(max_threads, memory_per_thread, debug, subtitle_files, main_audio_track_lang):
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
     keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
@@ -583,7 +583,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Submit all tasks and store futures in a dictionary with their index
         future_to_index = {
-            executor.submit(ocr_subtitle_worker, debug, subtitle_files[i], main_audio_track_lang, subtitleedit_dir): i
+            executor.submit(ocr_subtitle_worker, memory_per_thread, debug, subtitle_files[i], main_audio_track_lang, subtitleedit_dir): i
             for i in range(len(subtitle_files))
         }
 
@@ -638,8 +638,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
         else:
             if output_subtitle in ('ERROR', 'SKIP'):
                 if output_subtitle == "ERROR":
-                    subtitle_file_info = decompose_subtitle_filename(original_file)
-                    errored_ocr.append(os.path.basename(f"{subtitle_file_info['base']}.{subtitle_file_info['extension']}"))
+                    errored_ocr.append(original_file)
                     missing_subs_langs.append(language)
             if name not in ('ERROR', 'SKIP'):
                 output_subtitles.append(original_file)
@@ -657,7 +656,7 @@ def ocr_subtitles(max_threads, debug, subtitle_files, main_audio_track_lang):
             all_track_forced, updated_sub_filetypes, all_replacements, errored_ocr, missing_subs_langs)
 
 
-def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
+def ocr_subtitle_worker(memory_per_thread, debug, file, main_audio_track_lang, subtitleedit_dir):
     ocr_languages = check_config(config, 'subtitles', 'ocr_languages')
     replacements = []
     # Create a temporary directory for this thread's SubtitleEdit instance
@@ -702,7 +701,7 @@ def ocr_subtitle_worker(debug, file, main_audio_track_lang, subtitleedit_dir):
             if debug:
                 print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
-            result_code = run_with_xvfb(command)
+            result_code = run_with_xvfb(command, memory_per_thread)
 
             output_subtitle = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.srt"
             subtitle_tmp = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"

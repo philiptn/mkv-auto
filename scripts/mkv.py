@@ -631,7 +631,7 @@ def extract_subs_in_mkv_process_worker(debug, input_file, dirpath, internal_thre
     return subtitle_files
 
 
-def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_list):
+def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_list, errored_subs):
     sub_files = [
         [f for f in sublist if isinstance(f, str) and f.endswith(('.mkv', '.srt', '.sup', '.ass', '.sub'))]
         for sublist in subtitle_files_list
@@ -661,7 +661,12 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     # Calculate number of workers and internal threads, floor divide by 1.7 as
     # the OCR process uses multiple Tesseract processes internally.
     # Reduced threads to not overwhelm the system.
-    max_worker_threads = get_max_ocr_threads()
+    max_worker_threads, memory_per_thread, max_mem_allowed = get_max_ocr_threads()
+
+    if errored_subs:
+        max_worker_threads = 1
+        memory_per_thread = max_mem_allowed
+
     num_workers = max(1, max_worker_threads)  # Ensure num_workers is at least 1.
     internal_threads = max(1, max_worker_threads // num_workers)
 
@@ -675,7 +680,7 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(convert_to_srt_process_worker, debug, input_file, dirpath, internal_threads,
-                                   sub_files[index]): index for index, input_file in enumerate(input_files)}
+                                   sub_files[index], memory_per_thread): index for index, input_file in enumerate(input_files)}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -715,10 +720,10 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
 
     if all_replacements_list_count:
-        log_debug(logger, '')
-        log_debug(logger, f"{GREY}[DEBUG]{RESET} During OCR, the following words were fixed:")
-
         flattened_replacements = list(chain.from_iterable(all_replacements_list))
+        log_debug(logger, '')
+        log_debug(logger, f"{GREY}[DEBUG]{RESET} During OCR, the following {len(flattened_replacements)} "
+                          f"{print_multi_or_single(len(flattened_replacements), 'word')} were fixed:")
         replacements_counter = Counter(flattened_replacements)
         for replacement, count in replacements_counter.items():
             if count > 1:
@@ -731,23 +736,22 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
     if all_errored_subs_count:
         print()
         custom_print(logger, f"{GREY}[SUBTITLES]{RESET} {all_errored_subs_count} "
-                             f"{print_multi_or_single(all_errored_subs_count, 'subtitle')} failed to be converted:")
+                             f"{print_multi_or_single(all_errored_subs_count, 'subtitle')} failed to be converted.")
+
         errored_subs_print = []
         for errored_sub in all_errored_subs:
             if errored_sub:
                 errored_subs_print.append(errored_sub[0])
         errored_subs_print.sort()
+
         for index, sub in enumerate(errored_subs_print):
-            if index + 1 == len(errored_subs_print):
-                custom_print_no_newline(logger, f"{RED}[SUBTITLES]{RESET} {sub}")
-            else:
-                custom_print(logger, f"{RED}[SUBTITLES]{RESET} {sub}")
+            log_debug(logger, f"[OCR ERROR] '{sub}'")
 
     return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed,
             all_missing_subs_langs, all_errored_subs, main_audio_track_langs_list)
 
 
-def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files):
+def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, subtitle_files, memory_per_thread):
     input_file_with_path = os.path.join(dirpath, input_file)
     subtitle_files_to_process = subtitle_files
     errored_ass_subs = []
@@ -770,7 +774,7 @@ def convert_to_srt_process_worker(debug, input_file, dirpath, internal_threads, 
     (output_subtitles, updated_subtitle_languages, all_subs_track_ids,
      all_subs_track_names, all_subs_track_forced, updated_sub_filetypes,
      all_replacements, errored_ocr_subs, missing_subs_langs) = ocr_subtitles(
-        internal_threads, debug, subtitle_files_to_process, main_audio_track_lang)
+        internal_threads, memory_per_thread, debug, subtitle_files_to_process, main_audio_track_lang)
 
     sub_filetypes = updated_sub_filetypes
     errored_subs = errored_ass_subs + errored_ocr_subs

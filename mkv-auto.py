@@ -206,6 +206,7 @@ def mkv_auto(args):
         try:
             errored_ocr_list = []
             all_subtitle_files = []
+            all_downloaded_subs = []
             downloaded_or_external_subtitle_files = []
             subtitle_files_to_process = []
 
@@ -244,18 +245,30 @@ def mkv_auto(args):
 
                 if all_subtitle_files and download_missing_subs.lower() != 'override':
                     (subtitle_tracks_to_be_merged, subtitle_files_to_process,
-                     all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, filenames_mkv_only, dirpath, all_subtitle_files)
+                     all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, filenames_mkv_only, dirpath, all_subtitle_files, False)
 
                 if (not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs)
-                        and any(sub for sub in errored_ocr_list) and download_missing_subs.lower() != 'false'):
-                    all_downloaded_subs = fetch_missing_subtitles_process(logger, debug,
-                                                                          filenames_mkv_only, dirpath,
-                                                                          total_external_subs,
-                                                                          all_missing_subs_langs)
+                        and any(sub for sub in errored_ocr_list)):
+
+                    custom_print_no_newline(logger, f"{GREY}[SUBTITLES]{RESET} Limiting simultaneous OCR workers to one.")
+
+                    a, new_subtitle_files_to_process, all_missing_subs_langs, b, c = convert_to_srt_process(logger, debug,
+                                                                                                            filenames_mkv_only,
+                                                                                                            dirpath,
+                                                                                                            errored_ocr_list,
+                                                                                                            True)
+                    if download_missing_subs.lower() != 'false':
+                        all_downloaded_subs = fetch_missing_subtitles_process(logger, debug,
+                                                                              filenames_mkv_only, dirpath,
+                                                                              total_external_subs,
+                                                                              all_missing_subs_langs)
 
                     all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, all_downloaded_subs, fillvalue=[])]
+                    all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, new_subtitle_files_to_process, fillvalue=[])]
                     all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, subtitle_files_to_process, fillvalue=[])]
+
                     subtitle_files_to_process = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, subtitle_files_to_process, fillvalue=[])]
+                    subtitle_files_to_process = [[*(a or []), *(b or [])] for a, b in zip_longest(subtitle_files_to_process, new_subtitle_files_to_process, fillvalue=[])]
 
                     if all_downloaded_subs:
                         # Filter the nested lists to only include .srt files

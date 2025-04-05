@@ -1242,13 +1242,13 @@ def get_max_ocr_threads():
     current_cpu = psutil.cpu_percent(interval=0.5)
     avail_cpu = max_cpu_conf - current_cpu
     if avail_cpu > 0:
-        cpu_limit = int(os.cpu_count() * avail_cpu / 100)
+        cpu_limit = int((os.cpu_count() * avail_cpu / 100) // 1.4)
         cpu_limit = max(1, cpu_limit)  # if any CPU headroom exists, allow at least 1 thread
     else:
         cpu_limit = 0  # No available CPU capacity
 
     # --- Memory constraint ---
-    memory_per_thread = 10.0  # Approximate max GB used per thread
+    memory_per_thread = 0.5  # Approximate max GB used per thread
     max_ram_conf = int(check_config(config, 'general', 'max_ram_usage'))  # e.g. 85 for 85%
 
     vm = psutil.virtual_memory()
@@ -1259,7 +1259,7 @@ def get_max_ocr_threads():
     mem_limit = max(1, int(usable_mem / memory_per_thread))
 
     # The actual maximum threads is limited by both constraints.
-    return min(cpu_limit, mem_limit)
+    return min(cpu_limit, mem_limit), memory_per_thread, usable_mem
 
 
 def get_ram_usage():
