@@ -250,7 +250,7 @@ def mkv_auto(args):
                 if (not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs)
                         and any(sub for sub in errored_ocr_list)):
 
-                    custom_print_no_newline(logger, f"{GREY}[SUBTITLES]{RESET} Limiting simultaneous OCR workers to one.")
+                    custom_print_no_newline(logger, f"{GREY}[SUBTITLES]{RESET} Limiting simultaneous OCR workers to (1).")
 
                     a, new_subtitle_files_to_process, all_missing_subs_langs, b, c = convert_to_srt_process(logger, debug,
                                                                                                             filenames_mkv_only,
