@@ -682,8 +682,6 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
         futures = {executor.submit(convert_to_srt_process_worker, debug, input_file, dirpath, internal_threads,
                                    sub_files[index], memory_per_thread): index for index, input_file in enumerate(input_files)}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            if not disable_print:
-                print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
                 ready_tracks, output_subtitles, all_replacements, errored_subs, missing_subs_langs, main_audio_track_langs = future.result()
@@ -716,6 +714,12 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
+
+            if not disable_print:
+                if errored_subs:
+                    print_with_progress(logger, completed_count, -1, header=header, description=description)
+                else:
+                    print_with_progress(logger, completed_count, total_files, header=header, description=description)
 
     all_replacements_list_count = len([item for list in all_replacements_list for item in list])
 

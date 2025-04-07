@@ -33,7 +33,8 @@ ACTIVE = RESET
 DONE = RESET
 CHECK = '✓'
 CHECK_BOLD = '✔'
-CROSS = '✘'
+CROSS = '✗'
+CROSS_BOLD = '✘'
 RIGHT_ARROW = '➝'
 
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
@@ -72,7 +73,7 @@ class ContinuousSpinner:
         if self._thread:
             self._thread.join()
         if final_line:
-            sys.stdout.write(f"\033[?25l\r{final_line} ")
+            sys.stdout.write(f"\033[?25l\r{final_line}\r")
         else:
             sys.stdout.write("\033[?25l\r")
 
@@ -243,7 +244,18 @@ def print_with_progress(logger, current, total, header, description="Processing"
         SPINNER.set_line_func(line_func)
         SPINNER.start()
 
-    if current == total and SPINNER is not None:
+    if total == -1 and SPINNER is not None:
+        final_line = (
+            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{description} {DONE}{CROSS}{RESET} {' ' * ((len({str(total)}) * 2) + 8)}"
+        )
+        SPINNER.stop(final_line)
+        SPINNER = None
+        logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {CROSS}")
+        logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {CROSS}")
+        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {DONE}{CROSS}{RESET}")
+
+    elif current == total and SPINNER is not None:
         final_line = (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
             f"{description} {DONE}{CHECK}{RESET} {' ' * ((len({str(total)}) * 2) + 8)}"
@@ -1248,7 +1260,7 @@ def get_max_ocr_threads():
         cpu_limit = 0  # No available CPU capacity
 
     # --- Memory constraint ---
-    memory_per_thread = 1.0  # Approximate max GB used per thread
+    memory_per_thread = 2.0  # Approximate max GB used per thread
     max_ram_conf = int(check_config(config, 'general', 'max_ram_usage'))  # e.g. 85 for 85%
 
     vm = psutil.virtual_memory()
