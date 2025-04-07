@@ -735,13 +735,14 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
     # If original tracks are found, only keep those
     if original_audio_track_ids or unmatched_original_audio_track_ids:
+        needs_processing = True
         if unmatched_original_audio_track_ids and not original_audio_track_ids:
             all_audio_track_ids = unmatched_original_audio_track_ids
             default_audio_track = unmatched_original_audio_track_ids[0]
             tracks_ids_to_be_converted = unmatched_original_audio_track_ids
             tracks_langs_to_be_converted = unmatched_original_audio_track_languages
             tracks_names_to_be_converted = unmatched_original_audio_track_names
-        else:
+        elif original_audio_track_ids and not unmatched_original_audio_track_ids:
             all_audio_track_ids = original_audio_track_ids
             default_audio_track = original_audio_track_ids[0]
             tracks_ids_to_be_converted = original_audio_track_ids
