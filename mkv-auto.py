@@ -304,14 +304,12 @@ def mkv_auto(args):
         except Exception as e:
             if isinstance(e, CorruptedFile):
                 partial_str = 'copied' if not move_files else 'moved'
-                print_no_timestamp(logger, '')
-                print_no_timestamp(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
-                                           f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...")
-                total_files_input = wait_for_stable_files(input_dir)
-                if not total_files_input and move_files:
+                custom_print_no_newline(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
+                                                f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...")
+                if move_files:
                     for file in filenames_mkv_only:
                         try:
-                            shutil.move(os.path.join(temp_dir, file), dirpath)
+                            shutil.move(os.path.join(temp_dir, file), input_dir)
                         except:
                             pass
             else:

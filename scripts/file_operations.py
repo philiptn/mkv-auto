@@ -360,11 +360,14 @@ def safe_delete_dir(directory_path):
 
 def wait_for_stable_files(path):
     def is_file_stable(file_path):
-        """Check if a file's size is stable (indicating it is fully copied)."""
-        initial_size = os.path.getsize(file_path)
-        time.sleep(2.5)
-        new_size = os.path.getsize(file_path)
-        return initial_size == new_size
+        try:
+            """Check if a file's size is stable (indicating it is fully copied)."""
+            initial_size = os.path.getsize(file_path)
+            time.sleep(2.5)
+            new_size = os.path.getsize(file_path)
+            return initial_size == new_size
+        except Exception:
+            raise CorruptedFile
 
     stable_files = set()
 
