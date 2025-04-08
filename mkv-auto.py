@@ -73,137 +73,139 @@ def mkv_auto(args):
 
     hide_cursor()
 
-    if move_files:
-        print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
-    else:
-        print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
+    filenames_mkv_only = []
 
-    done_info = {'skipped_files': 0}
-    total_files_input = 0
-    actual_total_file_sizes = 0.0
-    method = 'moved' if move_files else 'copied'
+    try:
+        if move_files:
+            print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
+        else:
+            print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
 
-    if move_files:
-        remaining_files = wait_for_stable_files(input_dir)
-        while remaining_files:
-            total_files_input += count_files(input_dir)
-            files_in_temp = count_files(temp_dir)
-            all_files = remaining_files + files_in_temp
-            done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)
+        done_info = {'skipped_files': 0}
+        total_files_input = 0
+        actual_total_file_sizes = 0.0
+        method = 'moved' if move_files else 'copied'
+
+        if move_files:
             remaining_files = wait_for_stable_files(input_dir)
-            if done_info['skipped_files'] > 0:
-                break
-        actual_total_file_sizes = get_folder_size_gb(temp_dir)
-    else:
-        remaining_files = wait_for_stable_files(input_dir)
-        total_files_input += count_files(input_dir)
-        done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=remaining_files)
-        actual_total_file_sizes += done_info[f'actual_{method}_file_sizes']
+            while remaining_files:
+                total_files_input += count_files(input_dir)
+                files_in_temp = count_files(temp_dir)
+                all_files = remaining_files + files_in_temp
+                done_info = move_directory_contents(logger, input_dir, temp_dir, total_files=all_files)
+                remaining_files = wait_for_stable_files(input_dir)
+                if done_info['skipped_files'] > 0:
+                    break
+            actual_total_file_sizes = get_folder_size_gb(temp_dir)
+        else:
+            remaining_files = wait_for_stable_files(input_dir)
+            total_files_input += count_files(input_dir)
+            done_info = copy_directory_contents(logger, input_dir, temp_dir, total_files=remaining_files)
+            actual_total_file_sizes += done_info[f'actual_{method}_file_sizes']
 
-    desc = "Moving file" if move_files else "Copying file"
-    total_files_temp = count_files(temp_dir)
-    if done_info['skipped_files'] > 0:
-        print_final_spin_files(logger, total_files_temp, total_files_input, header='INFO', description=desc)
-    else:
-        print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
+        desc = "Moving file" if move_files else "Copying file"
+        total_files_temp = count_files(temp_dir)
+        if done_info['skipped_files'] > 0:
+            print_final_spin_files(logger, total_files_temp, total_files_input, header='INFO', description=desc)
+        else:
+            print_final_spin_files(logger, total_files_temp, total_files_temp, header='INFO', description=desc)
 
-    if done_info['skipped_files'] == 0:
-        custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {actual_total_file_sizes:.2f} GB to TEMP.")
-    elif done_info['skipped_files'] > 0:
-        custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"Successfully {method} {actual_total_file_sizes:.2f} GB to TEMP.")
-        custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
-                     f"had to be skipped due to insufficient storage.")
-        custom_print(logger,
-                     f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {done_info['actual_file_sizes']:.2f} GB)")
-        custom_print(logger, f"{GREY}[INFO]{RESET} Only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
+        if done_info['skipped_files'] == 0:
+            custom_print(logger, f"{GREY}[INFO]{RESET} "
+                                 f"Successfully {method} {actual_total_file_sizes:.2f} GB to TEMP.")
+        elif done_info['skipped_files'] > 0:
+            custom_print(logger, f"{GREY}[INFO]{RESET} "
+                                 f"Successfully {method} {actual_total_file_sizes:.2f} GB to TEMP.")
+            custom_print(logger,
+                         f"{GREY}[INFO]{RESET} {done_info['skipped_files']} {print_multi_or_single(done_info['skipped_files'], 'file')} "
+                         f"had to be skipped due to insufficient storage.")
+            custom_print(logger,
+                         f"{GREY}[INFO]{RESET} {done_info['required_space_gib']:.2f} GB would be needed in total (350% of {done_info['actual_file_sizes']:.2f} GB)")
+            custom_print(logger, f"{GREY}[INFO]{RESET} Only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
 
-    extract_archives(logger, temp_dir)
-    process_extras(temp_dir)
-    flatten_directories(temp_dir)
+        extract_archives(logger, temp_dir)
+        process_extras(temp_dir)
+        flatten_directories(temp_dir)
 
-    convert_all_videos_to_mkv(logger, debug, temp_dir, args.silent)
-    rename_others_file_to_folder(temp_dir)
+        convert_all_videos_to_mkv(logger, debug, temp_dir, args.silent)
+        rename_others_file_to_folder(temp_dir)
 
-    if remove_samples:
-        remove_sample_files_and_dirs(temp_dir)
+        if remove_samples:
+            remove_sample_files_and_dirs(temp_dir)
 
-    fix_episodes_naming(temp_dir)
-    remove_ds_store(temp_dir)
-    remove_wsl_identifiers(temp_dir)
+        fix_episodes_naming(temp_dir)
+        remove_ds_store(temp_dir)
+        remove_wsl_identifiers(temp_dir)
 
-    if total_files == 0:
-        if not args.silent:
-            print_no_timestamp(logger, f"No mkv files found in input directory.\n")
-            show_cursor()
-        exit(0)
-
-    dirpaths = []
-    for dirpath, dirnames, filenames in os.walk(temp_dir):
-        dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
-
-        # Skip directories or files starting with '.'
-        if '/.' in dirpath or dirpath.startswith('./.'):
-            continue
-
-        if not dirpath == 'input/':
-            dirpaths.append(dirpath)
-
-        """
-        Main loop
-        """
-
-        # Ignore files that start with a dot
-        filenames = [f for f in filenames if not f.startswith('.')]
-        filenames_covers = [f for f in filenames if f.lower().endswith(('.png', '.jpg'))]
-        # Extract the directory path relative to the input directory
-        relative_dir_path = os.path.relpath(dirpath, temp_dir)
-        # Split the relative path into individual directories
-        all_dirnames = relative_dir_path.split(os.sep)
-
-        total_external_subs = []
-
-        filenames = [f for f in filenames if f.endswith(('.mkv', '.srt', '.sup', '.ass', '.sub', '.idx'))]
-        filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
-
-        download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
-        remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
-
-        if not filenames:
+        if total_files == 0:
+            if not args.silent:
+                print_no_timestamp(logger, f"No mkv files found in input directory.\n")
+                show_cursor()
             exit(0)
 
-        print_media_info(logger, filenames)
+        dirpaths = []
+        for dirpath, dirnames, filenames in os.walk(temp_dir):
+            dirnames.sort(key=str.lower)  # sort directories in-place in case-insensitive manner
 
-        for file in filenames_mkv_only:
-            if not mkv_contains_video(file, dirpath):
-                custom_print(logger, f"{RED}[ERROR]{RESET} File '{file}' does not contain a video stream.")
-                if args.service:
-                    custom_print(logger, f"{RED}[ERROR]{RESET} Service mode detected. Deleting file and continuing...\n")
-                    os.remove(os.path.join(dirpath, file))
-                    filenames_mkv_only.remove(file)
-                    filenames.remove(file)
-                else:
-                    custom_print(logger, f"{RED}[ERROR]{RESET} Remove this file from the input folder and try again.\n")
-                    exit(1)
+            # Skip directories or files starting with '.'
+            if '/.' in dirpath or dirpath.startswith('./.'):
+                continue
 
-        ram_info = get_ram_usage()
-        max_workers = get_worker_thread_count()
+            if not dirpath == 'input/':
+                dirpaths.append(dirpath)
 
-        custom_print(logger, f"{GREY}[INFO]{RESET} "
-                             f"CPU {GREY}{get_block_gradient(psutil.cpu_percent(interval=0.5))}{RESET} {psutil.cpu_percent(interval=0.5):.0f}% "
-                             f"RAM {GREY}{get_block_gradient(ram_info['percent_ram'])}{RESET} {ram_info['percent_ram']}%")
-        custom_print(logger, f"{GREY}[INFO]{RESET} Using {max_workers} {print_multi_or_single(max_workers, 'worker')} based on system load.")
+            """
+            Main loop
+            """
 
-        last_updated_replacements = update_replacement_lists()
-        if last_updated_replacements:
-            custom_print_no_newline(logger, f"{GREY}[INFO]{RESET} Updating "
-                                            f"replacement lists ({last_updated_replacements})")
+            # Ignore files that start with a dot
+            filenames = [f for f in filenames if not f.startswith('.')]
+            filenames_covers = [f for f in filenames if f.lower().endswith(('.png', '.jpg'))]
+            # Extract the directory path relative to the input directory
+            relative_dir_path = os.path.relpath(dirpath, temp_dir)
+            # Split the relative path into individual directories
+            all_dirnames = relative_dir_path.split(os.sep)
 
-        start_time = time.time()
+            total_external_subs = []
 
-        try:
+            filenames = [f for f in filenames if f.endswith(('.mkv', '.srt', '.sup', '.ass', '.sub', '.idx'))]
+            filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
+
+            download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
+            remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
+
+            if not filenames:
+                exit(0)
+
+            print_media_info(logger, filenames)
+
+            for file in filenames_mkv_only:
+                if not mkv_contains_video(file, dirpath):
+                    custom_print(logger, f"{RED}[ERROR]{RESET} File '{file}' does not contain a video stream.")
+                    if args.service:
+                        custom_print(logger, f"{RED}[ERROR]{RESET} Service mode detected. Deleting file and continuing...\n")
+                        os.remove(os.path.join(dirpath, file))
+                        filenames_mkv_only.remove(file)
+                        filenames.remove(file)
+                    else:
+                        custom_print(logger, f"{RED}[ERROR]{RESET} Remove this file from the input folder and try again.\n")
+                        exit(1)
+
+            ram_info = get_ram_usage()
+            max_workers = get_worker_thread_count()
+
+            custom_print(logger, f"{GREY}[INFO]{RESET} "
+                                 f"CPU {GREY}{get_block_gradient(psutil.cpu_percent(interval=0.5))}{RESET} {psutil.cpu_percent(interval=0.5):.0f}% "
+                                 f"RAM {GREY}{get_block_gradient(ram_info['percent_ram'])}{RESET} {ram_info['percent_ram']}%")
+            custom_print(logger, f"{GREY}[INFO]{RESET} Using {max_workers} {print_multi_or_single(max_workers, 'worker')} based on system load.")
+
+            last_updated_replacements = update_replacement_lists()
+            if last_updated_replacements:
+                custom_print_no_newline(logger, f"{GREY}[INFO]{RESET} Updating "
+                                                f"replacement lists ({last_updated_replacements})")
+
+            start_time = time.time()
+
             errored_ocr_list = []
             all_subtitle_files = []
             all_downloaded_subs = []
@@ -301,28 +303,28 @@ def mkv_auto(args):
             if not args.service:
                 show_cursor()
 
-        except Exception as e:
-            if isinstance(e, CorruptedFile):
-                partial_str = 'copied' if not move_files else 'moved'
-                custom_print_no_newline(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
-                                                f"{print_multi_or_single(len(filenames_mkv_only), 'file')} detected. Retrying...")
-                if move_files:
-                    for file in filenames_mkv_only:
-                        try:
-                            shutil.move(os.path.join(temp_dir, file), input_dir)
-                        except:
-                            pass
-            else:
-                # If anything were to fail, move files to output folder
-                custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
-                                     f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
-                move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+    except Exception as e:
+        if isinstance(e, CorruptedFile):
+            partial_str = 'copied' if not move_files else 'moved'
+            custom_print_no_newline(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
+                                            f"files detected. Retrying...")
+            if move_files and filenames_mkv_only:
+                for file in filenames_mkv_only:
+                    try:
+                        shutil.move(os.path.join(temp_dir, file), input_dir)
+                    except:
+                        pass
+        else:
+            # If anything were to fail, move files to output folder
+            custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
+                                 f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
+            custom_print(logger, traceback.print_tb(e.__traceback__))
+            move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir)
 
-            print_no_timestamp(logger, '')
-            if not args.service:
-                show_cursor()
-            exit(1)
+        print_no_timestamp(logger, '')
+        if not args.service:
+            show_cursor()
+        exit(1)
     exit(0)
 
 
