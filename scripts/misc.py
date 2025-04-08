@@ -1010,9 +1010,9 @@ def return_media_info_string(filenames, type):
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
                 if index == 0:
-                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_print})")
+                    return_str_list.append(f"{type}{show}{RESET} {GREY}({tv_shows_print}){RESET}")
                 else:
-                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_print})")
+                    return_str_list.append(f"{' ' * len(show)} {GREY}({tv_shows_print}){RESET}")
 
     if tv_shows_hdr:
         for show in sorted(tv_shows_hdr):
@@ -1024,16 +1024,16 @@ def return_media_info_string(filenames, type):
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
                 if index == 0:
-                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_hdr_print})")
+                    return_str_list.append(f"{type}{show}{RESET} {GREY}({tv_shows_hdr_print}){RESET}")
                 else:
-                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_hdr_print})")
+                    return_str_list.append(f"{' ' * len(show)} {GREY}({tv_shows_hdr_print}){RESET}")
 
     if movies:
         movies.sort()
         for movie in movies:
             return_str = ''
             if movie_extras[movie]:
-                return_str += f"{movie} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})"
+                return_str += f"{movie} {GREY}(+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')}){RESET}"
             else:
                 return_str += f"{movie}"
             return_str_list.append(return_str)
@@ -1043,7 +1043,7 @@ def return_media_info_string(filenames, type):
         for movie in movies_hdr:
             return_str = ''
             if movie_hdr_extras[movie]:
-                return_str += f"{movie} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})"
+                return_str += f"{movie} {GREY}(+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')}){RESET}"
             else:
                 return_str += f"{movie}"
             return_str_list.append(return_str)
