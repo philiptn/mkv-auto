@@ -1176,7 +1176,7 @@ def print_media_info(logger, filenames):
             print_no_timestamp(logger, f"  {BLUE}{item}{RESET}")
 
     print_no_timestamp(logger,
-                       f"{GREY}[INFO]{RESET} {len(filenames)} {print_multi_or_single(len(filenames), 'file')} in total.")
+                       f"{GREY}[INFO]{RESET} {len(filenames)} media {print_multi_or_single(len(filenames), 'file')} in total.")
     print_no_timestamp(logger, '')
 
 

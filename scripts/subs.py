@@ -229,6 +229,7 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         file.write(cleaned_content)
     os.remove(input_file)
     shutil.move(f"{input_file}_tmp.srt", input_file)
+    subtitle_tmp = f"{input_file}_tmp.srt"
 
     if redo_casing:
         command = ["mono", subtitleedit, "/convert", input_file,
@@ -242,6 +243,17 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
+    if language == 'eng':
+        current_replacements = find_and_replace(input_file, 'ocr-replacements/replacements_srt_eng_only.csv', subtitle_tmp)
+        replacements = replacements + current_replacements
+        current_replacements = find_and_replace(subtitle_tmp, 'ocr-replacements/replacements_srt_only.csv', input_file)
+        os.remove(subtitle_tmp)
+        replacements = replacements + current_replacements
+    else:
+        current_replacements = find_and_replace(input_file, 'ocr-replacements/replacements_srt_only.csv', subtitle_tmp)
+        os.rename(subtitle_tmp, input_file)
+        replacements = replacements + current_replacements
+
     run_with_xvfb(command, 1)
     os.remove(input_file)
     shutil.move(f"{input_file}_tmp.srt", input_file)
@@ -254,6 +266,15 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         subs = pysrt.open(input_file)
         # Filter the subtitles in place, removing entries with '♪' in their text
         subs = pysrt.SubRipFile([sub for sub in subs if '♪' not in sub.text])
+        subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
+        shutil.move(f"{input_file}.tmp.srt", input_file)
+
+        # Remove text between * ... * in subtitles
+        subs = pysrt.open(input_file)
+        for sub in subs:
+            sub.text = re.sub(r'\s*\*[^*]+\*\s*', ' ', sub.text)
+            sub.text = re.sub(r'\s{2,}', ' ', sub.text)  # clean up double spaces
+            sub.text = sub.text.strip()
         subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
@@ -276,19 +297,8 @@ def remove_sdh_worker(debug, input_file, remove_music, subtitleedit):
         subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
-    subtitle_tmp = f"{input_file}_tmp.srt"
     if debug:
         print(f'\n{GREY}[UTC {get_timestamp()}] [SDH DEBUG]{GREEN} Current language is set to "{language}"{RESET}')
-    if language == 'eng':
-        current_replacements = find_and_replace(input_file, 'ocr-replacements/replacements_srt_eng_only.csv', subtitle_tmp)
-        replacements = replacements + current_replacements
-        current_replacements = find_and_replace(subtitle_tmp, 'ocr-replacements/replacements_srt_only.csv', input_file)
-        os.remove(subtitle_tmp)
-        replacements = replacements + current_replacements
-    else:
-        current_replacements = find_and_replace(input_file, 'ocr-replacements/replacements_srt_only.csv', subtitle_tmp)
-        os.rename(subtitle_tmp, input_file)
-        replacements = replacements + current_replacements
 
     return replacements
 

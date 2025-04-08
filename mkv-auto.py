@@ -233,12 +233,12 @@ def mkv_auto(args):
                                                                           all_missing_subs_langs)
 
                     all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, all_downloaded_subs, fillvalue=[])]
-                    downloaded_or_external_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, total_external_subs, fillvalue=[])]
 
                     if download_missing_subs.lower() == 'override':
                         subtitle_files_to_process = all_subtitle_files
                         subtitle_tracks_to_be_merged = get_subtitle_tracks_metadata_for_repack(logger, all_subtitle_files)
 
+                downloaded_or_external_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, total_external_subs, fillvalue=[])]
                 if downloaded_or_external_subtitle_files:
                     # Filter the nested lists to only include .srt files
                     subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in downloaded_or_external_subtitle_files]
