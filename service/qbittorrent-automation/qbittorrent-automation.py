@@ -103,15 +103,24 @@ def translate_path(windows_path, mappings):
 
 def copy_torrent_content(torrent, mappings):
     try:
-        source = translate_path(torrent['save_path'], mappings)
+        # Build source path (parent + name)
+        source = translate_path(os.path.join(torrent['save_path'], torrent['name']), mappings)
         destination = os.path.join(INPUT_FOLDER, torrent['name'])
 
         if os.path.exists(destination):
             print(f"⚠️ Destination already exists, skipping: {destination}")
             return
 
-        print(f"📂 Copying: {source} -> {destination}")
-        shutil.copytree(source, destination)
+        # Check if source is a file or directory
+        if os.path.isdir(source):
+            print(f"📂 Copying folder: {source} -> {destination}")
+            shutil.copytree(source, destination)
+        elif os.path.isfile(source):
+            print(f"📄 Copying file: {source} -> {destination}")
+            os.makedirs(destination, exist_ok=True)  # create target dir
+            shutil.copy2(source, destination)
+        else:
+            print(f"❌ Source does not exist: {source}")
 
     except Exception as e:
         print(f"❌ Failed to copy torrent '{torrent['name']}': {e}")
@@ -142,6 +151,7 @@ def main():
     print(f"📂 INPUT_FOLDER = {INPUT_FOLDER}")
     print(f"🗺️ MAPPINGS_FILE = {MAPPINGS_FILE}")
     print(f"🧩 TRANSLATE_WINDOWS_PATHS = {TRANSLATE_WINDOWS_PATHS}")
+    print()
 
     login()
 
@@ -157,6 +167,7 @@ def main():
                 print(f"🎉 Processing: {torrent['name']}")
                 copy_torrent_content(torrent, mappings)
                 mark_torrent_done(torrent['hash'])
+                print()
 
         except Exception as e:
             print(f"❌ Fatal error in main loop: {e}")

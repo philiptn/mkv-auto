@@ -4,6 +4,7 @@ services:
     container_name: qbittorrent-automation
     restart: unless-stopped
     user: "1000:1000"
+    tty: true
     environment:
       - QBITTORRENT_URL=${QBITTORRENT_URL}
       - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
