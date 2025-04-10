@@ -8,7 +8,7 @@ QBITTORRENT_USERNAME = os.getenv('QBITTORRENT_USERNAME')
 QBITTORRENT_PASSWORD = os.getenv('QBITTORRENT_PASSWORD')
 TARGET_TAG = os.getenv('TARGET_TAG')
 INPUT_FOLDER = os.getenv('INPUT_FOLDER')
-MAPPINGS_FILE = os.getenv('MAPPINGS_FILE', '/qbittorrent-automation/drive-mappings.txt')
+MAPPINGS_FILE = os.getenv('MAPPINGS_FILE')
 TRANSLATE_WINDOWS_PATHS = os.getenv('TRANSLATE_WINDOWS_PATHS', 'false').lower() == 'true'
 
 session = requests.Session()

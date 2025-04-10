@@ -11,7 +11,7 @@ services:
       - TARGET_TAG=${TARGET_TAG}
       - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
       - INPUT_FOLDER=/app/input
-      - MAPPINGS_FILE=/app/config/drive-mappings.txt
+      - MAPPINGS_FILE=/app/configs/drive-mappings.txt
     volumes:
       - ${MKV_AUTO_INPUT_FOLDER}:/app/input
-      - ./config:/app/config
+      - ./configs:/app/configs
