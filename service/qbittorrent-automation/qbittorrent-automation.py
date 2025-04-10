@@ -78,15 +78,21 @@ def get_completed_torrents():
         return []
 
 
+def normalize_windows_path(path):
+    # Normalize slashes and lower case
+    return path.replace('/', '\\').rstrip('\\/').lower()
+
+
 def translate_path(windows_path, mappings):
     if not TRANSLATE_WINDOWS_PATHS:
         return windows_path
 
-    win_path_lower = windows_path.replace('/', '\\').lower()
+    win_path_normalized = normalize_windows_path(windows_path)
 
     for win_prefix, linux_prefix in mappings.items():
-        normalized_prefix = win_prefix.replace('/', '\\').lower()
-        if win_path_lower.startswith(normalized_prefix):
+        normalized_prefix = normalize_windows_path(win_prefix)
+
+        if win_path_normalized.startswith(normalized_prefix):
             relative_part = windows_path[len(win_prefix):].lstrip("\\/")
             linux_path = os.path.join(linux_prefix, relative_part.replace('\\', '/'))
             print(f"🔄 Translated '{windows_path}' -> '{linux_path}'")
