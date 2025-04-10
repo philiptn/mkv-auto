@@ -7,14 +7,12 @@ import logging
 
 
 # === Setup logging ===
-LOG_DIR = "/service/logs"
 LOG_FILE_NAME = os.getenv('LOG_FILE')
-
 log_handlers = [logging.StreamHandler()]  # Always log to console
 
 if LOG_FILE_NAME:
-    os.makedirs(LOG_DIR, exist_ok=True)  # Ensure log directory exists
-    log_file_path = os.path.join(LOG_DIR, LOG_FILE_NAME)
+    # Write to current working directory
+    log_file_path = os.path.join(os.getcwd(), LOG_FILE_NAME)
     try:
         log_handlers.append(logging.FileHandler(log_file_path, mode='a', encoding='utf-8'))
     except Exception as e:
