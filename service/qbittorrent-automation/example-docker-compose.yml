@@ -17,8 +17,7 @@ services:
       - LOG_FILE=automation.log
     volumes:
       - ${MKV_AUTO_INPUT_FOLDER}:${MKV_AUTO_INPUT_FOLDER}
-      - ./configs:/service/configs
-      - ./logs:/service/logs
+      - ./:/service
       # Add any SMB shares or paths here like this to allow
       # the service to find and copy files (read-only)
       # - /media/share/torrents:/media/share/torrents:ro

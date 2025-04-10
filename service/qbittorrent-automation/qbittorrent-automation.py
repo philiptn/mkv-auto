@@ -60,7 +60,6 @@ def load_path_mappings(file_path):
             else:
                 log.warning(f"Invalid mapping line, skipping: {line}")
 
-    log.info(f"Loaded {len(mappings)} path mappings from {file_path}")
     return mappings
 
 
