@@ -16,4 +16,4 @@ RUN pip install --no-cache-dir requests
 USER service
 
 # Run script
-CMD ["python", "/app/qbittorrent-automation.py"]
+CMD ["python", "/service/qbittorrent-automation.py"]
