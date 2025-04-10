@@ -167,7 +167,7 @@ def mark_torrent_done(hash_value):
         }, timeout=10)
 
         if response.status_code == 200:
-            log.info(f"✅ Added tag '{DONE_TAG}' to torrent {hash_value}")
+            log.info(f"✅ Added tag '{DONE_TAG}' to torrent {hash_value}\n")
         else:
             log.error(f"❌ Failed to add tag '{DONE_TAG}' to torrent {hash_value}: {response.status_code} - {response.text}")
 
@@ -200,7 +200,6 @@ def main():
                 log.info(f"🔍 Processing torrent: {torrent['name']} | Hash: {torrent['hash']}")
                 copy_torrent_content(torrent, mappings)
                 mark_torrent_done(torrent['hash'])
-                log.info('')
 
         except Exception as e:
             log.exception(f"❌ Fatal error in main loop: {e}")
