@@ -1,18 +1,17 @@
 services:
   qbittorrent-service:
-    image: python:3.11-slim
+    build: .
     container_name: qbittorrent-automation
     restart: unless-stopped
+    user: "1000:1000"
     environment:
       - QBITTORRENT_URL=${QBITTORRENT_URL}
       - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
       - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
       - TARGET_TAG=${TARGET_TAG}
       - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
-      - INPUT_FOLDER=/qbittorrent-automation/input
-      - MAPPINGS_FILE=/qbittorrent-automation/drive-mappings.txt
-    entrypoint: ["sh", "-c", "pip install requests && python /qbittorrent-automation/qbittorrent_watcher.py"]
-    user: "1000:1000"
+      - INPUT_FOLDER=/app/input
+      - MAPPINGS_FILE=/app/config/drive-mappings.txt
     volumes:
-      - ${MKV_AUTO_INPUT_FOLDER}:/qbittorrent-automation/input
-      - ../qbittorrent-automation:/qbittorrent-automation
+      - ${MKV_AUTO_INPUT_FOLDER}:/app/input
+      - ./config:/app/config
