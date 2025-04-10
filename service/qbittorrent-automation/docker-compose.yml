@@ -11,8 +11,11 @@ services:
       - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
       - TARGET_TAG=${TARGET_TAG}
       - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
-      - INPUT_FOLDER=/app/input
+      - DESTINATION_FOLDER=/app/dest
       - MAPPINGS_FILE=/app/configs/drive-mappings.txt
     volumes:
-      - ${MKV_AUTO_INPUT_FOLDER}:/app/input
+      - ${MKV_AUTO_INPUT_FOLDER}:/app/dest
       - ./configs:/app/configs
+      # Add any SMB shares here like this to allow
+      # the service to find and copy files (read-only)
+      # - /media/share/torrents:/media/share/torrents:ro

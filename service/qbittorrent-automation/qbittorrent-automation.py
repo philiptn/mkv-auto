@@ -8,7 +8,7 @@ QBITTORRENT_URL = os.getenv('QBITTORRENT_URL')
 QBITTORRENT_USERNAME = os.getenv('QBITTORRENT_USERNAME')
 QBITTORRENT_PASSWORD = os.getenv('QBITTORRENT_PASSWORD')
 TARGET_TAG = os.getenv('TARGET_TAG')
-INPUT_FOLDER = os.getenv('INPUT_FOLDER')
+DESTINATION_FOLDER = os.getenv('DESTINATION_FOLDER')
 MAPPINGS_FILE = os.getenv('MAPPINGS_FILE')
 TRANSLATE_WINDOWS_PATHS = os.getenv('TRANSLATE_WINDOWS_PATHS', 'false').lower() == 'true'
 
@@ -105,7 +105,7 @@ def copy_torrent_content(torrent, mappings):
     try:
         # Build source path (parent + name)
         source = translate_path(os.path.join(torrent['save_path'], torrent['name']), mappings)
-        destination = os.path.join(INPUT_FOLDER, torrent['name'])
+        destination = os.path.join(DESTINATION_FOLDER, torrent['name'])
 
         if os.path.exists(destination):
             print(f"⚠️ Destination already exists, skipping: {destination}")
@@ -148,7 +148,7 @@ def main():
     print(f"🌐 QBITTORRENT_URL = {QBITTORRENT_URL}")
     print(f"👤 QBITTORRENT_USERNAME = {QBITTORRENT_USERNAME}")
     print(f"🏷️ TARGET_TAG = {TARGET_TAG}")
-    print(f"📂 INPUT_FOLDER = {INPUT_FOLDER}")
+    print(f"📂 DESTINATION_FOLDER = {DESTINATION_FOLDER}")
     print(f"🗺️ MAPPINGS_FILE = {MAPPINGS_FILE}")
     print(f"🧩 TRANSLATE_WINDOWS_PATHS = {TRANSLATE_WINDOWS_PATHS}")
     print()
