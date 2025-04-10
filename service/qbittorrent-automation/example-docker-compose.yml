@@ -12,11 +12,11 @@ services:
       - TARGET_TAG=${TARGET_TAG}
       - DONE_TAG=${DONE_TAG}
       - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
-      - DESTINATION_FOLDER=/service/dest
+      - DESTINATION_FOLDER=${MKV_AUTO_INPUT_FOLDER}
       - MAPPINGS_FILE=/service/configs/drive-mappings.txt
     volumes:
-      - ${MKV_AUTO_INPUT_FOLDER}:/service/dest
+      - ${MKV_AUTO_INPUT_FOLDER}:${MKV_AUTO_INPUT_FOLDER}
       - ./configs:/service/configs
-      # Add any SMB shares here like this to allow
+      # Add any SMB shares or paths here like this to allow
       # the service to find and copy files (read-only)
       # - /media/share/torrents:/media/share/torrents:ro
