@@ -35,7 +35,6 @@ def load_path_mappings(file_path):
             else:
                 print(f"⚠️ Invalid mapping line, skipping: {line}")
 
-    print(f"✅ Loaded {len(mappings)} path mappings from {file_path}")
     return mappings
 
 
@@ -71,7 +70,8 @@ def get_completed_torrents():
             raise Exception(f"HTTP {response.status_code} - {response.text}")
 
         torrents = response.json()
-        print(f"ℹ️ Found {len(torrents)} completed torrents with tag '{TARGET_TAG}'")
+        if torrents:
+            print(f"ℹ️ Found {len(torrents)} completed torrents with tag '{TARGET_TAG}'")
         return torrents
 
     except Exception as e:
@@ -138,9 +138,9 @@ def mark_torrent_done(hash_value):
         if response.status_code == 200:
             print(f"✅ Removed tag '{TARGET_TAG}' from torrent {hash_value}")
         else:
-            print(f"❌ Failed to remove tag from torrent {hash_value}: {response.status_code} - {response.text}")
+            print(f"❌ Failed to remove tag '{TARGET_TAG}' from torrent {hash_value}: {response.status_code} - {response.text}")
 
-        # Then, add the new tag (✅)
+        # Then, add the new tag
         response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/addTags", data={
             "hashes": hash_value,
             "tags": DONE_TAG
@@ -149,7 +149,7 @@ def mark_torrent_done(hash_value):
         if response.status_code == 200:
             print(f"✅ Added tag '{DONE_TAG}' to torrent {hash_value}")
         else:
-            print(f"❌ Failed to add tag to torrent {hash_value}: {response.status_code} - {response.text}")
+            print(f"❌ Failed to add tag '{DONE_TAG}' to torrent {hash_value}: {response.status_code} - {response.text}")
 
     except Exception as e:
         print(f"❌ Exception while setting tags for torrent {hash_value}: {e}")
