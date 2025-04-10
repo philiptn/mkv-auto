@@ -52,7 +52,7 @@ def login():
         if response.text.strip() != "Ok.":
             raise Exception(f"Unexpected response: {response.text}")
 
-        print("✅ Successfully logged in to qBittorrent!")
+        print("✅ Successfully logged in to qBittorrent!\n")
 
     except Exception as e:
         print(f"❌ Failed to connect or authenticate to qBittorrent: {e}")
@@ -167,7 +167,6 @@ def main():
     print()
 
     login()
-    print()
 
     while True:
         try:
@@ -186,7 +185,7 @@ def main():
         except Exception as e:
             print(f"❌ Fatal error in main loop: {e}")
 
-        time.sleep(10)
+        time.sleep(3)
 
 
 if __name__ == "__main__":

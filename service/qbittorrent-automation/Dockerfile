@@ -1,19 +1,19 @@
 FROM python:3.11-slim
 
 # Create non-root user
-RUN useradd -m -u 1000 appuser
+RUN useradd -m -u 1000 service
 
 # Set working directory
-WORKDIR /app
+WORKDIR /service
 
 # Copy Python script only (no config)
-COPY qbittorrent-automation.py /app/
+COPY qbittorrent-automation.py /service/
 
 # Install dependencies
 RUN pip install --no-cache-dir requests
 
 # Switch to non-root user
-USER appuser
+USER service
 
 # Run script
 CMD ["python", "/app/qbittorrent-automation.py"]
