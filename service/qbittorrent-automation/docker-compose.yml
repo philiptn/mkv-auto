@@ -11,8 +11,8 @@ services:
       - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
       - INPUT_FOLDER=/qbittorrent-automation/input
       - MAPPINGS_FILE=/qbittorrent-automation/drive-mappings.txt
-    entrypoint: [ "python", "/qbittorrent-automation/qbittorrent-automation.py" ]
+    entrypoint: ["sh", "-c", "pip install requests && python /qbittorrent-automation/qbittorrent_watcher.py"]
     user: "1000:1000"
     volumes:
       - ${MKV_AUTO_INPUT_FOLDER}:/qbittorrent-automation/input
-      - ./qbittorrent-automation:/qbittorrent-automation
+      - ../qbittorrent-automation:/qbittorrent-automation

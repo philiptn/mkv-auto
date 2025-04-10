@@ -95,7 +95,7 @@ def mark_torrent_done(hash_value):
         "tags": "✅"
     })
     if response.status_code == 200:
-        print(f"✅ Set tag 'Done' for torrent {hash_value}")
+        print(f"✅ Set tag '✅' for torrent {hash_value}")
     else:
         print(f"❌ Failed to set tag for torrent {hash_value}: {response.text}")
 
