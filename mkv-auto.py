@@ -209,7 +209,6 @@ def mkv_auto(args):
             errored_ocr_list = []
             all_subtitle_files = []
             all_downloaded_subs = []
-            downloaded_or_external_subtitle_files = []
             subtitle_files_to_process = []
 
             need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_and_subtitles_in_mkv_files(logger, debug, filenames_mkv_only, dirpath)

@@ -160,3 +160,6 @@ subliminal.toml
 
 # Identifier files
 .Identifier
+
+# qbittorrent-automation
+drive-mappings.txt
