@@ -75,7 +75,7 @@ def login():
         if response.text.strip() != "Ok.":
             raise Exception(f"Unexpected response: {response.text}")
 
-        log.info("Successfully logged in to qBittorrent!")
+        log.info("Successfully logged in to qBittorrent!\n")
 
     except Exception as e:
         log.error(f"Failed to connect or authenticate to qBittorrent: {e}")
@@ -200,6 +200,7 @@ def main():
                 log.info(f"Processing torrent: {torrent['name']} | Hash: {torrent['hash']}")
                 copy_torrent_content(torrent, mappings)
                 mark_torrent_done(torrent['hash'])
+                log.info()
 
         except Exception as e:
             log.exception(f"Fatal error in main loop: {e}")
