@@ -130,7 +130,7 @@ def mark_torrent_done(hash_value):
     try:
         response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/setTags", data={
             "hashes": hash_value,
-            "tags": "✅"
+            "tags": "Copied"
         }, timeout=10)
 
         if response.status_code == 200:
