@@ -1,17 +1,18 @@
-qbittorrent-service:
-  image: python:3.11-slim
-  container_name: qbittorrent-automation
-  restart: unless-stopped
-  environment:
-    - QBITTORRENT_URL=${QBITTORRENT_URL}
-    - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
-    - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
-    - TARGET_TAG=${TARGET_TAG}
-    - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
-    - INPUT_FOLDER=/qbittorrent-automation/input
-    - MAPPINGS_FILE=/qbittorrent-automation/drive-mappings.txt
-  entrypoint: [ "python", "/qbittorrent-automation/qbittorrent-automation.py" ]
-  user: "1000:1000"
-  volumes:
-    - ${MKV_AUTO_INPUT_FOLDER}:/qbittorrent-automation/input
-    - ./qbittorrent-automation:/qbittorrent-automation
+services:
+  qbittorrent-service:
+    image: python:3.11-slim
+    container_name: qbittorrent-automation
+    restart: unless-stopped
+    environment:
+      - QBITTORRENT_URL=${QBITTORRENT_URL}
+      - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
+      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
+      - TARGET_TAG=${TARGET_TAG}
+      - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
+      - INPUT_FOLDER=/qbittorrent-automation/input
+      - MAPPINGS_FILE=/qbittorrent-automation/drive-mappings.txt
+    entrypoint: [ "python", "/qbittorrent-automation/qbittorrent-automation.py" ]
+    user: "1000:1000"
+    volumes:
+      - ${MKV_AUTO_INPUT_FOLDER}:/qbittorrent-automation/input
+      - ./qbittorrent-automation:/qbittorrent-automation

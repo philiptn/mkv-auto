@@ -92,7 +92,7 @@ def copy_torrent_content(torrent, mappings):
 def mark_torrent_done(hash_value):
     response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/setTags", data={
         "hashes": hash_value,
-        "tags": "Done"
+        "tags": "✅"
     })
     if response.status_code == 200:
         print(f"✅ Set tag 'Done' for torrent {hash_value}")
