@@ -2,6 +2,7 @@ import os
 import time
 import shutil
 import requests
+import re
 
 QBITTORRENT_URL = os.getenv('QBITTORRENT_URL')
 QBITTORRENT_USERNAME = os.getenv('QBITTORRENT_USERNAME')
@@ -17,6 +18,7 @@ session = requests.Session()
 def load_path_mappings(file_path):
     mappings = {}
     if not os.path.isfile(file_path):
+        print(f"ℹ️ No mapping file found at {file_path}. Skipping path translation.")
         return mappings
 
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -25,7 +27,6 @@ def load_path_mappings(file_path):
             if not line or line.startswith('#'):
                 continue
 
-            # Use regex to match the quoted paths
             match = re.match(r'"(.+?)"\s*->\s*"(.+?)"', line)
             if match:
                 win_path, linux_path = match.groups()
@@ -33,30 +34,51 @@ def load_path_mappings(file_path):
             else:
                 print(f"⚠️ Invalid mapping line, skipping: {line}")
 
-    print(f"✅ Loaded {len(mappings)} path mappings")
+    print(f"✅ Loaded {len(mappings)} path mappings from {file_path}")
     return mappings
 
 
 def login():
-    response = session.post(f"{QBITTORRENT_URL}/api/v2/auth/login", data={
-        "username": QBITTORRENT_USERNAME,
-        "password": QBITTORRENT_PASSWORD
-    })
-    if response.text != "Ok.":
-        raise Exception("Failed to login to qBittorrent")
-    print("✅ Logged in to qBittorrent")
+    print(f"🔌 Attempting to connect to qBittorrent at {QBITTORRENT_URL}")
+    try:
+        response = session.post(f"{QBITTORRENT_URL}/api/v2/auth/login", data={
+            "username": QBITTORRENT_USERNAME,
+            "password": QBITTORRENT_PASSWORD
+        }, timeout=10)
+
+        if response.status_code != 200:
+            raise Exception(f"HTTP {response.status_code} - {response.text}")
+
+        if response.text.strip() != "Ok.":
+            raise Exception(f"Unexpected response: {response.text}")
+
+        print("✅ Successfully logged in to qBittorrent")
+
+    except Exception as e:
+        print(f"❌ Failed to connect or authenticate to qBittorrent: {e}")
+        raise e
 
 
 def get_completed_torrents():
-    response = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info", params={
-        "filter": "completed",
-        "tag": TARGET_TAG
-    })
-    return response.json()
+    try:
+        response = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info", params={
+            "filter": "completed",
+            "tag": TARGET_TAG
+        }, timeout=10)
+
+        if response.status_code != 200:
+            raise Exception(f"HTTP {response.status_code} - {response.text}")
+
+        torrents = response.json()
+        print(f"ℹ️ Found {len(torrents)} completed torrents with tag '{TARGET_TAG}'")
+        return torrents
+
+    except Exception as e:
+        print(f"❌ Error fetching torrents: {e}")
+        return []
 
 
 def translate_path(windows_path, mappings):
-    # If translation is disabled, return the path as-is
     if not TRANSLATE_WINDOWS_PATHS:
         return windows_path
 
@@ -90,22 +112,35 @@ def copy_torrent_content(torrent, mappings):
 
 
 def mark_torrent_done(hash_value):
-    response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/setTags", data={
-        "hashes": hash_value,
-        "tags": "✅"
-    })
-    if response.status_code == 200:
-        print(f"✅ Set tag '✅' for torrent {hash_value}")
-    else:
-        print(f"❌ Failed to set tag for torrent {hash_value}: {response.text}")
+    try:
+        response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/setTags", data={
+            "hashes": hash_value,
+            "tags": "✅"
+        }, timeout=10)
+
+        if response.status_code == 200:
+            print(f"✅ Set tag '✅' for torrent {hash_value}")
+        else:
+            print(f"❌ Failed to set tag for torrent {hash_value}: {response.status_code} - {response.text}")
+
+    except Exception as e:
+        print(f"❌ Exception while setting tag for torrent {hash_value}: {e}")
 
 
 def main():
+    # Print startup config for debugging
+    print(f"🚀 Starting qBittorrent Automation Service")
+    print(f"🌐 QBITTORRENT_URL = {QBITTORRENT_URL}")
+    print(f"👤 QBITTORRENT_USERNAME = {QBITTORRENT_USERNAME}")
+    print(f"🏷️ TARGET_TAG = {TARGET_TAG}")
+    print(f"📂 INPUT_FOLDER = {INPUT_FOLDER}")
+    print(f"🗺️ MAPPINGS_FILE = {MAPPINGS_FILE}")
+    print(f"🧩 TRANSLATE_WINDOWS_PATHS = {TRANSLATE_WINDOWS_PATHS}")
+
     login()
 
     while True:
         try:
-            # Hot-reload mappings file every loop
             mappings = {}
             if TRANSLATE_WINDOWS_PATHS:
                 mappings = load_path_mappings(MAPPINGS_FILE)
@@ -118,7 +153,7 @@ def main():
                 mark_torrent_done(torrent['hash'])
 
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Fatal error in main loop: {e}")
 
         time.sleep(10)
 
