@@ -8,6 +8,7 @@ QBITTORRENT_URL = os.getenv('QBITTORRENT_URL')
 QBITTORRENT_USERNAME = os.getenv('QBITTORRENT_USERNAME')
 QBITTORRENT_PASSWORD = os.getenv('QBITTORRENT_PASSWORD')
 TARGET_TAG = os.getenv('TARGET_TAG')
+DONE_TAG = os.getenv('DONE_TAG')
 DESTINATION_FOLDER = os.getenv('DESTINATION_FOLDER')
 MAPPINGS_FILE = os.getenv('MAPPINGS_FILE')
 TRANSLATE_WINDOWS_PATHS = os.getenv('TRANSLATE_WINDOWS_PATHS', 'false').lower() == 'true'
@@ -128,18 +129,30 @@ def copy_torrent_content(torrent, mappings):
 
 def mark_torrent_done(hash_value):
     try:
-        response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/setTags", data={
+        # First, remove the old tag (TARGET_TAG)
+        response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/removeTags", data={
             "hashes": hash_value,
-            "tags": "Copied"
+            "tags": TARGET_TAG
         }, timeout=10)
 
         if response.status_code == 200:
-            print(f"✅ Set tag '✅' for torrent {hash_value}")
+            print(f"✅ Removed tag '{TARGET_TAG}' from torrent {hash_value}")
         else:
-            print(f"❌ Failed to set tag for torrent {hash_value}: {response.status_code} - {response.text}")
+            print(f"❌ Failed to remove tag from torrent {hash_value}: {response.status_code} - {response.text}")
+
+        # Then, add the new tag (✅)
+        response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/addTags", data={
+            "hashes": hash_value,
+            "tags": DONE_TAG
+        }, timeout=10)
+
+        if response.status_code == 200:
+            print(f"✅ Added tag '{DONE_TAG}' to torrent {hash_value}")
+        else:
+            print(f"❌ Failed to add tag to torrent {hash_value}: {response.status_code} - {response.text}")
 
     except Exception as e:
-        print(f"❌ Exception while setting tag for torrent {hash_value}: {e}")
+        print(f"❌ Exception while setting tags for torrent {hash_value}: {e}")
 
 
 def main():
@@ -164,7 +177,7 @@ def main():
             torrents = get_completed_torrents()
 
             for torrent in torrents:
-                print(f"🎉 Processing: {torrent['name']}")
+                print(f"🔍 Torrent: {torrent['name']} | Hash: {torrent['hash']}")
                 copy_torrent_content(torrent, mappings)
                 mark_torrent_done(torrent['hash'])
                 print()
