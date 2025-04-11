@@ -17,7 +17,8 @@ services:
       - LOG_FILE=automation.log
     volumes:
       - ${MKV_AUTO_INPUT_FOLDER}:${MKV_AUTO_INPUT_FOLDER}
+      # Volume mounts current dir (qbittorrent-automation) to container '/service' folder
       - .:/service
       # Add any SMB shares or paths here like this to allow
-      # the service to find and copy files (read-only)
+      # the service to find and copy files (read-only with ':ro'). HAS to be 1:1.
       # - /media/share/torrents:/media/share/torrents:ro

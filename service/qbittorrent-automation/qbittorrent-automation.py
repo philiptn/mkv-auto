@@ -144,8 +144,8 @@ def copy_torrent_content(torrent, mappings):
             shutil.copytree(source, destination)
         elif os.path.isfile(source):
             log.info(f"📄 Copying file: {source} -> {destination}")
-            os.makedirs(destination, exist_ok=True)
-            shutil.copy2(source, destination)
+            os.makedirs(os.path.dirname(destination), exist_ok=True)  # Make parent directories
+            shutil.copy2(source, destination)  # Copy file to destination path
         else:
             log.error(f"❌ Source does not exist: {source}")
 
