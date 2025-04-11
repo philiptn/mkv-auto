@@ -313,10 +313,13 @@ def mkv_auto(args):
                         pass
         else:
             # If anything were to fail, move files to output folder
-            custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
-                                 f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
-            custom_print(logger, traceback.print_tb(e.__traceback__))
-            move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+            if filenames_mkv_only:
+                custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving "
+                                     f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
+                custom_print(logger, traceback.print_tb(e.__traceback__))
+                move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir)
+            else:
+                custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured: {e}")
 
         print_no_timestamp(logger, '')
         if not args.service:
