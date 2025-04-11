@@ -153,33 +153,37 @@ def copy_torrent_content(torrent, mappings):
         log.error(f"❌ Failed to copy torrent '{torrent['name']}': {e}")
 
 
-def mark_torrent_done(hash_value):
+def mark_torrent_done(torrent):
     try:
-        # Remove all target tags
-        for tag in TARGET_TAGS:
+        torrent_tags = torrent.get('tags', '').split(',')
+        tags_to_remove = [tag for tag in torrent_tags if tag in TARGET_TAGS]
+
+        if tags_to_remove:
             response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/removeTags", data={
-                "hashes": hash_value,
-                "tags": tag
+                "hashes": torrent['hash'],
+                "tags": ','.join(tags_to_remove)
             }, timeout=10)
 
             if response.status_code == 200:
-                log.info(f"✅ Removed tag '{tag}' from torrent {hash_value}")
+                log.info(f"✅ Removed tags '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}")
             else:
-                log.error(f"❌ Failed to remove tag '{tag}' from torrent {hash_value}: {response.status_code} - {response.text}")
+                log.error(f"❌ Failed to remove tags '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}: {response.status_code} - {response.text}")
+        else:
+            log.info(f"ℹ️ No matching tags to remove for torrent {torrent['hash']}")
 
         # Add done tag
         response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/addTags", data={
-            "hashes": hash_value,
+            "hashes": torrent['hash'],
             "tags": DONE_TAG
         }, timeout=10)
 
         if response.status_code == 200:
-            log.info(f"✅ Added tag '{DONE_TAG}' to torrent {hash_value}\n")
+            log.info(f"✅ Added tag '{DONE_TAG}' to torrent {torrent['hash']}\n")
         else:
-            log.error(f"❌ Failed to add tag '{DONE_TAG}' to torrent {hash_value}: {response.status_code} - {response.text}")
+            log.error(f"❌ Failed to add tag '{DONE_TAG}' to torrent {torrent['hash']}: {response.status_code} - {response.text}")
 
     except Exception as e:
-        log.error(f"❌ Exception while setting tags for torrent {hash_value}: {e}")
+        log.error(f"❌ Exception while setting tags for torrent {torrent['hash']}: {e}")
 
 
 def main():
@@ -206,7 +210,7 @@ def main():
             for torrent in torrents:
                 log.info(f"🔍 Processing torrent: {torrent['name']} | Hash: {torrent['hash']}")
                 copy_torrent_content(torrent, mappings)
-                mark_torrent_done(torrent['hash'])
+                mark_torrent_done(torrent)
 
         except Exception as e:
             log.exception(f"❌ Fatal error in main loop: {e}")
