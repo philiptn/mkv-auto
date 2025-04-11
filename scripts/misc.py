@@ -73,16 +73,16 @@ class ContinuousSpinner:
         if self._thread:
             self._thread.join()
         if final_line:
-            sys.stdout.write(f"\033[?25l\r{final_line}\r")
+            sys.stdout.write(f"\r{final_line}\r")
         else:
-            sys.stdout.write("\033[?25l\r")
+            sys.stdout.write("\r")
 
     def _spin(self):
         while not self._stop_event.is_set():
             frame = self.frames[self._idx]
             # Call the function that includes real-time UTC
             line_text = self._make_line()
-            sys.stdout.write(f"\r\033[?25l{line_text}{ACTIVE}{frame}{RESET} \033[?25l")
+            sys.stdout.write(f"\r{line_text}{ACTIVE}{frame}{RESET} \r")
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)
 
@@ -317,7 +317,7 @@ def custom_print(logger, message):
 
 
 def custom_print_no_newline(logger, message):
-    message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
+    message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}\r"
     # Print the message to the console with color
     sys.stdout.write(message_with_timestamp)
     # Log the message without color to the plain text log

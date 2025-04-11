@@ -163,3 +163,4 @@ subliminal.toml
 
 # qbittorrent-automation
 drive-mappings.txt
+automation.log

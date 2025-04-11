@@ -71,8 +71,6 @@ def mkv_auto(args):
             show_cursor()
         exit(0)
 
-    hide_cursor()
-
     filenames_mkv_only = []
 
     try:
