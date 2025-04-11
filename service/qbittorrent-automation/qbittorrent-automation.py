@@ -165,7 +165,7 @@ def mark_torrent_done(torrent):
             }, timeout=10)
 
             if response.status_code == 200:
-                log.info(f"✅ Removed tags '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}")
+                log.info(f"✅ Removed {'tag' if len(tags_to_remove) == 1 else 'tags'} '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}")
             else:
                 log.error(f"❌ Failed to remove tags '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}: {response.status_code} - {response.text}")
         else:
