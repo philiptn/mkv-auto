@@ -30,7 +30,7 @@ log = logging.getLogger()
 QBITTORRENT_URL = os.getenv('QBITTORRENT_URL', '').rstrip('/')
 QBITTORRENT_USERNAME = os.getenv('QBITTORRENT_USERNAME')
 QBITTORRENT_PASSWORD = os.getenv('QBITTORRENT_PASSWORD')
-TARGET_TAG = os.getenv('TARGET_TAG')
+TARGET_TAGS = [tag.strip() for tag in os.getenv('TARGET_TAGS', '').split(',') if tag.strip()]
 DONE_TAG = os.getenv('DONE_TAG', '✅')
 DESTINATION_FOLDER = os.getenv('DESTINATION_FOLDER')
 MAPPINGS_FILE = os.getenv('MAPPINGS_FILE')
@@ -83,19 +83,25 @@ def login():
 
 
 def get_completed_torrents():
+    all_torrents = []
     try:
-        response = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info", params={
-            "filter": "completed",
-            "tag": TARGET_TAG
-        }, timeout=10)
+        for tag in TARGET_TAGS:
+            response = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info", params={
+                "filter": "completed",
+                "tag": tag
+            }, timeout=10)
 
-        if response.status_code != 200:
-            raise Exception(f"HTTP {response.status_code} - {response.text}")
+            if response.status_code != 200:
+                raise Exception(f"HTTP {response.status_code} - {response.text}")
 
-        torrents = response.json()
-        if torrents:
-            log.info(f"ℹ️ Found {len(torrents)} completed torrents with tag '{TARGET_TAG}'")
-        return torrents
+            torrents = response.json()
+            if torrents:
+                log.info(f"ℹ️ Found {len(torrents)} completed torrents with tag '{tag}'")
+                all_torrents.extend(torrents)
+
+        # Deduplicate torrents (sometimes torrents can have multiple tags)
+        unique_torrents = {torrent['hash']: torrent for torrent in all_torrents}
+        return list(unique_torrents.values())
 
     except Exception as e:
         log.error(f"❌ Error fetching torrents: {e}")
@@ -149,16 +155,17 @@ def copy_torrent_content(torrent, mappings):
 
 def mark_torrent_done(hash_value):
     try:
-        # Remove old tag
-        response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/removeTags", data={
-            "hashes": hash_value,
-            "tags": TARGET_TAG
-        }, timeout=10)
+        # Remove all target tags
+        for tag in TARGET_TAGS:
+            response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/removeTags", data={
+                "hashes": hash_value,
+                "tags": tag
+            }, timeout=10)
 
-        if response.status_code == 200:
-            log.info(f"✅ Removed tag '{TARGET_TAG}' from torrent {hash_value}")
-        else:
-            log.error(f"❌ Failed to remove tag '{TARGET_TAG}' from torrent {hash_value}: {response.status_code} - {response.text}")
+            if response.status_code == 200:
+                log.info(f"✅ Removed tag '{tag}' from torrent {hash_value}")
+            else:
+                log.error(f"❌ Failed to remove tag '{tag}' from torrent {hash_value}: {response.status_code} - {response.text}")
 
         # Add done tag
         response = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/addTags", data={
@@ -180,7 +187,7 @@ def main():
     log.info("🚀 Starting qBittorrent Automation Service")
     log.info(f"🌐 QBITTORRENT_URL = {QBITTORRENT_URL}")
     log.info(f"👤 QBITTORRENT_USERNAME = {QBITTORRENT_USERNAME}")
-    log.info(f"🏷️ TARGET_TAG = {TARGET_TAG}")
+    log.info(f"🏷️ TARGET_TAGS = {', '.join(TARGET_TAGS)}")
     log.info(f"🏷️ DONE_TAG = {DONE_TAG}")
     log.info(f"📂 DESTINATION_FOLDER = {DESTINATION_FOLDER}")
     log.info(f"🗺️ MAPPINGS_FILE = {MAPPINGS_FILE}")
