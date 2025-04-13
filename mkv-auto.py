@@ -18,6 +18,7 @@ def mkv_auto(args):
     keep_original = check_config(config, 'general', 'keep_original')
     ini_temp_dir = check_config(config, 'general', 'ini_temp_dir')
     remove_samples = check_config(config, 'general', 'remove_samples')
+    hide_cursor = check_config(config, 'general', 'hide_cursor')
 
     # Create the logger
     logger = setup_logger(args.log_file)
@@ -83,6 +84,9 @@ def mkv_auto(args):
         total_files_input = 0
         actual_total_file_sizes = 0.0
         method = 'moved' if move_files else 'copied'
+
+        if hide_cursor:
+            hide_the_cursor()
 
         if move_files:
             remaining_files = wait_for_stable_files(input_dir)
@@ -297,8 +301,8 @@ def mkv_auto(args):
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} "
                                        f"{'successfully ' if not any(sub for sub in errored_ocr_list) else ''}processed.")
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
-            if not args.service:
-                show_cursor()
+            if hide_cursor:
+                show_the_cursor()
 
     except Exception as e:
         if isinstance(e, CorruptedFile):
@@ -322,8 +326,8 @@ def mkv_auto(args):
                 custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured: {e}")
 
         print_no_timestamp(logger, '')
-        if not args.service:
-            show_cursor()
+        if hide_cursor:
+            show_the_cursor()
         exit(1)
     exit(0)
 

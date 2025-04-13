@@ -897,11 +897,11 @@ def get_tv_episode_metadata(logger, debug, input_str):
     }
 
 
-def hide_cursor():
+def hide_the_cursor():
     sys.stdout.write("\033[?25l")
 
 
-def show_cursor():
+def show_the_cursor():
     sys.stdout.write("\033[?25h")
 
 
@@ -1212,7 +1212,8 @@ config = {
         'others_folder': get_config('general', 'OTHERS_FOLDER', variables_defaults),
         'max_cpu_usage': get_config('general', 'MAX_CPU_USAGE', variables_defaults),
         'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults),
-        'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true"
+        'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true",
+        'hide_cursor': get_config('general', 'HIDE_CURSOR', variables_defaults).lower() == "true"
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
