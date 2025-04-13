@@ -79,10 +79,14 @@ class ContinuousSpinner:
 
     def _spin(self):
         while not self._stop_event.is_set():
+            hide_cursor = check_config(config, 'general', 'hide_cursor')
             frame = self.frames[self._idx]
             # Call the function that includes real-time UTC
             line_text = self._make_line()
-            sys.stdout.write(f"\r{line_text}{ACTIVE}{frame}{RESET} \r")
+            if hide_cursor:
+                sys.stdout.write(f"\r\033[?25l{line_text}{ACTIVE}{frame}{RESET} \r")
+            else:
+                sys.stdout.write(f"\r{line_text}{ACTIVE}{frame}{RESET} \r")
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)
 
