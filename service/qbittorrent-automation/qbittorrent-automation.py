@@ -91,6 +91,15 @@ def get_completed_torrents():
                 "tag": tag
             }, timeout=10)
 
+            if response.status_code in (401, 403):
+                log.warning("🔒 Session expired or unauthorized. Attempting to re-login...")
+                login()
+                # Retry once after re-login
+                response = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info", params={
+                    "filter": "completed",
+                    "tag": tag
+                }, timeout=10)
+
             if response.status_code != 200:
                 raise Exception(f"HTTP {response.status_code} - {response.text}")
 
