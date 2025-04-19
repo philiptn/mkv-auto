@@ -357,7 +357,7 @@ def remove_cc_hidden_in_file(debug, filename):
         shutil.move(temp_filename, filename)
 
 
-def trim_audio_and_subtitles_in_mkv_files(logger, debug, input_files, dirpath):
+def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
     total_files = len(input_files)
     mkv_files_need_processing_audio = [None] * total_files
     mkv_files_need_processing_subs = [None] * total_files
@@ -365,14 +365,14 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, input_files, dirpath):
     max_worker_threads = get_worker_thread_count()
 
     header = "MKVMERGE"
-    description = "Filter audio and subtitle tracks"
+    description = "Filter audio tracks"
 
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
-        futures = {executor.submit(trim_audio_and_subtitles_in_mkv_files_worker, debug, input_file, dirpath): index for
+        futures = {executor.submit(trim_audio_in_mkv_files_worker, debug, input_file, dirpath): index for
                    index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
@@ -398,7 +398,7 @@ def trim_audio_and_subtitles_in_mkv_files(logger, debug, input_files, dirpath):
     return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
 
 
-def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
+def trim_audio_in_mkv_files_worker(debug, input_file, dirpath):
     input_file = os.path.join(dirpath, input_file)
     check_integrity_of_mkv(input_file)
 
@@ -409,7 +409,6 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
     pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
     remove_commentary = check_config(config, 'audio', 'remove_commentary')
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
-    always_enable_subs = check_config(config, 'subtitles', 'always_enable_subs')
     download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
 
     (wanted_audio_tracks, default_audio_track, needs_processing_audio,
@@ -417,15 +416,16 @@ def trim_audio_and_subtitles_in_mkv_files_worker(debug, input_file, dirpath):
      track_langs_to_be_converted, track_names_to_be_converted) = get_wanted_audio_tracks(
         debug, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
 
+    if needs_processing_audio:
+        strip_audio_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track)
+
+    file_info, pretty_file_info = get_mkv_info(debug, input_file, False)
+
     (wanted_subs_tracks, default_subs_track,
      needs_sdh_removal, needs_convert, sub_filetypes,
      subs_track_languages, subs_track_names, needs_processing_subs,
      a, missing_subs_langs) = get_wanted_subtitle_tracks(
         debug, file_info, pref_subs_langs)
-
-    if needs_processing_audio:
-        strip_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track,
-                            wanted_subs_tracks, default_subs_track, always_enable_subs)
 
     if download_missing_subs.lower() == 'override':
         needs_processing_subs = True
@@ -1040,7 +1040,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     tags_pattern = r"(" + "|".join(re.escape(tag) for tag in excluded_tags) + r")$"
     is_extra = bool(re.search(extra_pattern, input_file) or re.search(tags_pattern, mkv_base))
 
-    file_info = reformat_filename(input_file, True)
+    file_info = reformat_filename(input_file, True, False)
     media_type = file_info["media_type"]
 
     downloaded_subs = []
@@ -1478,19 +1478,11 @@ def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_
     move_file_to_output(logger, debug, input_file_with_path, output_dir, all_dirnames)
 
 
-def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
-                        sub_tracks, default_subs_track, always_enable_subs):
+def strip_audio_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track):
     if debug:
-        print(f"{GREY}\n[UTC {get_timestamp()}] [DEBUG]{RESET} strip_tracks_in_mkv:\n")
-        print(f"{BLUE}always enable subs{RESET}: {always_enable_subs}")
+        print(f"{GREY}\n[UTC {get_timestamp()}] [DEBUG]{RESET} strip_audio_tracks_in_mkv:\n")
         print(f"{BLUE}audio tracks to keep{RESET}: {audio_tracks}")
-        print(f"{BLUE}subtitle tracks to keep{RESET}: {sub_tracks}")
         print(f"{BLUE}default audio track{RESET}: {default_audio_track}")
-        print(f"{BLUE}default subtitle track{RESET}: {default_subs_track}")
-
-    subtitle_tracks = ''
-    subs_default_track = ''
-    default_subs_track_str = ''
 
     # If no audio tracks has been selected, copy all as fallback,
     # else, generate copy string
@@ -1505,16 +1497,6 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
         audio_default_track = "--default-track"
         default_audio_track_str = f'{default_audio_track}:yes'
 
-    if always_enable_subs and len(sub_tracks) != 0:
-        subs_default_track = "--default-track"
-        default_subs_track_str = f'{default_subs_track}:yes'
-
-    if len(sub_tracks) == 0:
-        subs = "--no-subtitles"
-    else:
-        subs = '--subtitle-tracks'
-        subtitle_tracks = ','.join(map(str, sub_tracks))
-
     base, extension = os.path.splitext(filename)
     new_base = base + "_tmp"
     temp_filename = new_base + extension
@@ -1522,9 +1504,7 @@ def strip_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track,
     command = ["mkvmerge",
                "--output", temp_filename,
                audio, audio_tracks_str,
-               audio_default_track, default_audio_track_str] + [
-                  subs, subtitle_tracks,
-                  subs_default_track, default_subs_track_str] + [filename]
+               audio_default_track, default_audio_track_str] + [filename]
     # Remove empty entries
     command = [arg for arg in command if arg]
 

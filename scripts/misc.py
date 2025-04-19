@@ -134,7 +134,7 @@ def process_extras(input_folder):
         # We only need one representative file to determine the type and name.
         identified_media = None
         for nf in normal_files:
-            result = reformat_filename(nf, names_only=True)
+            result = reformat_filename(nf, names_only=True, full_info_found=False)
             if result['media_type'] in ['movie', 'movie_hdr', 'tv_show', 'tv_show_hdr']:
                 identified_media = result
                 break
@@ -625,7 +625,7 @@ def rename_others_file_to_folder(input_dir):
     # Iterate through the input directory recursively
     for root, dirs, files in os.walk(input_dir):
         parent_folder_name = os.path.basename(root)
-        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', False)
+        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', False, False)
 
         # If the parent folder does not match any pattern, skip to next
         if parent_folder_reformatted.startswith(others_folder):
@@ -636,7 +636,7 @@ def rename_others_file_to_folder(input_dir):
             if not filename.endswith('.mkv'):
                 continue  # Skip non-mkv files
 
-            a, new_filename = reformat_filename(filename, False)
+            a, new_filename = reformat_filename(filename, False, False)
             if new_filename.startswith(others_folder):
                 # Rename the file to match its parent folder
                 new_file_path = os.path.join(root, f"{parent_folder_name}.{filename.split('.')[-1]}")
@@ -644,7 +644,7 @@ def rename_others_file_to_folder(input_dir):
                 shutil.move(old_file_path, new_file_path)
 
 
-def reformat_filename(filename, names_only):
+def reformat_filename(filename, names_only, full_info_found):
     movie_folder = check_config(config, 'general', 'movies_folder')
     movie_hdr_folder = check_config(config, 'general', 'movies_hdr_folder')
     tv_folder = check_config(config, 'general', 'tv_shows_folder')
@@ -682,7 +682,8 @@ def reformat_filename(filename, names_only):
         showname = tv_match1.group(1).replace('. ', '.')
         showname = showname.replace('.', ' ')
         showname = showname.rstrip(' -')
-        showname = to_sentence_case(showname)  # Transform to sentence case
+        if not full_info_found:
+            showname = to_sentence_case(showname)  # Transform to sentence case
         year = tv_match1.group(3)
         folder = tv_hdr_folder if is_hdr else tv_folder
 
@@ -712,7 +713,8 @@ def reformat_filename(filename, names_only):
         showname = tv_match2.group(1).replace('. ', '.')
         showname = showname.replace('.', ' ')
         showname = showname.rstrip(' -')
-        showname = to_sentence_case(showname)  # Transform to sentence case
+        if not full_info_found:
+            showname = to_sentence_case(showname)  # Transform to sentence case
         year = tv_match2.group(3)
         folder = tv_hdr_folder if is_hdr else tv_folder
 
@@ -742,7 +744,8 @@ def reformat_filename(filename, names_only):
         title = movie_match.group(1).replace('. ', '.')
         title = title.replace('.', ' ')
         title = title.rstrip(' -')
-        title = to_sentence_case(title)
+        if not full_info_found:
+            title = to_sentence_case(title)
         year = movie_match.group(2) or movie_match.group(3)
         folder = movie_hdr_folder if is_hdr else movie_folder
 
@@ -968,7 +971,7 @@ def return_media_info_string(filenames, type):
     return_str_list = []
 
     for filename in filenames:
-        file_info = reformat_filename(filename, True)
+        file_info = reformat_filename(filename, True, False)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
         base, ext = os.path.splitext(filename)
@@ -1077,7 +1080,7 @@ def print_media_info(logger, filenames):
     uncategorized = []
 
     for filename in filenames:
-        file_info = reformat_filename(filename, True)
+        file_info = reformat_filename(filename, True, False)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
         base, ext = os.path.splitext(filename)

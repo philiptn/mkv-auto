@@ -883,6 +883,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
     remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
     forced_subtitles_priority = check_config(config, 'subtitles', 'forced_subtitles_priority')
     main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
+    always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
 
     total_subs_tracks = 0
     pref_subs_langs = pref_langs
@@ -1065,14 +1066,20 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                     elif track["codec"] == "SubRip/SRT":
                         subs_track_ids.append(track["id"])
                         subs_track_languages.append(track_language)
-                        subs_track_names.append(track_name)
+                        if always_remove_sdh and 'sdh' in track_name.lower():
+                            subs_track_names.append('')
+                        else:
+                            subs_track_names.append(track_name)
                         subs_track_forced.append(forced_track_val)
                         sub_filetypes.append('srt')
                         srt_track_ids.append(track["id"])
                     elif track["codec"] == "SubStationAlpha":
                         subs_track_ids.append(track["id"])
                         subs_track_languages.append(track_language)
-                        subs_track_names.append(track_name)
+                        if always_remove_sdh and 'sdh' in track_name.lower():
+                            subs_track_names.append('')
+                        else:
+                            subs_track_names.append(track_name)
                         subs_track_forced.append(forced_track_val)
                         sub_filetypes.append('ass')
                         ass_track_ids.append(track["id"])

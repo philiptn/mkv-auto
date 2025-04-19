@@ -549,6 +549,7 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                 track_name = ''
             all_track_names.append(track_name)
         all_track_ids.append(track["id"])
+        total_audio_tracks += 1
 
     for index, track in enumerate(file_info["tracks"]):
         if track["type"] == "audio":
@@ -598,8 +599,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                     add_track = False
 
                 if add_track:
-                    total_audio_tracks += 1
-
                     audio_track_ids.append(track["id"])
                     audio_track_languages.append(track_language)
                     audio_track_names.append(track_name)
@@ -640,7 +639,6 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
                     add_track = False
 
                 if add_track:
-                    total_audio_tracks += 1
                     unmatched_audio_track_ids.append(track["id"])
                     unmatched_audio_track_languages.append(track_language)
                     unmatched_audio_track_names.append(track_name)
