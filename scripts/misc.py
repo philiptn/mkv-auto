@@ -1017,9 +1017,9 @@ def return_media_info_string(filenames, type):
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
                 if index == 0:
-                    return_str_list.append(f"{type}{show}{RESET} {GREY}({tv_shows_print}){RESET}")
+                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_print})")
                 else:
-                    return_str_list.append(f"{' ' * len(show)} {GREY}({tv_shows_print}){RESET}")
+                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_print})")
 
     if tv_shows_hdr:
         for show in sorted(tv_shows_hdr):
@@ -1031,9 +1031,9 @@ def return_media_info_string(filenames, type):
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
                 if index == 0:
-                    return_str_list.append(f"{type}{show}{RESET} {GREY}({tv_shows_hdr_print}){RESET}")
+                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_hdr_print})")
                 else:
-                    return_str_list.append(f"{' ' * len(show)} {GREY}({tv_shows_hdr_print}){RESET}")
+                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_hdr_print})")
 
     if movies:
         movies.sort()
