@@ -477,7 +477,7 @@ def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
         external = total_external_subs[i] if i < len(total_external_subs) else []
 
         def group_subs(subs):
-            """ Groups subtitles by language, handling .sub/.idx pairs correctly. """
+            """Groups subtitles by language, handling .sub/.idx pairs correctly."""
             sub_dict = {}
             for sub in subs:
                 match = re.search(r'_([a-z]{2,3})\.(srt|ass|sup|sub|idx)$', sub, re.IGNORECASE)
@@ -486,29 +486,31 @@ def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
                     if ext in {"sub", "idx"}:
                         sub_dict.setdefault(lang, {}).update({ext: sub})
                     else:
-                        sub_dict[lang] = {"file": sub}  # Other types (e.g., .srt) overwrite
+                        sub_dict[lang] = {"file": sub}
             return sub_dict
 
-        built_in_dict, external_dict = group_subs(built_in), group_subs(external)
+        built_in_dict = group_subs(built_in)
+        external_dict = group_subs(external)
 
-        # Merge based on priority
-        final_dict = external_dict if prioritize_subtitles == "external" else built_in_dict
-        for lang in set(built_in_dict) | set(external_dict):
-            if lang in built_in_dict and lang in external_dict:
-                if prioritize_subtitles == "external":
-                    final_dict[lang] = external_dict[lang]
-                else:
-                    final_dict[lang] = built_in_dict[lang]
+        final_dict = {}
+
+        for lang in set(built_in_dict.keys()) | set(external_dict.keys()):
+            if prioritize_subtitles == "external":
+                # prefer external, fall back to built-in if external missing
+                final_dict[lang] = external_dict.get(lang) or built_in_dict.get(lang)
+            else:
+                # prefer built-in, fall back to external if built-in missing
+                final_dict[lang] = built_in_dict.get(lang) or external_dict.get(lang)
 
         # Convert dictionary back to list
         final_list = []
         for subs in final_dict.values():
             if "file" in subs:
-                final_list.append(subs["file"])  # Other subtitles like .srt
+                final_list.append(subs["file"])
             elif "sub" in subs and "idx" in subs:
-                final_list.extend([subs["idx"], subs["sub"]])  # Ensure sub+idx stay together
+                final_list.extend([subs["idx"], subs["sub"]])
             else:
-                final_list.extend(subs.values())  # If only .sub or only .idx exists
+                final_list.extend(subs.values())
 
         updated_subs.append(final_list)
 

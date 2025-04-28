@@ -1125,7 +1125,7 @@ def print_media_info(logger, filenames):
             if len(seasons) == 1:
                 season = seasons[0]
                 episode_list = compact_episode_list(sorted(tv_shows[show][season]))
-                tv_shows_print = f"(Season {season}, Episode {episode_list})"
+                tv_shows_print = f"(Season {season}: Episode {episode_list})"
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_print}")
@@ -1144,7 +1144,7 @@ def print_media_info(logger, filenames):
             if len(seasons) == 1:
                 season = seasons[0]
                 episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
-                tv_shows_hdr_print = f"(Season {season}, Episode {episode_list})"
+                tv_shows_hdr_print = f"(Season {season}: Episode {episode_list})"
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_hdr_print}")

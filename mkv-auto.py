@@ -224,10 +224,8 @@ def mkv_auto(args):
                 if download_missing_subs.lower() != 'override':
                     all_subtitle_files = extract_subs_in_mkv_process(logger, debug, filenames_mkv_only, dirpath)
 
-                if all_subtitle_files and total_external_subs:
+                if total_external_subs:
                     all_subtitle_files = merge_subtitles_with_priority(all_subtitle_files, total_external_subs)
-                elif not all_subtitle_files and total_external_subs:
-                    all_subtitle_files = total_external_subs
 
                 if not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs.lower() != 'false':
                     all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, filenames_mkv_only, dirpath, total_external_subs,

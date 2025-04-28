@@ -1300,14 +1300,18 @@ def normalize_title(title):
 
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
     download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
+    main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
 
     pattern_season_episode = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
     match = pattern_season_episode.search(input_file)
     if match:
         season, episode = match.groups()
         season_episode = f's{season}e{episode}'.lower()
+        show_name_raw = input_file[:match.start()]
+        show_name = re.sub(r'[._]+', ' ', show_name_raw).strip()
     else:
         season_episode = None
+        show_name = None
 
     base, extension = os.path.splitext(input_file)
     raw_name_no_ext = os.path.splitext(os.path.basename(input_file))[0]
@@ -1315,6 +1319,8 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
     base_name_normalized = normalize_title(raw_name_no_ext)
 
     input_file_with_path = os.path.join(dirpath, input_file)
+    file_info, _ = get_mkv_info(False, input_file_with_path, False)
+    main_audio_track_lang = get_main_audio_track_language(file_info)
     all_langs = []
     all_sub_files = []
     updated_missing_subs_langs = []
@@ -1353,9 +1359,10 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
         subtitle_path = os.path.join(dirpath, subtitle)
 
         sub_base_normalized = normalize_title(sub_base)
+        show_name_normalized = normalize_title(show_name)
 
         if season_episode:
-            match_condition = (season_episode in sub_base.lower() and base_name_normalized in sub_base_normalized)
+            match_condition = (season_episode in sub_base.lower() and show_name_normalized in sub_base_normalized)
         else:
             match_condition = (base_name_normalized in sub_base_normalized)
 
@@ -1371,8 +1378,6 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 else:
                     lang_code = lang_part
             else:
-                file_info, _ = get_mkv_info(False, input_file_with_path, False)
-                main_audio_track_lang = get_main_audio_track_language(file_info)
                 if main_audio_track_lang == "und":
                     lang_code = 'eng'
                 else:
@@ -1411,8 +1416,12 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 num += 1
 
     for lang in missing_subs_langs:
-        if lang not in all_langs:
-            updated_missing_subs_langs.append(lang)
+        if main_audio_language_subs_only:
+            if lang in main_audio_track_lang:
+                updated_missing_subs_langs.append(lang)
+        else:
+            if lang not in all_langs:
+                updated_missing_subs_langs.append(lang)
     if not updated_missing_subs_langs:
         updated_missing_subs_langs.append('none')
 

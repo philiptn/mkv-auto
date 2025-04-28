@@ -548,8 +548,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
             if not track_name:
                 track_name = ''
             all_track_names.append(track_name)
-        all_track_ids.append(track["id"])
-        total_audio_tracks += 1
+            all_track_ids.append(track["id"])
+            total_audio_tracks += 1
 
     for index, track in enumerate(file_info["tracks"]):
         if track["type"] == "audio":
