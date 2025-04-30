@@ -480,6 +480,8 @@ def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
             """Groups subtitles by language, handling .sub/.idx pairs correctly."""
             sub_dict = {}
             for sub in subs:
+                if not isinstance(sub, str):
+                    continue  # skip non-string items
                 match = re.search(r'_([a-z]{2,3})\.(srt|ass|sup|sub|idx)$', sub, re.IGNORECASE)
                 if match:
                     lang, ext = match.groups()
