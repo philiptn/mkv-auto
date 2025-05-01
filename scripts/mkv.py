@@ -11,6 +11,7 @@ import concurrent.futures
 import base64
 from collections import defaultdict, Counter
 from itertools import chain
+from pathlib import Path
 
 from scripts.misc import *
 from scripts.audio import *
@@ -206,6 +207,49 @@ def get_all_subtitle_languages(filename):
                 if key == 'language':
                     all_langs.append(value)
     return all_langs
+
+
+def strip_mkv_title_and_track_names(file_path):
+    file_path = Path(file_path)
+
+    # Check if the file exists
+    if not file_path.is_file() or file_path.suffix.lower() != '.mkv':
+        raise ValueError(f"The specified file is not a valid MKV file: {file_path}")
+
+    # Ensure required tools are available
+    for tool in ['mkvpropedit', 'mkvmerge']:
+        if not shutil.which(tool):
+            raise EnvironmentError(f"{tool} is not installed or not in PATH.")
+
+    try:
+        # Get track IDs using mkvmerge
+        result = subprocess.run(
+            ['mkvmerge', '-i', str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        lines = result.stdout.splitlines()
+        track_ids = [int(line.split('Track ID ')[1].split(':')[0]) for line in lines if 'Track ID' in line]
+
+        # Remove track names (mkvpropedit uses 1-based index)
+        for track_id in track_ids:
+            track_index = track_id + 1
+            subprocess.run(
+                ['mkvpropedit', str(file_path), '--edit', f'track:{track_index}', '--set', 'name='],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+
+        # Remove the title from the MKV file
+        subprocess.run(
+            ['mkvpropedit', str(file_path), '--edit', 'info', '--set', 'title='],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to process file: {file_path}\n{e.stderr}")
 
 
 def get_main_audio_track_language(file_info):
@@ -1035,12 +1079,14 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
 
 
 def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_subs_langs, internal_threads):
+    a, filename = unflatten_file(input_file, '')
     mkv_base, _, mkv_extension = input_file.rpartition('.')
+    mkv_base_simple, _, a = filename.rpartition('.')
     extra_pattern = r"S000E\d{3}"
     tags_pattern = r"(" + "|".join(re.escape(tag) for tag in excluded_tags) + r")$"
-    is_extra = bool(re.search(extra_pattern, input_file) or re.search(tags_pattern, mkv_base))
+    is_extra = bool(re.search(extra_pattern, filename) or re.search(tags_pattern, mkv_base))
 
-    file_info = reformat_filename(input_file, True, False)
+    file_info = reformat_filename(filename, True, False)
     media_type = file_info["media_type"]
 
     downloaded_subs = []
@@ -1055,7 +1101,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
         for index, lang in enumerate(missing_subs_langs):
 
             command = [
-                'subliminal', '--debug', '--config', './subliminal.toml', 'download', '-l', lang, input_file
+                'subliminal', '--debug', '--config', './subliminal.toml', 'download', '-l', lang, filename
             ]
 
             if debug:
@@ -1073,14 +1119,14 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
                 print(
                     f"{GREY}[UTC {get_timestamp()}]{RESET} {YELLOW}{stdout.decode('utf-8')}\n\n{stderr.decode('utf-8')}{RESET}")
 
-            if os.path.exists(os.path.join(dirpath, f"{mkv_base}.{lang}.srt")):
-                shutil.move(os.path.join(dirpath, f"{mkv_base}.{lang}.srt"),
+            if os.path.exists(os.path.join(dirpath, f"{mkv_base_simple}.{lang}.srt")):
+                shutil.move(os.path.join(dirpath, f"{mkv_base_simple}.{lang}.srt"),
                             os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
                 downloaded_subs.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
-                downloaded_subs_simple.append(mkv_base)
+                downloaded_subs_simple.append(mkv_base_simple)
             else:
                 failed_downloads.append(os.path.join(dirpath, f"{mkv_base}_0_''_{index + 1}_{lang}.srt"))
-                failed_downloads_simple.append(mkv_base)
+                failed_downloads_simple.append(mkv_base_simple)
 
     return downloaded_subs, failed_downloads, downloaded_subs_simple, failed_downloads_simple
 
@@ -1178,9 +1224,13 @@ def remove_clutter_process(logger, debug, input_files, dirpath):
 def remove_clutter_process_worker(debug, input_file, dirpath):
     input_file_with_path = os.path.join(dirpath, input_file)
     updated_filename = input_file
+
     file_tag = check_config(config, 'general', 'file_tag')
+    remove_all_title_names = check_config(config, 'general', 'remove_all_title_names')
 
     remove_all_mkv_track_tags(debug, input_file_with_path)
+    if remove_all_title_names:
+        strip_mkv_title_and_track_names(input_file_with_path)
 
     mkv_video_codec = get_mkv_video_codec(input_file_with_path)
     if has_closed_captions(input_file_with_path):

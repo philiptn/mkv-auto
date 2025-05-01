@@ -275,14 +275,17 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
 
 def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure):
-    filename = os.path.basename(input_file_path)
-    base, ext = os.path.splitext(filename)
-    new_folders_str = filename
+    original_folders, original_restored_filename = unflatten_file(input_file_path, '')
+
+    base, ext = os.path.splitext(original_restored_filename)
+    new_folders_str = original_restored_filename
     full_info = {}
     full_info_found = False
 
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
-    file_info = reformat_filename(filename, True, False)
+    keep_original_file_structure = check_config(config, 'general', 'keep_original_file_structure')
+
+    file_info = reformat_filename(original_restored_filename, True, False)
     media_type = file_info["media_type"]
     media_name = file_info["media_name"]
 
@@ -310,9 +313,9 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                     else:
                         restored_filename = f"{media_name}{ext}"
                 else:
-                    restored_filename = filename
+                    restored_filename = original_restored_filename
         elif media_type in ['tv_show', 'tv_show_hdr']:
-            season, episodes = extract_season_episode(filename)
+            season, episodes = extract_season_episode(original_restored_filename)
             if season and episodes:
                 episode_list = compact_episode_list(episodes, True)
                 formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
@@ -338,14 +341,24 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                         else:
                             restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
                 else:
-                    restored_filename = filename
+                    restored_filename = original_restored_filename
             else:
-                restored_filename = filename
+                restored_filename = original_restored_filename
         else:
-            restored_filename = filename
+            restored_filename = original_restored_filename
 
     restored_filename = sanitize_filename(restored_filename)
     new_folders, _ = reformat_filename(new_folders_str, False, full_info_found)
+
+    if keep_original_file_structure == 'true':
+        new_folders = original_folders
+        restored_filename = original_restored_filename
+    elif keep_original_file_structure == 'fallback':
+        if media_type in ['other']:
+            new_folders = os.path.join(new_folders, original_folders)
+    elif keep_original_file_structure == 'false':
+        pass
+
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

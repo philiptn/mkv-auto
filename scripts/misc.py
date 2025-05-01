@@ -487,23 +487,52 @@ def get_timestamp():
 
 
 def flatten_directories(directory):
-    # Walk through the directory
+    marker_start = "--.--"
+    marker_end = "__.__"
+    path_separator = "___"
+
     for root, dirs, files in os.walk(directory, topdown=False):
-        # Skip directories starting with a dot
         dirs[:] = [d for d in dirs if not d.startswith('.')]
-        # Skip files starting with a dot
         files = [f for f in files if not f.startswith('.')]
 
         for name in files:
-            # Move each file to the root directory
             source = os.path.join(root, name)
-            destination = os.path.join(directory, name)
-            if source != destination:  # Avoid moving if source and destination are the same
+            rel_path = os.path.relpath(root, directory)
+            if rel_path == ".":
+                continue  # Already in root
+
+            encoded_path = rel_path.replace(os.sep, path_separator)
+            new_name = f"{marker_start}{encoded_path}{marker_end}{name}"
+            destination = os.path.join(directory, new_name)
+
+            if source != destination:
                 shutil.move(source, destination)
 
         for name in dirs:
-            # Remove the empty subdirectories
             os.rmdir(os.path.join(root, name))
+
+
+def unflatten_file(flattened_filename, output_folder):
+    marker_start = "--.--"
+    marker_end = "__.__"
+    path_separator = "___"
+
+    basename = os.path.basename(flattened_filename)
+
+    if not basename.startswith(marker_start) or marker_end not in basename:
+        raise ValueError(f"Filename '{basename}' is not a valid flattened format")
+
+    try:
+        end_idx = basename.index(marker_end)
+        encoded_path = basename[len(marker_start):end_idx]
+        original_name = basename[end_idx + len(marker_end):]
+
+        # Decode the original folder structure
+        rel_path = encoded_path.replace(path_separator, os.sep)
+
+        return rel_path, original_name
+    except Exception as e:
+        raise RuntimeError(f"Failed to unflatten file '{flattened_filename}': {e}")
 
 
 def format_time(seconds):
@@ -1080,6 +1109,7 @@ def print_media_info(logger, filenames):
     uncategorized = []
 
     for filename in filenames:
+        a, filename = unflatten_file(filename, '')
         file_info = reformat_filename(filename, True, False)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
@@ -1220,7 +1250,9 @@ config = {
         'max_cpu_usage': get_config('general', 'MAX_CPU_USAGE', variables_defaults),
         'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults),
         'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true",
-        'hide_cursor': get_config('general', 'HIDE_CURSOR', variables_defaults).lower() == "true"
+        'hide_cursor': get_config('general', 'HIDE_CURSOR', variables_defaults).lower() == "true",
+        'keep_original_file_structure': get_config('general', 'KEEP_ORIGINAL_FILE_STRUCTURE', variables_defaults),
+        'remove_all_title_names': get_config('general', 'REMOVE_ALL_TITLE_NAMES', variables_defaults).lower() == "true",
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
