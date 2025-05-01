@@ -498,10 +498,13 @@ def flatten_directories(directory):
         for name in files:
             source = os.path.join(root, name)
             rel_path = os.path.relpath(root, directory)
-            if rel_path == ".":
-                continue  # Already in root
 
-            encoded_path = rel_path.replace(os.sep, path_separator)
+            # Always encode the path, even for root-level files
+            if rel_path == ".":
+                encoded_path = ""  # Represent root with an empty string
+            else:
+                encoded_path = rel_path.replace(os.sep, path_separator)
+
             new_name = f"{marker_start}{encoded_path}{marker_end}{name}"
             destination = os.path.join(directory, new_name)
 
