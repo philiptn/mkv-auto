@@ -10,7 +10,7 @@ RUN groupadd -g 1000 mkv-auto && \
     useradd -m -u 1000 -g mkv-auto mkv-auto
 
 WORKDIR /mkv-auto
-COPY scripts /mkv-auto/scripts
+COPY modules /mkv-auto/modules
 COPY utilities /mkv-auto/utilities
 COPY defaults.ini /mkv-auto/
 COPY subliminal_defaults.toml /mkv-auto/

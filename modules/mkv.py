@@ -13,10 +13,11 @@ from collections import defaultdict, Counter
 from itertools import chain
 from pathlib import Path
 
-from scripts.misc import *
-from scripts.audio import *
-from scripts.subs import *
-from scripts.file_operations import *
+from modules.misc import *
+from modules.audio import *
+from modules.subs import *
+from modules.file_operations import *
+from modules.integrations import *
 
 
 def convert_video_to_mkv(debug, video_file, output_file):
@@ -209,7 +210,7 @@ def get_all_subtitle_languages(filename):
     return all_langs
 
 
-def strip_mkv_title_and_track_names(file_path):
+def strip_mkv_title_and_track_names(debug, file_path):
     file_path = Path(file_path)
 
     # Check if the file exists
@@ -222,9 +223,15 @@ def strip_mkv_title_and_track_names(file_path):
             raise EnvironmentError(f"{tool} is not installed or not in PATH.")
 
     try:
+        if debug:
+            print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing all track names in MKV...")
+
         # Get track IDs using mkvmerge
+        command = ['mkvmerge', '-i', str(file_path)]
+        if debug:
+            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
         result = subprocess.run(
-            ['mkvmerge', '-i', str(file_path)],
+            command,
             capture_output=True,
             text=True,
             check=True
@@ -235,15 +242,22 @@ def strip_mkv_title_and_track_names(file_path):
         # Remove track names (mkvpropedit uses 1-based index)
         for track_id in track_ids:
             track_index = track_id + 1
+            command = ['mkvpropedit', str(file_path), '--edit', f'track:{track_index}', '--set', 'name=']
+            if debug:
+                print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
             subprocess.run(
-                ['mkvpropedit', str(file_path), '--edit', f'track:{track_index}', '--set', 'name='],
+                command,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
 
         # Remove the title from the MKV file
+        command = ['mkvpropedit', str(file_path), '--edit', 'info', '--set', 'title=']
+        if debug:
+            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+
         subprocess.run(
-            ['mkvpropedit', str(file_path), '--edit', 'info', '--set', 'title='],
+            command,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
@@ -272,7 +286,7 @@ def remove_all_mkv_track_tags(debug, filename):
                '--set', 'flag-default=1', '-e', 'info', '-s', 'title=']
 
     if debug:
-        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing track tags in mkv...")
+        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing track tags in MKV...")
         print('')
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
         print(f"{RESET}")
@@ -1230,7 +1244,7 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
 
     remove_all_mkv_track_tags(debug, input_file_with_path)
     if remove_all_title_names:
-        strip_mkv_title_and_track_names(input_file_with_path)
+        strip_mkv_title_and_track_names(debug, input_file_with_path)
 
     mkv_video_codec = get_mkv_video_codec(input_file_with_path)
     if has_closed_captions(input_file_with_path):
@@ -1492,6 +1506,9 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
     files = input_files
     files.sort()
 
+    new_radarr_paths = [None] * total_files
+    new_sonarr_paths = [None] * total_files
+
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
@@ -1509,32 +1526,67 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(move_files_to_output_process_worker, logger, debug, input_file, dirpath, all_dirnames,
-                                   output_dir): input_file for index, input_file in enumerate(files)}
+                                   output_dir): index for index, input_file in enumerate(files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
-                result = future.result()
-            except Exception as e:
-                # Fetch the variables that were passed to the thread
                 index = futures[future]
-                input_file = files[index]
-
+                new_radarr_path, new_sonarr_path = future.result()
+                if new_radarr_path is not None:
+                    new_radarr_paths[index] = new_radarr_path
+                if new_sonarr_path is not None:
+                    new_sonarr_paths[index] = new_sonarr_path
+            except Exception as e:
                 # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
-                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
-                print_no_timestamp(logger, f"  {BLUE}all_dirnames{RESET}: {all_dirnames}")
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
+    new_radarr_paths_len = len((set(f"'{item}'" for paths in new_radarr_paths for item in paths)))
+    new_sonarr_paths_len = len((set(f"'{item}'" for paths in new_sonarr_paths for item in paths)))
+
+    print_msg = (f"{GREY}[RADARR]{RESET} Updated {new_radarr_paths_len} "
+                                        f"{print_multi_or_single(new_radarr_paths_len, 'movie folder')} in Radarr.")
+    if new_radarr_paths_len and new_sonarr_paths_len:
+        print()
+        custom_print(logger, print_msg)
+    elif new_radarr_paths_len and not new_sonarr_paths_len:
+        print()
+        custom_print_no_newline(logger, print_msg)
+
+    print_msg = (f"{GREY}[SONARR]{RESET} Updated {new_sonarr_paths_len} "
+                 f"{print_multi_or_single(new_sonarr_paths_len, 'TV folder')} in Sonarr.")
+    if new_sonarr_paths_len and not new_radarr_paths_len:
+        print()
+        custom_print_no_newline(logger, print_msg)
+    elif new_sonarr_paths_len and new_radarr_paths_len:
+        custom_print_no_newline(logger, print_msg)
+
 
 def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_dirnames, output_dir):
     input_file_with_path = os.path.join(dirpath, input_file)
+    new_radarr_path = ''
+    new_sonarr_path = ''
 
-    move_file_to_output(logger, debug, input_file_with_path, output_dir, all_dirnames)
+    radarr_api_key = check_config(config, 'integrations', 'radarr_api_key')
+    sonarr_api_key = check_config(config, 'integrations', 'sonarr_api_key')
+
+    output_info = move_file_to_output(logger, debug, input_file_with_path, output_dir, all_dirnames)
+
+    file_info = reformat_filename(output_info["filename"], True, False)
+    media_type = file_info["media_type"]
+    full_name = file_info["full_name"]
+
+    if media_type in ['tv_show', 'tv_show_hdr']:
+        if sonarr_api_key and output_info["output_folder"]:
+            new_sonarr_path = update_sonarr_path(logger, full_name, output_info["output_folder"])
+    elif media_type in ['movie', 'movie_hdr']:
+        if radarr_api_key and output_info["output_folder"]:
+            new_radarr_path = update_radarr_path(logger, full_name, output_info["output_folder"])
+
+    return new_radarr_path, new_sonarr_path
 
 
 def strip_audio_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track):

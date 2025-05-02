@@ -7,7 +7,7 @@ import re
 import uuid
 from datetime import datetime
 
-from scripts.misc import *
+from modules.misc import *
 
 
 # Function to extract a single audio track

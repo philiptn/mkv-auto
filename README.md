@@ -214,6 +214,9 @@ https://github.com/giampaolo/psutil
 thombashi for pathvalidate (sanitizing filenames)
 https://github.com/thombashi/pathvalidate
 
+seatgeek for thefuzz (fuzzy matching titles)  
+https://github.com/seatgeek/thefuzz  
+
 ## Donations
 This utility is completely free to use, but if you want to support me and my work you can buy me a coffee using the link below:  
 

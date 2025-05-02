@@ -9,8 +9,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from pathvalidate import sanitize_filename
 
-from scripts.misc import *
-from scripts.logger import *
+from modules.misc import *
+from modules.logger import *
 
 
 def copy_file(src, dst):
@@ -364,6 +364,11 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     log_debug(logger, f"Moving file '{input_file_path}' to '{output_path}'")
     shutil.move(input_file_path, output_path)
+
+    return {
+        "output_folder": new_folders,
+        "filename": restored_filename
+    }
 
 
 def safe_delete_dir(directory_path):

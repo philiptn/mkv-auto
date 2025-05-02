@@ -4,12 +4,12 @@ import traceback
 import argparse
 from itertools import groupby, zip_longest
 
-from scripts.file_operations import *
-from scripts.mkv import *
-from scripts.subs import *
-from scripts.audio import *
-from scripts.misc import *
-from scripts.logger import *
+from modules.file_operations import *
+from modules.mkv import *
+from modules.subs import *
+from modules.audio import *
+from modules.misc import *
+from modules.logger import *
 
 
 def mkv_auto(args):

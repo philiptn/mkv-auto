@@ -22,7 +22,7 @@ from tqdm import tqdm
 import base64
 import signal
 
-from scripts.misc import *
+from modules.misc import *
 
 # Define a XML lock
 xml_file_lock = threading.Lock()

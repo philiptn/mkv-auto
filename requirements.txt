@@ -41,3 +41,7 @@ psutil==6.1.1
 # For sanitizing filenames
 # https://pypi.org/project/pathvalidate/
 pathvalidate==3.2.3
+
+# For fuzzy matching titles from Movies/TV
+# https://pypi.org/project/thefuzz/
+thefuzz==0.22.1

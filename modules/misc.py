@@ -715,24 +715,23 @@ def reformat_filename(filename, names_only, full_info_found):
         showname = showname.replace('.', ' ')
         showname = showname.rstrip(' -')
         if not full_info_found:
-            showname = to_sentence_case(showname)  # Transform to sentence case
+            showname = to_sentence_case(showname)
         year = tv_match1.group(3)
+        season = int(tv_match1.group(4))
+        episode = int(tv_match1.group(5))
         folder = tv_hdr_folder if is_hdr else tv_folder
-
         media_type = 'tv_show_hdr' if is_hdr else 'tv_show'
 
-        # Build the base media name
         base_name = f"{showname} ({year})" if year else showname
-        # Append edition if found
-        if edition_name:
-            media_name = f"{base_name} ({edition_name})"
-        else:
-            media_name = base_name
+        media_name = f"{base_name} ({edition_name})" if edition_name else base_name
+
+        full_name = f"{showname} - S{season:02d}E{episode:02d}"
 
         if names_only:
             return {
                 'media_type': media_type,
-                'media_name': media_name
+                'media_name': media_name,
+                'full_name': full_name
             }
         else:
             return (
@@ -746,24 +745,23 @@ def reformat_filename(filename, names_only, full_info_found):
         showname = showname.replace('.', ' ')
         showname = showname.rstrip(' -')
         if not full_info_found:
-            showname = to_sentence_case(showname)  # Transform to sentence case
+            showname = to_sentence_case(showname)
         year = tv_match2.group(3)
+        season_start = int(tv_match2.group(4))
+        season_end = int(tv_match2.group(5))
         folder = tv_hdr_folder if is_hdr else tv_folder
-
         media_type = 'tv_show_hdr' if is_hdr else 'tv_show'
 
-        # Build the base media name
         base_name = f"{showname} ({year})" if year else showname
-        # Append edition if found
-        if edition_name:
-            media_name = f"{base_name} ({edition_name})"
-        else:
-            media_name = base_name
+        media_name = f"{base_name} ({edition_name})" if edition_name else base_name
+
+        full_name = f"{showname} - S{season_start:02d}-S{season_end:02d}"
 
         if names_only:
             return {
                 'media_type': media_type,
-                'media_name': media_name
+                'media_name': media_name,
+                'full_name': full_name
             }
         else:
             return (
@@ -1278,6 +1276,12 @@ config = {
         'remove_all_subtitles': get_config('subtitles', 'REMOVE_ALL_SUBTITLES', variables_defaults).lower() == "true",
         'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY', variables_defaults).lower() == "true",
         'redo_casing': get_config('subtitles', 'REDO_CASING', variables_defaults).lower() == "true"
+    },
+    'integrations': {
+        'radarr_url': get_config('integrations', 'RADARR_URL', variables_defaults),
+        'radarr_api_key': get_config('integrations', 'RADARR_API_KEY', variables_defaults),
+        'sonarr_url': get_config('integrations', 'SONARR_URL', variables_defaults),
+        'sonarr_api_key': get_config('integrations', 'SONARR_API_KEY', variables_defaults),
     }
 }
 
