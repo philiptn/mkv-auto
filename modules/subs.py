@@ -1070,7 +1070,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                     elif track["codec"] == "SubRip/SRT":
                         subs_track_ids.append(track["id"])
                         subs_track_languages.append(track_language)
-                        if always_remove_sdh and 'sdh' in track_name.lower():
+                        if always_remove_sdh and ('sdh' in track_name.lower() or track_name.lower() == 'cc'):
                             subs_track_names.append('')
                         else:
                             subs_track_names.append(track_name)
@@ -1080,7 +1080,7 @@ def get_wanted_subtitle_tracks(debug, file_info, pref_langs):
                     elif track["codec"] == "SubStationAlpha":
                         subs_track_ids.append(track["id"])
                         subs_track_languages.append(track_language)
-                        if always_remove_sdh and 'sdh' in track_name.lower():
+                        if always_remove_sdh and ('sdh' in track_name.lower() or track_name.lower() == 'cc'):
                             subs_track_names.append('')
                         else:
                             subs_track_names.append(track_name)

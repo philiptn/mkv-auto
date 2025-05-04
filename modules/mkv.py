@@ -1577,12 +1577,13 @@ def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_
 
     file_info = reformat_filename(output_info["filename"], True, False)
     media_type = file_info["media_type"]
-    full_name = file_info["full_name"]
 
     if media_type in ['tv_show', 'tv_show_hdr']:
+        full_name = file_info["full_name"]
         if sonarr_api_key and output_info["output_folder"]:
             new_sonarr_path = update_sonarr_path(logger, full_name, output_info["output_folder"])
     elif media_type in ['movie', 'movie_hdr']:
+        full_name = file_info["full_name"]
         if radarr_api_key and output_info["output_folder"]:
             new_radarr_path = update_radarr_path(logger, full_name, output_info["output_folder"])
 
