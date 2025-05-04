@@ -796,7 +796,8 @@ def reformat_filename(filename, names_only, full_info_found):
         if names_only:
             return {
                 'media_type': media_type,
-                'media_name': media_name
+                'media_name': media_name,
+                'full_name': media_name
             }
         else:
             return (
