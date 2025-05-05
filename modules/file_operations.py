@@ -328,6 +328,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                                                  f"S{formatted_season}E{episode_list} - {full_info['episode_title']} - HDR{ext}")
                             new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
                                                f"S{formatted_season}E{episode_list} - {full_info['episode_title']} - HDR{ext}")
+                            media_name = full_info['show_name']
                             full_info_found = True
                         else:
                             restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
@@ -337,6 +338,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                                                  f"S{formatted_season}E{episode_list} - {full_info['episode_title']}{ext}")
                             new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
                                                f"S{formatted_season}E{episode_list} - {full_info['episode_title']}{ext}")
+                            media_name = full_info['show_name']
                             full_info_found = True
                         else:
                             restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
@@ -368,6 +370,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
 
     return {
         "output_folder": new_folders,
+        "media_name": media_name,
         "filename": restored_filename
     }
 

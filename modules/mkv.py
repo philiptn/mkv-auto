@@ -1544,11 +1544,11 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
-    new_radarr_paths_len = len((set(f"'{item}'" for paths in new_radarr_paths for item in paths)))
-    new_sonarr_paths_len = len((set(f"'{item}'" for paths in new_sonarr_paths for item in paths)))
+    new_radarr_paths_len = sum(1 for item in new_radarr_paths if item.strip() != '')
+    new_sonarr_paths_len = sum(1 for item in new_sonarr_paths if item.strip() != '')
 
     print_msg = (f"{GREY}[RADARR]{RESET} Updated {new_radarr_paths_len} "
-                                        f"{print_multi_or_single(new_radarr_paths_len, 'movie folder')} in Radarr.")
+                 f"{print_multi_or_single(new_radarr_paths_len, 'movie folder')} in Radarr.")
     if new_radarr_paths_len and new_sonarr_paths_len:
         print()
         custom_print(logger, print_msg)
@@ -1580,12 +1580,12 @@ def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_
 
     if media_type in ['tv_show', 'tv_show_hdr']:
         full_name = file_info["full_name"]
-        if sonarr_api_key and output_info["output_folder"]:
-            new_sonarr_path = update_sonarr_path(logger, full_name, output_info["output_folder"])
+        if sonarr_api_key and file_info["media_name"]:
+            new_sonarr_path = update_sonarr_path(logger, full_name, file_info["media_name"])
     elif media_type in ['movie', 'movie_hdr']:
         full_name = file_info["full_name"]
-        if radarr_api_key and output_info["output_folder"]:
-            new_radarr_path = update_radarr_path(logger, full_name, output_info["output_folder"])
+        if radarr_api_key and file_info["media_name"]:
+            new_radarr_path = update_radarr_path(logger, full_name, file_info["media_name"])
 
     return new_radarr_path, new_sonarr_path
 

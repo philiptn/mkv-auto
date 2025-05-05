@@ -25,18 +25,18 @@ def update_radarr_path(logger, movie_name, new_folder_name):
             best_match = movie
 
     if not best_match or highest_score < 70:
-        raise ValueError(f"No sufficiently close match found for '{movie_name}'")
+        raise ValueError(f"[RADARR] No sufficiently close match found for '{movie_name}'")
 
     old_path = best_match['path']
     parent_dir = os.path.dirname(old_path)
     new_path = os.path.join(parent_dir, new_folder_name)
 
     if old_path == new_path:
-        log_debug(logger, f"No path update needed for '{best_match['title']}'. Already at '{new_path}'")
+        log_debug(logger, f"[RADARR] No path update needed for '{best_match['title']}'. Already at '{new_path}'")
         return None
 
     if not os.path.exists(new_path):
-        raise FileNotFoundError(f"The folder '{new_path}' does not exist.")
+        raise FileNotFoundError(f"[RADARR] The folder '{new_path}' does not exist.")
 
     best_match['path'] = new_path
     best_match['moveOptions'] = {"moveFiles": False}  # Assume files already moved
@@ -44,7 +44,7 @@ def update_radarr_path(logger, movie_name, new_folder_name):
     response = requests.put(update_url, json=best_match, headers=headers)
     response.raise_for_status()
 
-    log_debug(logger, f"Updated movie path for '{best_match['title']}' to '{new_path}'")
+    log_debug(logger, f"[RADARR] Updated movie path for '{best_match['title']}' to '{new_path}'")
     return new_path
 
 
@@ -57,7 +57,7 @@ def update_sonarr_path(logger, episode_name, new_folder_name):
 
     match = re.match(r'(.+?)\s*\(.*?\)\s*-\s*S\d+E\d+', episode_name, re.IGNORECASE)
     if not match:
-        raise ValueError("Invalid format. Expected: 'TV Show (2010) - S01E01'")
+        raise ValueError("[SONARR] Invalid format. Expected: 'TV Show (2010) - S01E01'")
     series_name = match.group(1).strip()
 
     best_show = None
@@ -69,23 +69,20 @@ def update_sonarr_path(logger, episode_name, new_folder_name):
             best_show = show
 
     if not best_show or highest_score < 70:
-        raise ValueError(f"No sufficiently close match found for '{series_name}'")
+        raise ValueError(f"[SONARR] No sufficiently close match found for '{series_name}'")
 
     old_path = best_show['path']
     parent_dir = os.path.dirname(old_path)
     new_path = os.path.join(parent_dir, new_folder_name)
 
     if old_path == new_path:
-        log_debug(logger, f"No path update needed for '{best_show['title']}'. Already at '{new_path}'")
-        return None
-
-    if not os.path.exists(new_path):
-        raise FileNotFoundError(f"The folder '{new_path}' does not exist.")
+        log_debug(logger, f"[SONARR] No path update needed for '{best_show['title']}'. Already at '{new_path}'")
+        return ''
 
     best_show['path'] = new_path
     update_url = f"{sonarr_url}/api/v3/series/{best_show['id']}"
     response = requests.put(update_url, json=best_show, headers=headers)
     response.raise_for_status()
 
-    log_debug(logger, f"Updated series path for '{best_show['title']}' to '{new_path}'")
+    log_debug(logger, f"[SONARR] Updated series path for '{best_show['title']}' to '{new_path}'")
     return new_path
