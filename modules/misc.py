@@ -1071,9 +1071,9 @@ def return_media_info_string(filenames, type):
         for movie in movies:
             return_str = ''
             if movie_extras[movie]:
-                return_str += f"{movie} {GREY}(+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')}){RESET}"
+                return_str += f"{type}{movie}{RESET} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})"
             else:
-                return_str += f"{movie}"
+                return_str += f"{type}{movie}{RESET}"
             return_str_list.append(return_str)
 
     if movies_hdr:
@@ -1081,16 +1081,16 @@ def return_media_info_string(filenames, type):
         for movie in movies_hdr:
             return_str = ''
             if movie_hdr_extras[movie]:
-                return_str += f"{movie} {GREY}(+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')}){RESET}"
+                return_str += f"{type}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})"
             else:
-                return_str += f"{movie}"
+                return_str += f"{type}{movie}{RESET}"
             return_str_list.append(return_str)
 
     if uncategorized:
         uncategorized.sort()
         for item in uncategorized:
             return_str = ''
-            return_str += f"{item}"
+            return_str += f"{type}{item}{RESET}"
             return_str_list.append(return_str)
 
     return return_str_list
