@@ -59,6 +59,22 @@ def update_radarr_path(logger, movie_name, new_folder_name):
     response.raise_for_status()
 
     log_debug(logger, f"[RADARR] Updated movie path for '{best_match['title']}' to '{new_path}'")
+
+    # Trigger a refresh
+    refresh_payload = {
+        "name": "RefreshMovie",
+        "movieIds": [best_match['id']]
+    }
+    requests.post(f"{radarr_url}/api/v3/command", json=refresh_payload, headers=headers)
+
+    # Trigger a rescan
+    rescan_payload = {
+        "name": "RescanMovie",
+        "movieIds": [best_match['id']]
+    }
+    requests.post(f"{radarr_url}/api/v3/command", json=rescan_payload, headers=headers)
+
+    log_debug(logger, f"[RADARR] Triggered refresh and rescan for movie '{best_match['title']}'")
     return new_path
 
 
@@ -99,4 +115,21 @@ def update_sonarr_path(logger, episode_name, new_folder_name):
     response.raise_for_status()
 
     log_debug(logger, f"[SONARR] Updated series path for '{best_show['title']}' to '{new_path}'")
+
+    # Trigger a refresh
+    refresh_payload = {
+        "name": "RefreshSeries",
+        "seriesId": best_show['id']
+    }
+    requests.post(f"{sonarr_url}/api/v3/command", json=refresh_payload, headers=headers)
+
+    # Trigger a rescan
+    rescan_payload = {
+        "name": "RescanSeries",
+        "seriesId": best_show['id']
+    }
+    requests.post(f"{sonarr_url}/api/v3/command", json=rescan_payload, headers=headers)
+
+    log_debug(logger, f"[SONARR] Triggered refresh and rescan for series '{best_show['title']}'")
+
     return new_path
