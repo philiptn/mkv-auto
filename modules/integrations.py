@@ -2,6 +2,7 @@ import os
 import requests
 from thefuzz import fuzz
 import re
+from datetime import datetime
 
 from modules.misc import *
 
@@ -29,7 +30,6 @@ def update_radarr_path(logger, movie_name, new_folder_name):
     highest_score = 0
 
     for movie in movies:
-        # Combine all possible titles: title, originalTitle, alternateTitles
         title_candidates = [movie.get('title', '')]
         if movie.get('originalTitle'):
             title_candidates.append(movie['originalTitle'])
@@ -37,12 +37,25 @@ def update_radarr_path(logger, movie_name, new_folder_name):
 
         for title_option in title_candidates:
             score = fuzz.token_set_ratio(movie_title.lower(), title_option.lower())
-            if score > highest_score and (not movie_year or movie.get('year') == movie_year):
+
+            # Soft year boosting
+            radarr_year = movie.get('year')
+            if movie_year and radarr_year:
+                year_diff = abs(movie_year - radarr_year)
+                if year_diff == 0:
+                    score += 10
+                elif year_diff == 1:
+                    score += 5
+            elif not movie_year or not radarr_year:
+                score += 2  # Slight boost if year is missing on either side
+
+            if score > highest_score:
                 highest_score = score
                 best_match = movie
 
     if not best_match or highest_score < 70:
         log_debug(logger, f"[RADARR] No sufficiently close match found for '{movie_name}'")
+        return ''
 
     old_path = best_match['path']
     parent_dir = os.path.dirname(old_path)
@@ -60,14 +73,12 @@ def update_radarr_path(logger, movie_name, new_folder_name):
 
     log_debug(logger, f"[RADARR] Updated movie path for '{best_match['title']}' to '{new_path}'")
 
-    # Trigger a refresh
     refresh_payload = {
         "name": "RefreshMovie",
         "movieIds": [best_match['id']]
     }
     requests.post(f"{radarr_url}/api/v3/command", json=refresh_payload, headers=headers)
 
-    # Trigger a rescan
     rescan_payload = {
         "name": "RescanMovie",
         "movieIds": [best_match['id']]
@@ -85,21 +96,38 @@ def update_sonarr_path(logger, episode_name, new_folder_name):
     headers = {'X-Api-Key': sonarr_api_key}
     shows = requests.get(f'{sonarr_url}/api/v3/series', headers=headers).json()
 
-    match = re.match(r'(.+?)\s*\(.*?\)\s*-\s*S\d+E\d+', episode_name, re.IGNORECASE)
+    # Try to extract series name and year
+    match = re.match(r'(.+?)\s*\((\d{4})\)?\s*-\s*S\d+E\d+', episode_name, re.IGNORECASE)
     if not match:
         raise ValueError("[SONARR] Invalid format. Expected: 'TV Show (2010) - S01E01'")
+
     series_name = match.group(1).strip()
+    series_year = int(match.group(2))
 
     best_show = None
     highest_score = 0
+
     for show in shows:
         score = fuzz.token_set_ratio(series_name.lower(), show['title'].lower())
+
+        # Optional year boost
+        show_year = show.get('year')  # Sonarr typically has this field
+        if show_year:
+            year_diff = abs(series_year - show_year)
+            if year_diff == 0:
+                score += 10
+            elif year_diff == 1:
+                score += 5
+        else:
+            score += 2  # Slight boost for unknown year
+
         if score > highest_score:
             highest_score = score
             best_show = show
 
     if not best_show or highest_score < 70:
         log_debug(logger, f"[SONARR] No sufficiently close match found for '{series_name}'")
+        return ''
 
     old_path = best_show['path']
     parent_dir = os.path.dirname(old_path)
