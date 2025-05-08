@@ -682,6 +682,7 @@ def reformat_filename(filename, names_only, full_info_found):
     tv_folder = check_config(config, 'general', 'tv_shows_folder')
     tv_hdr_folder = check_config(config, 'general', 'tv_shows_hdr_folder')
     others_folder = check_config(config, 'general', 'others_folder')
+    make_season_folders = check_config(config, 'general', 'make_season_folders')
 
     # Regular expression to match TV shows with season and episode, with or without year
     tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})e(\d{2,3})", re.IGNORECASE)
@@ -734,10 +735,16 @@ def reformat_filename(filename, names_only, full_info_found):
                 'full_name': full_name
             }
         else:
-            return (
-                os.path.join(folder, media_name),
-                filename
-            )
+            if make_season_folders:
+                return (
+                    os.path.join(folder, media_name, f'Season {season}'),
+                    filename
+                )
+            else:
+                return (
+                    os.path.join(folder, media_name),
+                    filename
+                )
 
     elif tv_match2:
         # TV show with season range
@@ -764,10 +771,16 @@ def reformat_filename(filename, names_only, full_info_found):
                 'full_name': full_name
             }
         else:
-            return (
-                os.path.join(folder, media_name),
-                filename
-            )
+            if make_season_folders:
+                return (
+                    os.path.join(folder, media_name, f'Season {season_start}-{season_end}'),
+                    filename
+                )
+            else:
+                return (
+                    os.path.join(folder, media_name),
+                    filename
+                )
 
     elif movie_match:
         # Movie
@@ -1255,6 +1268,7 @@ config = {
         'hide_cursor': get_config('general', 'HIDE_CURSOR', variables_defaults).lower() == "true",
         'keep_original_file_structure': get_config('general', 'KEEP_ORIGINAL_FILE_STRUCTURE', variables_defaults),
         'remove_all_title_names': get_config('general', 'REMOVE_ALL_TITLE_NAMES', variables_defaults).lower() == "true",
+        'make_season_folders': get_config('general', 'MAKE_SEASON_FOLDERS', variables_defaults).lower() == "true"
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],
