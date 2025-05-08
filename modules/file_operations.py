@@ -281,11 +281,12 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     new_folders_str = original_restored_filename
     full_info = {}
     full_info_found = False
+    is_extra = False
 
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
     keep_original_file_structure = check_config(config, 'general', 'keep_original_file_structure')
 
-    file_info = reformat_filename(original_restored_filename, True, False)
+    file_info = reformat_filename(original_restored_filename, True, False, False)
     media_type = file_info["media_type"]
     media_name = file_info["media_name"]
 
@@ -300,6 +301,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                     new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
                                        f"S01E01.mkv")
                     full_info_found = True
+                    is_extra = True
     else:
         if media_type in ['movie', 'movie_hdr']:
             pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
@@ -350,7 +352,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
             restored_filename = original_restored_filename
 
     restored_filename = sanitize_filename(restored_filename)
-    new_folders, _ = reformat_filename(new_folders_str, False, full_info_found)
+    new_folders, _ = reformat_filename(new_folders_str, False, full_info_found, is_extra)
 
     if keep_original_file_structure == 'true':
         new_folders = original_folders

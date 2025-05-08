@@ -134,7 +134,7 @@ def process_extras(input_folder):
         # We only need one representative file to determine the type and name.
         identified_media = None
         for nf in normal_files:
-            result = reformat_filename(nf, names_only=True, full_info_found=False)
+            result = reformat_filename(nf, names_only=True, full_info_found=False, is_extra=False)
             if result['media_type'] in ['movie', 'movie_hdr', 'tv_show', 'tv_show_hdr']:
                 identified_media = result
                 break
@@ -657,7 +657,7 @@ def rename_others_file_to_folder(input_dir):
     # Iterate through the input directory recursively
     for root, dirs, files in os.walk(input_dir):
         parent_folder_name = os.path.basename(root)
-        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', False, False)
+        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', False, False, False)
 
         # If the parent folder does not match any pattern, skip to next
         if parent_folder_reformatted.startswith(others_folder):
@@ -668,7 +668,7 @@ def rename_others_file_to_folder(input_dir):
             if not filename.endswith('.mkv'):
                 continue  # Skip non-mkv files
 
-            a, new_filename = reformat_filename(filename, False, False)
+            a, new_filename = reformat_filename(filename, False, False, False)
             if new_filename.startswith(others_folder):
                 # Rename the file to match its parent folder
                 new_file_path = os.path.join(root, f"{parent_folder_name}.{filename.split('.')[-1]}")
@@ -676,7 +676,7 @@ def rename_others_file_to_folder(input_dir):
                 shutil.move(old_file_path, new_file_path)
 
 
-def reformat_filename(filename, names_only, full_info_found):
+def reformat_filename(filename, names_only, full_info_found, is_extra):
     movie_folder = check_config(config, 'general', 'movies_folder')
     movie_hdr_folder = check_config(config, 'general', 'movies_hdr_folder')
     tv_folder = check_config(config, 'general', 'tv_shows_folder')
@@ -735,7 +735,7 @@ def reformat_filename(filename, names_only, full_info_found):
                 'full_name': full_name
             }
         else:
-            if make_season_folders:
+            if make_season_folders and not is_extra:
                 return (
                     os.path.join(folder, media_name, f'Season {season}'),
                     filename
@@ -771,7 +771,7 @@ def reformat_filename(filename, names_only, full_info_found):
                 'full_name': full_name
             }
         else:
-            if make_season_folders:
+            if make_season_folders and not is_extra:
                 return (
                     os.path.join(folder, media_name, f'Season {season_start}-{season_end}'),
                     filename
@@ -1015,7 +1015,7 @@ def return_media_info_string(filenames, type):
     return_str_list = []
 
     for filename in filenames:
-        file_info = reformat_filename(filename, True, False)
+        file_info = reformat_filename(filename, True, False, False)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
         base, ext = os.path.splitext(filename)
@@ -1125,7 +1125,7 @@ def print_media_info(logger, filenames):
 
     for filename in filenames:
         a, filename = unflatten_file(filename, '')
-        file_info = reformat_filename(filename, True, False)
+        file_info = reformat_filename(filename, True, False, False)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
         base, ext = os.path.splitext(filename)

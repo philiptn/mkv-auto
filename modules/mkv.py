@@ -1100,7 +1100,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     tags_pattern = r"(" + "|".join(re.escape(tag) for tag in excluded_tags) + r")$"
     is_extra = bool(re.search(extra_pattern, filename) or re.search(tags_pattern, mkv_base))
 
-    file_info = reformat_filename(filename, True, False)
+    file_info = reformat_filename(filename, True, False, False)
     media_type = file_info["media_type"]
 
     downloaded_subs = []
@@ -1575,7 +1575,7 @@ def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_
 
     output_info = move_file_to_output(logger, debug, input_file_with_path, output_dir, all_dirnames)
 
-    file_info = reformat_filename(output_info["filename"], True, False)
+    file_info = reformat_filename(output_info["filename"], True, False, False)
     media_type = file_info["media_type"]
 
     if media_type in ['tv_show', 'tv_show_hdr']:
