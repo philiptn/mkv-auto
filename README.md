@@ -1,7 +1,7 @@
 # MKV-Auto
 A fully automatic media processing tool that processes media files based on user preferences.
 
-<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/mkv-auto-demo.gif" width="540">
+<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/mkv-auto-demo.gif" width="700">
 
 ## Features
 - Multithreaded file processing - uses up to 85% of available CPU and RAM by default
