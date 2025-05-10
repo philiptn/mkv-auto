@@ -1,7 +1,7 @@
 # MKV-Auto
-<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/mkv-auto-demo.gif" width="600">
-
 A fully automatic media processing tool that processes media files based on user preferences.
+
+<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/mkv-auto-demo.gif" width="540">
 
 ## Features
 - Multithreaded file processing - uses up to 85% of available CPU and RAM by default
@@ -17,7 +17,7 @@ A fully automatic media processing tool that processes media files based on user
 - Automatically categorize and rename media content (TV Show/Movie, SDR/HDR) based on filename and TVMAZE
 
 ### Even-Out-Sound (EOS)
-<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/meme.jpg" width="320">
+<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/meme.jpg" width="350">
 
 Like many others I had become tired of badly mixed dialogue levels in modern media (yes, I do have a dedicated center channel), as well as loud sounds disrupting the movie experience. Sometimes this may be desirable, but in most cases I watch things at a moderate listening volume.
 
@@ -27,7 +27,7 @@ To fix this, I made a custom FFmpeg filter chain that does the following:
 
 Below is an illustration of the dynamic audio leveling filter, which slightly boosts moderate levels and brings down louder sounds.
 
-<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/eos_filter_curve.png" width="400">
+<img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/eos_filter_curve.png" width="450">
 
 Even-Out-Sound (EOS) is enabled by default, placed behind the original audio as the secondary audio track (AC3).
 
@@ -226,8 +226,6 @@ https://github.com/thombashi/pathvalidate
 
 seatgeek for thefuzz (fuzzy matching titles)  
 https://github.com/seatgeek/thefuzz  
-
-### Other
 
 #### [Meme image source](https://www.facebook.com/photo.php?fbid=502535002295094)
 
