@@ -486,6 +486,32 @@ def get_timestamp():
     return current_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def flatten_season_folders(root_dir):
+    season_pattern = re.compile(r'^Season \d+$')
+    keep_original_file_structure = check_config(config, 'general', 'keep_original_file_structure')
+
+    if keep_original_file_structure.lower() != 'true':
+        for dirpath, dirnames, filenames in os.walk(root_dir, topdown=False):
+            for dirname in dirnames:
+                full_path = os.path.join(dirpath, dirname)
+                if season_pattern.match(dirname) and os.path.isdir(full_path):
+                    parent_path = os.path.dirname(full_path)
+
+                    # Move files up one level
+                    for item in os.listdir(full_path):
+                        src = os.path.join(full_path, item)
+                        dst = os.path.join(parent_path, item)
+
+                        # Avoid overwriting
+                        if os.path.exists(dst):
+                            print(f"Skipping '{src}' because '{dst}' already exists.")
+                            continue
+
+                        shutil.move(src, dst)
+                    # Remove the now-empty Season folder
+                    os.rmdir(full_path)
+
+
 def flatten_directories(directory):
     marker_start = "--.--"
     marker_end = "__.__"

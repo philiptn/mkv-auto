@@ -125,6 +125,7 @@ def mkv_auto(args):
             custom_print(logger, f"{GREY}[INFO]{RESET} Only {done_info['available_space_gib']:.2f} GB was available in TEMP.")
 
         extract_archives(logger, temp_dir)
+        flatten_season_folders(temp_dir)
         process_extras(temp_dir)
         flatten_directories(temp_dir)
 

@@ -11,8 +11,8 @@ set /p runtime="Select an option [%default_runtime%]: "
 if "%runtime%"=="" set runtime=%default_runtime%
 
 :: Validate runtime choice
-if "%runtime%" NEQ "1" if "%runtime%" NEQ "2" (
-    echo Invalid choice. Please select 1 or 2.
+if "%runtime%" NEQ "1" if "%runtime%" NEQ "2" if "%runtime%" NEQ "3" (
+    echo Invalid choice. Please select 1, 2 or 3.
     goto :eof
 )
 

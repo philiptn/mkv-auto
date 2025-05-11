@@ -8,7 +8,7 @@ tqdm==4.67.1
 
 # For parsing .ini files
 # https://pypi.org/project/configparser/
-configparser==7.1.0
+configparser==7.2.0
 
 # For converting Advanced SubStation Alpha (ASS/SSA) subtitle files to SRT
 # https://pypi.org/project/asstosrt/
@@ -16,7 +16,7 @@ asstosrt==0.1.6
 
 # For automatically resyncing SRT subtitles to the audio stream
 # https://pypi.org/project/ffsubsync/
-ffsubsync==0.4.27
+ffsubsync==0.4.29
 
 # For removing all-uppercase letters in improperly formatted SDH subtitles
 # https://pypi.org/project/pysrt/
@@ -32,11 +32,11 @@ pycountry==24.6.1
 
 # For downloading external subtitles
 # https://pypi.org/project/subliminal/
-subliminal==2.2.1
+subliminal==2.3.2
 
 # For calculating max OCR threads based on available system RAM
 # https://pypi.org/project/psutil/
-psutil==6.1.1
+psutil==7.0.0
 
 # For sanitizing filenames
 # https://pypi.org/project/pathvalidate/
