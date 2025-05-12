@@ -490,7 +490,7 @@ def flatten_season_folders(root_dir):
     season_pattern = re.compile(r'^Season \d+$')
     keep_original_file_structure = check_config(config, 'general', 'keep_original_file_structure')
 
-    if keep_original_file_structure.lower() != 'true':
+    if keep_original_file_structure.lower() not in ('true', 'fallback'):
         for dirpath, dirnames, filenames in os.walk(root_dir, topdown=False):
             for dirname in dirnames:
                 full_path = os.path.join(dirpath, dirname)
