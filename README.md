@@ -160,7 +160,9 @@ Make sure that the media folder names in `user.ini` are named identically to you
    `Path: /config/send-to-mkv-auto.sh`
 6. Hit `Test` and then `Save` to save the custom script integration.
 
-Any imported movies should now be grabbed by MKV-Auto, processed and then moved back to movies folder. If the movie name folder decided by MKV-Auto is different from the original, this will be updated automatically in Radarr using the API. 
+Any imported movies should now be grabbed by MKV-Auto, processed and then moved back to movies folder. If the movie name folder decided by MKV-Auto is different from the original, this will be updated automatically in Radarr using the API.
+
+To process existing movies, simply delete them in Radarr (without deleting files) and re-import them.
 
 #### Sonarr
 
@@ -179,6 +181,8 @@ Any imported movies should now be grabbed by MKV-Auto, processed and then moved 
 6. Hit `Test` and then `Save` to save the custom script integration.
 
 Any imported TV shows should now be grabbed by MKV-Auto, processed and then moved back to TV shows folder. If the TV name folder decided by MKV-Auto is different from the original, this will be updated automatically in Sonarr using the API. 
+
+To process existing TV Shows, simply delete them in Sonarr (without deleting files) and re-import them.
 
 ## Acknowledgments
 
