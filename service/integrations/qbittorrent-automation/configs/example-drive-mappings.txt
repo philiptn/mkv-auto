@@ -1,0 +1,2 @@
+"Z:\" -> "/media/share"
+"Y:\" -> "/media/share2"

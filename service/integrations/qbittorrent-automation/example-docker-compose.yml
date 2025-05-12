@@ -1,0 +1,24 @@
+services:
+  qbittorrent-service:
+    build: .
+    container_name: qbittorrent-automation
+    restart: unless-stopped
+    user: "1000:1000"
+    tty: true
+    environment:
+      - QBITTORRENT_URL=${QBITTORRENT_URL}
+      - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
+      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
+      - TARGET_TAGS=${TARGET_TAGS}
+      - DONE_TAG=${DONE_TAG}
+      - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
+      - DESTINATION_FOLDER=${MKV_AUTO_INPUT_FOLDER}
+      - MAPPINGS_FILE=/service/configs/drive-mappings.txt
+      - LOG_FILE=automation.log
+    volumes:
+      - ${MKV_AUTO_INPUT_FOLDER}:${MKV_AUTO_INPUT_FOLDER}
+      # Volume mounts current dir (qbittorrent-automation) to container '/service' folder
+      - .:/service
+      # Add any SMB shares or paths here like this to allow
+      # the service to find and copy files (read-only with ':ro'). HAS to be 1:1.
+      # - /media/share/torrents:/media/share/torrents:ro

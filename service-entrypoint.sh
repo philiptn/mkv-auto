@@ -13,19 +13,17 @@ while true; do
     if [ -f /mkv-auto/config/user.ini ]; then
         cp /mkv-auto/config/user.ini /mkv-auto/user.ini
     fi
+    if [ -f /mkv-auto/config/subliminal.toml ]; then
+        cp /mkv-auto/config/subliminal.toml /mkv-auto/subliminal.toml
+    fi
     # Check if the script is already running
     if ! pgrep -f 'python3 -u mkv-auto.py' > /dev/null; then
         # Check for new files in the input directory
         if [ $(ls /mkv-auto/files/input | wc -l) -gt 0 ]; then
             cd /mkv-auto
-            . venv/bin/activate
-            # Determine if debug mode is enabled
-            DEBUG_FLAG=""
-            if [[ "${DEBUG_MODE}" == "true" ]]; then
-                DEBUG_FLAG="--debug --service"
-            fi
+            . /pre/venv/bin/activate
             # Run the Python script, ensure we capture real-time updates in user.ini
-            python3 -u mkv-auto.py --move --silent --temp_folder /mkv-auto/files/tmp --input_folder /mkv-auto/files/input --output_folder /mkv-auto/files/output $DEBUG_FLAG 2>&1 | tee >(sed 's/\x1b\[[0-9;]*m//g' >> "$log_file")
+            python3 -u mkv-auto.py --service --move --silent --temp_folder /mkv-auto/files/tmp --log_file $log_file --input_folder /mkv-auto/files/input --output_folder /mkv-auto/files/output $DEBUG_FLAG
         fi
     fi
 

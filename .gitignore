@@ -129,9 +129,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Input and output files
+# Native folders found in env
 input/
 output/
+config/
+logs/
 
 # Pycharm
 .idea/
@@ -148,6 +150,17 @@ testing.py
 # Temporary files
 .tmp/
 tmp/
+.cache/
 
 # Bak files
 *.bak
+
+# Subliminal user config
+subliminal.toml
+
+# Identifier files
+.Identifier
+
+# qbittorrent-automation
+drive-mappings.txt
+automation.log

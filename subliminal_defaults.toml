@@ -1,0 +1,7 @@
+# Reference: https://github.com/Diaoul/subliminal/blob/main/docs/config.toml
+[default]
+cache_dir = "/mkv-auto/files/.cache/subliminal"
+
+[download]
+encoding = "utf-8"
+min_score = 60

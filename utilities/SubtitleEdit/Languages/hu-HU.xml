@@ -2,7 +2,7 @@
 <Language Name="Hungarian">
   <General>
     <Title>Subtitle Edit</Title>
-    <Version>4.0.3</Version>
+    <Version>4.0.11</Version>
     <TranslatedBy>Fordító: Zityi's Translator Team (http://szoftverforditasok.hu)</TranslatedBy>
     <CultureName>hu-HU</CultureName>
     <HelpFile />
@@ -755,7 +755,7 @@ További információ (web)?</WhisperNotFound>
     <RemovedEmptyLineAtTop>Felül lévő üres sor eltávolítása</RemovedEmptyLineAtTop>
     <RemovedEmptyLineAtBottom>Alul lévő üres sor eltávolítása</RemovedEmptyLineAtBottom>
     <RemovedEmptyLineInMiddle>Üres sor eltávolítása középről</RemovedEmptyLineInMiddle>
-    <RemovedEmptyLinesUnsedLineBreaks>Eltávolított üres sorok/nem használt sortörések</RemovedEmptyLinesUnsedLineBreaks>
+    <RemovedEmptyLinesUnusedLineBreaks>Eltávolított üres sorok/nem használt sortörések</RemovedEmptyLinesUnusedLineBreaks>
     <FixOverlappingDisplayTimes>Átfedő megjelenítési idők javítása</FixOverlappingDisplayTimes>
     <FixShortDisplayTimes>Rövid megjelenítési idők javítása</FixShortDisplayTimes>
     <FixLongDisplayTimes>Hosszú megjelenítési idők javítása</FixLongDisplayTimes>
@@ -2342,8 +2342,6 @@ szerkesztheti ugyanazt a feliratfájlt (együttműködés)</Information>
     <CpsLineLengthStyleCalcNoSpace>Összes számolása a szóközt kivéve</CpsLineLengthStyleCalcNoSpace>
     <CpsLineLengthStyleCalcCjk>CJK 1, Latin 0.5</CpsLineLengthStyleCalcCjk>
     <CpsLineLengthStyleCalcCjkNoSpace>CJK 1, Latin 0.5, szóköz 0</CpsLineLengthStyleCalcCjkNoSpace>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacritics>Az arab diakritikus jelek figyelmen kívül hagyása</CpsLineLengthStyleCalcIgnoreArabicDiacritics>
-    <CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>Az arab diakritikus jelek/közök figyelmen kívül hagyása</CpsLineLengthStyleCalcIgnoreArabicDiacriticsNoSpace>
     <CpsLineLengthStyleCalcNoSpaceOrPunctuation>Nincs szóköz vagy írásjel ()[]-:;,.!?</CpsLineLengthStyleCalcNoSpaceOrPunctuation>
     <CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>Nincs szóköz vagy írásjel, csak cps</CpsLineLengthStyleCalcNoSpaceOrPunctuationCpsOnly>
     <MusicSymbol>Zene szimbólum</MusicSymbol>
@@ -2796,14 +2794,14 @@ Folytatja?</RestoreDefaultSettingsMsg>
     <NumberOfAlignmentTags>Igazítási címkék száma: {0:#,##0}</NumberOfAlignmentTags>
     <LineLengthMinimum>Felirat hossza - minimum: {0}</LineLengthMinimum>
     <LineLengthMaximum>Felirat hossza - maximum: {0}</LineLengthMaximum>
-    <LineLengthAverage>Felirat hossza - átlagos: {0}</LineLengthAverage>
+    <LineLengthAverage>Felirat hossza - átlagos: {0:#.###}</LineLengthAverage>
     <LinesPerSubtitleAverage>Felirat, sorok száma - átlagos: {0:0.0}</LinesPerSubtitleAverage>
     <SingleLineLengthMinimum>Egyetlen sor hossza - minimum: {0}</SingleLineLengthMinimum>
     <SingleLineLengthMaximum>Egyetlen sor hossza - maximum: {0}</SingleLineLengthMaximum>
-    <SingleLineLengthAverage>Egyetlen sor hossza - átlag: {0}</SingleLineLengthAverage>
+    <SingleLineLengthAverage>Egyetlen sor hossza - átlag: {0:#.###}</SingleLineLengthAverage>
     <SingleLineWidthMinimum>Egy sor szélessége - legalább: {0} képpont</SingleLineWidthMinimum>
     <SingleLineWidthMaximum>Egy sor szélessége - legfeljebb: {0} képpont</SingleLineWidthMaximum>
-    <SingleLineWidthAverage>Egy sor szélessége - átlagosan: {0} képpont</SingleLineWidthAverage>
+    <SingleLineWidthAverage>Egy sor szélessége - átlagosan: {0:#.###} képpont</SingleLineWidthAverage>
     <DurationMinimum>Időtartam - minimum: {0:0.000} másodperc</DurationMinimum>
     <DurationMaximum>Időtartam - maximum: {0:0.000} másodperc</DurationMaximum>
     <DurationAverage>Időtartam - átlagos: {0:0.000} másodperc</DurationAverage>
@@ -3147,7 +3145,7 @@ Megtartja a módosításokat?</KeepChangesMessage>
     <RemoveShotChangesFromSelection>Felvételváltozás eltávolítása a kiválasztásból</RemoveShotChangesFromSelection>
     <GuessTimeCodes>Időkódok becslése...</GuessTimeCodes>
     <SeekSilence>Csend keresése...</SeekSilence>
-    <InsertSubtitleHere>Szúrja be a feliratot ide...</InsertSubtitleHere>
+    <InsertSubtitleHere>Szúrja be a feliratot ide</InsertSubtitleHere>
     <CharsSecX>CPS: {0:0.00}</CharsSecX>
     <WordsMinX>WPM: {0:0.00}</WordsMinX>
   </Waveform>
