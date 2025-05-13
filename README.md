@@ -5,7 +5,7 @@ A fully automatic media processing tool that processes media files based on user
 
 ## Features
 - Multithreaded file processing - uses up to 85% of available CPU and RAM by default
-- Remove any audio or subtitle tracks from video that does not match user preferences (language, codec)
+- Remove any audio or subtitle tracks from video that does not match user preferences
 - Automatically download missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal) (default enabled)
 - Generate audio tracks in various codec and channel configurations (DTS, AAC, AC3, 5.1, 2.0 etc.)
 - Convert any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and a custom Tesseract OCR library ([alex-p](https://launchpad.net/~alex-p/+archive/ubuntu/tesseract-ocr5))
