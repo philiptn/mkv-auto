@@ -286,6 +286,8 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
     keep_original_file_structure = check_config(config, 'general', 'keep_original_file_structure')
 
+    sep = ' ' if normalize_filenames.lower() in ('full-jf', 'simple-jf') else ' - '
+
     file_info = reformat_filename(original_restored_filename, True, False, False)
     media_type = file_info["media_type"]
     media_name = file_info["media_name"]
@@ -293,15 +295,14 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     tv_extra_match = re.search(r"S000E\d+\s*-\s*(?P<original>.+)$", base, re.IGNORECASE)
     if tv_extra_match:
         restored_filename = tv_extra_match.group("original") + ext
-        if normalize_filenames.lower() in ('full', 'simple'):
-            if normalize_filenames.lower() == 'full':
-                # Using S01E01 as a placeholder to get the full show name with year
-                full_info = get_tv_episode_metadata(logger, debug, f"{media_name} - S01E01")
-                if full_info:
-                    new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
-                                       f"S01E01.mkv")
-                    full_info_found = True
-                    is_extra = True
+        if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
+            # Using S01E01 as a placeholder to get the full show name with year
+            full_info = get_tv_episode_metadata(logger, debug, f"{media_name}{sep}S01E01")
+            if full_info:
+                new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}){sep}"
+                                   f"S01E01.mkv")
+                full_info_found = True
+                is_extra = True
     else:
         if media_type in ['movie', 'movie_hdr']:
             pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
@@ -309,9 +310,9 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
             if movie_extra_match:
                 restored_filename = movie_extra_match.group("extra") + ext
             else:
-                if normalize_filenames.lower() in ('full', 'simple'):
+                if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
                     if media_type == 'movie_hdr':
-                        restored_filename = f"{media_name} - HDR{ext}"
+                        restored_filename = f"{media_name}{sep}HDR{ext}"
                     else:
                         restored_filename = f"{media_name}{ext}"
                 else:
@@ -321,29 +322,29 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
             if season and episodes:
                 episode_list = compact_episode_list(episodes, True)
                 formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
-                if normalize_filenames.lower() in ('full', 'simple'):
-                    if normalize_filenames.lower() == 'full':
-                        full_info = get_tv_episode_metadata(logger, debug, f"{media_name} - S{formatted_season}E{episode_list}")
+                if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
+                    if normalize_filenames.lower() in ('full', 'full-jf'):
+                        full_info = get_tv_episode_metadata(logger, debug, f"{media_name}{sep}S{formatted_season}E{episode_list}")
                     if media_type == 'tv_show_hdr':
                         if full_info:
-                            restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}) - "
-                                                 f"S{formatted_season}E{episode_list} - {full_info['episode_title']} - HDR{ext}")
-                            new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
-                                               f"S{formatted_season}E{episode_list} - {full_info['episode_title']} - HDR{ext}")
+                            restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}){sep}"
+                                                 f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{sep}HDR{ext}")
+                            new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}){sep}"
+                                               f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{sep}HDR{ext}")
                             media_name = full_info['show_name']
                             full_info_found = True
                         else:
-                            restored_filename = f"{media_name} - S{formatted_season}E{episode_list} - HDR{ext}"
+                            restored_filename = f"{media_name}{sep}S{formatted_season}E{episode_list}{sep}HDR{ext}"
                     else:
                         if full_info:
-                            restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}) - "
-                                                 f"S{formatted_season}E{episode_list} - {full_info['episode_title']}{ext}")
-                            new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}) - "
-                                               f"S{formatted_season}E{episode_list} - {full_info['episode_title']}{ext}")
+                            restored_filename = (f"{full_info['show_name']} ({full_info['show_year']}){sep}"
+                                                 f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{ext}")
+                            new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}){sep}"
+                                               f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{ext}")
                             media_name = full_info['show_name']
                             full_info_found = True
                         else:
-                            restored_filename = f"{media_name} - S{formatted_season}E{episode_list}{ext}"
+                            restored_filename = f"{media_name}{sep}S{formatted_season}E{episode_list}{ext}"
                 else:
                     restored_filename = original_restored_filename
             else:

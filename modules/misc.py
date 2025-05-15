@@ -709,6 +709,9 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
     tv_hdr_folder = check_config(config, 'general', 'tv_shows_hdr_folder')
     others_folder = check_config(config, 'general', 'others_folder')
     make_season_folders = check_config(config, 'general', 'make_season_folders')
+    normalize_filenames = check_config(config, 'general', 'normalize_filenames')
+
+    sep = ' ' if normalize_filenames.lower() in ('full-jf', 'simple-jf') else ' - '
 
     # Regular expression to match TV shows with season and episode, with or without year
     tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})e(\d{2,3})", re.IGNORECASE)
@@ -752,7 +755,7 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
         base_name = f"{showname} ({year})" if year else showname
         media_name = f"{base_name} ({edition_name})" if edition_name else base_name
 
-        full_name = f"{showname} - S{season:02d}E{episode:02d}"
+        full_name = f"{showname}{sep}S{season:02d}E{episode:02d}"
 
         if names_only:
             return {
@@ -788,7 +791,7 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
         base_name = f"{showname} ({year})" if year else showname
         media_name = f"{base_name} ({edition_name})" if edition_name else base_name
 
-        full_name = f"{showname} - S{season_start:02d}-S{season_end:02d}"
+        full_name = f"{showname}{sep}S{season_start:02d}-S{season_end:02d}"
 
         if names_only:
             return {
@@ -862,12 +865,12 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
 
 def get_tv_episode_metadata(logger, debug, input_str):
     if debug:
-        custom_print(logger, f"Input string: '{input_str}'")
+        custom_print(logger, f"Input string: {YELLOW}'{input_str}'{RESET}")
 
     # Supports: S01E01, S01E01-E03, S01E01-03
-    match = re.match(r'^(.*?)\s*-\s*S(\d{2})E(\d{2})(?:-E?(\d{2}))?$', input_str, re.IGNORECASE)
+    match = re.match(r'^(.*?)\s*(?:-\s*)?S(\d{2})E(\d{2})(?:-E?(\d{2}))?$', input_str, re.IGNORECASE)
     if not match:
-        raise ValueError(f"Input '{input_str}' must be in the format: 'Show Name - S01E01' or 'Show Name - S01E01-E03'")
+        raise ValueError()
 
     raw_show_name, s, e_start, e_end = match.groups()
     season = int(s)
@@ -883,7 +886,7 @@ def get_tv_episode_metadata(logger, debug, input_str):
         year_found = ymatch.group(1)
 
     if debug:
-        debug_year_str = f"Year match: {bool(ymatch)} ({year_found})" if bool(ymatch) else f"Year match: {bool(ymatch)}"
+        debug_year_str = f"Year match: {YELLOW}{bool(ymatch)} ({year_found}){RESET}" if bool(ymatch) else f"Year match: {YELLOW}{bool(ymatch)}{RESET}"
         custom_print(logger, debug_year_str)
 
     recognized_code = None
@@ -899,12 +902,12 @@ def get_tv_episode_metadata(logger, debug, input_str):
             search_show_name = parts[0]
 
     if debug:
-        custom_print(logger, f"Will search for show: '{search_show_name}'")
+        custom_print(logger, f"Will search for show: {YELLOW}'{search_show_name}'{RESET}")
 
     r = requests.get(f'https://api.tvmaze.com/search/shows?q={search_show_name}')
     if debug:
         custom_print(logger, f"Sending request:")
-        custom_print(logger, f"{r}")
+        custom_print(logger, f"{YELLOW}{r}{RESET}")
     if not r.ok:
         return None
     results = r.json()
@@ -945,8 +948,8 @@ def get_tv_episode_metadata(logger, debug, input_str):
         er = requests.get(
             f"https://api.tvmaze.com/shows/{show_data['id']}/episodebynumber?season={season}&number={episode}")
         if debug:
-            custom_print(logger, f"Getting show data from id {show_data['id']} - S{season}E{episode}:")
-            custom_print(logger, f"{er}")
+            custom_print(logger, f"Getting show data from id {YELLOW}{show_data['id']} - S{season}E{episode}:{RESET}")
+            custom_print(logger, f"{YELLOW}{er}{RESET}")
         if not er.ok:
             continue
         ep_data = er.json()
@@ -954,7 +957,7 @@ def get_tv_episode_metadata(logger, debug, input_str):
             continue
         if debug:
             custom_print(logger, f"Response:")
-            custom_print(logger, f"{ep_data}")
+            custom_print(logger, f"{YELLOW}{ep_data}{RESET}")
 
         episode_titles.append(ep_data.get('name'))
         if first_ep_data is None:
