@@ -1365,6 +1365,7 @@ def normalize_title(title):
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
     download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
     main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
+    pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
     pattern_season_episode = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
     match = pattern_season_episode.search(input_file)
@@ -1384,7 +1385,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 
     input_file_with_path = os.path.join(dirpath, input_file)
     file_info, _ = get_mkv_info(False, input_file_with_path, False)
-    main_audio_track_lang = get_main_audio_track_language(file_info)
+    main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
     all_langs = []
     all_sub_files = []
     updated_missing_subs_langs = []
@@ -1488,6 +1489,19 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 updated_missing_subs_langs.append(lang)
     if not updated_missing_subs_langs:
         updated_missing_subs_langs.append('none')
+
+    all_new_sub_files = []
+    if pref_subs_langs != ['']:
+        for pref_lang in pref_subs_langs:
+            for index, lang in enumerate(all_langs):
+                if lang == pref_lang:
+                    all_new_sub_files.append(all_sub_files[index])
+    if main_audio_language_subs_only:
+        all_new_sub_files = []
+        for index, lang in enumerate(all_langs):
+            if lang == main_audio_track_lang:
+                all_new_sub_files.append(all_sub_files[index])
+    all_sub_files = all_new_sub_files
 
     if download_missing_subs.lower() == 'always':
         if pref_subs_langs:

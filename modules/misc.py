@@ -477,6 +477,8 @@ def get_main_audio_track_language_3_letter(file_info):
                     # If the language is undetermined, assume English
                     if value == 'und':
                         value = 'eng'
+                    if value == 'nob' or value == 'nno':
+                        value = 'nor'
                     return value
 
 
