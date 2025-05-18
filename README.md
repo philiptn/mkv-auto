@@ -72,7 +72,8 @@ To run MKV-Auto natively in Python, you need to be running Ubuntu 22.04 LTS.
 2. Run the script from the repository folder using `./mkv-auto.sh`. The scripts support the following options:  
     `--build` (build and run MKV-Auto using the local code, useful for debugging)  
     `--no-cache` (clear build cache when building the local Docker image)  
-    `--copy` (copy files from input folder, not move them)
+    `--copy` (copy files from input folder, not move them)  
+    `--tag` (run with a specific tag `philiptn/mkv-auto:<tag>`)
 
 ### Process files automatically (Docker service - Linux)
 

@@ -387,9 +387,9 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         elif chosen_layout == '7.1':
             ffmpeg_final_opts += ['-af', 'channelmap=0|1|2|3|4|5|6|7:7.1']
         elif chosen_layout == 'Stereo':
-            ffmpeg_final_opts += ['-af', 'channelmap=0|1:stereo']
+            ffmpeg_final_opts += ['-ac', '2']  # Use automatic downmixing
         elif chosen_layout == 'Mono':
-            ffmpeg_final_opts += ['-af', 'channelmap=0:mono']
+            ffmpeg_final_opts += ['-ac', '1']  # Use automatic downmixing
 
     final_cmd = ["ffmpeg", "-i", temp_wav] + ffmpeg_final_opts + custom_ffmpeg_options + [final_out]
     if debug:

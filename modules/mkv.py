@@ -1365,6 +1365,7 @@ def normalize_title(title):
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
     download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
     main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
+    pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
     pattern_season_episode = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
     match = pattern_season_episode.search(input_file)
@@ -1384,7 +1385,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 
     input_file_with_path = os.path.join(dirpath, input_file)
     file_info, _ = get_mkv_info(False, input_file_with_path, False)
-    main_audio_track_lang = get_main_audio_track_language(file_info)
+    main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
     all_langs = []
     all_sub_files = []
     updated_missing_subs_langs = []
@@ -1488,6 +1489,19 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
                 updated_missing_subs_langs.append(lang)
     if not updated_missing_subs_langs:
         updated_missing_subs_langs.append('none')
+
+    all_new_sub_files = []
+    if pref_subs_langs != ['']:
+        for pref_lang in pref_subs_langs:
+            for index, lang in enumerate(all_langs):
+                if lang == pref_lang:
+                    all_new_sub_files.append(all_sub_files[index])
+    if main_audio_language_subs_only:
+        all_new_sub_files = []
+        for index, lang in enumerate(all_langs):
+            if lang == main_audio_track_lang:
+                all_new_sub_files.append(all_sub_files[index])
+    all_sub_files = all_new_sub_files
 
     if download_missing_subs.lower() == 'always':
         if pref_subs_langs:
@@ -1650,14 +1664,18 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
 
     base, extension = os.path.splitext(filename)
 
-    def get_codec(filepath):
+    def get_codec_and_channels(filepath):
         cmd = [
-            "ffprobe", "-v", "quiet", "-show_entries",
-            "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1",
+            "ffprobe", "-v", "quiet", "-select_streams", "a:0",
+            "-show_entries", "stream=codec_name,channels",
+            "-of", "default=noprint_wrappers=1:nokey=1",
             filepath
         ]
         res = subprocess.run(cmd, capture_output=True, text=True)
-        return res.stdout.strip().lower()
+        lines = res.stdout.strip().splitlines()
+        codec = unify_codec(lines[0].lower() if lines else "unknown")
+        channels = int(lines[1]) if len(lines) > 1 else 0
+        return codec, channels
 
     def unify_codec(acodec):
         if acodec.startswith("dts"):
@@ -1679,8 +1697,7 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             final_audio_lang = lang[:-1]
 
         track_file = f"{base}.{track_id}.{final_audio_lang}.{ext}"
-        codec = get_codec(track_file)
-        codec = unify_codec(codec)
+        codec, channels = get_codec_and_channels(track_file)
 
         is_eos = "even-out-sound" in name.lower()
         is_orig = "original" in name.lower()
@@ -1691,25 +1708,23 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
             'lang': lang,
             'track_id': track_id,
             'codec': codec,
+            'channels': channels,
             'is_eos': is_eos,
             'is_orig': is_orig
         })
 
-    # Keep track of which (codec, lang) combos have an ORIG track
+    # Track (codec, lang, channels) combos with an ORIG
     has_orig = set()
     for t in all_tracks:
         if t['is_orig']:
-            has_orig.add((t['codec'], t['lang']))
+            has_orig.add((t['codec'], t['lang'], t['channels']))
 
     filtered_tracks = []
     for t in all_tracks:
-        key = (t['codec'], t['lang'])
+        key = (t['codec'], t['lang'], t['channels'])
         if t['is_eos'] or t['is_orig']:
-            # Always keep EOS and ORIG tracks
             filtered_tracks.append(t)
         else:
-            # Normal track
-            # Only exclude if there's an ORIG track of the same codec/lang
             if key not in has_orig:
                 filtered_tracks.append(t)
 
