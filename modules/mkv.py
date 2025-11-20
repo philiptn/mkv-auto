@@ -645,7 +645,7 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {
-            executor.submit(extract_subs_in_mkv_process_worker, debug, input_file, dirpath, internal_threads): index for
+            executor.submit(extract_subs_in_mkv_process_worker, logger, debug, input_file, dirpath, internal_threads): index for
             index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
@@ -673,7 +673,7 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
     return all_subtitle_files
 
 
-def extract_subs_in_mkv_process_worker(debug, input_file, dirpath, internal_threads):
+def extract_subs_in_mkv_process_worker(logger, debug, input_file, dirpath, internal_threads):
     input_file_with_path = os.path.join(dirpath, input_file)
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
@@ -684,7 +684,7 @@ def extract_subs_in_mkv_process_worker(debug, input_file, dirpath, internal_thre
      sub_filetypes, subs_track_languages,
      subs_track_names, e, subs_track_forced, f) = get_wanted_subtitle_tracks(debug, file_info, pref_subs_langs)
 
-    subtitle_files = extract_subs_in_mkv(internal_threads, debug, input_file_with_path, wanted_subs_tracks,
+    subtitle_files = extract_subs_in_mkv(logger, internal_threads, debug, input_file_with_path, wanted_subs_tracks,
                                          sub_filetypes, subs_track_languages, subs_track_forced, subs_track_names)
 
     return subtitle_files

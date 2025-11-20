@@ -577,7 +577,7 @@ def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
     return updated_subs
 
 
-def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_filetypes, subs_languages, subs_forced,
+def extract_subs_in_mkv(logger, max_threads, debug, filename, track_numbers, output_filetypes, subs_languages, subs_forced,
                         subs_names):
     if debug:
         print('\n')
@@ -586,7 +586,7 @@ def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_file
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Create a dictionary to store futures with their respective indices
         future_to_index = {
-            executor.submit(extract_subtitle, debug, filename, track, filetype, language, forced, name): i
+            executor.submit(extract_subtitle, logger, debug, filename, track, filetype, language, forced, name): i
             for i, (track, filetype, language, forced, name) in
             enumerate(zip(track_numbers, output_filetypes, subs_languages, subs_forced, subs_names))
         }
@@ -599,18 +599,19 @@ def extract_subs_in_mkv(max_threads, debug, filename, track_numbers, output_file
     return results
 
 
-def extract_subtitle(debug, filename, track, output_filetype, language, forced, name):
-    if output_filetype in ('sup', 'sub', 'ass'):
-        if not name:
-            cleartext_name = 'Original'
-        else:
-            cleartext_name = name
-    else:
-        cleartext_name = name
+def extract_subtitle(logger, debug, filename, track, output_filetype, language, forced, name):
+    cleartext_name = name if name else 'Original'
     base, _, _ = filename.rpartition('.')
-    b64_name = base64.b64encode(cleartext_name.encode("utf-8")).decode("utf-8")
+    max_len = 255 - len('_tmp')
 
-    subtitle_filename = f"{base}_{forced}_'{b64_name}'_{track}_{language}.{output_filetype}"
+    while True:
+        b64 = base64.b64encode(cleartext_name.encode("utf-8")).decode("utf-8")
+        subtitle_filename = f"{base}_{forced}_'{b64}'_{track}_{language}.{output_filetype}"
+        if len(subtitle_filename) <= max_len:
+            break
+        cut = max(cleartext_name.rfind(" "), cleartext_name.rfind("."))
+        cleartext_name = cleartext_name[:cut] if cut > 0 else cleartext_name[:-1]
+
     command = ["mkvextract", filename, "tracks", f"{track}:{subtitle_filename}"]
 
     if debug:
@@ -618,14 +619,11 @@ def extract_subtitle(debug, filename, track, output_filetype, language, forced, 
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
-        print('')
-        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
-        print(f"{RESET}")
+        log_debug(logger, f"{GREY}[UTC {get_timestamp()}]{RESET} {RED}[ERROR]{RESET} {result.stdout}")
     result.check_returncode()
 
-    if output_filetype == 'srt':
-        if not is_valid_srt(subtitle_filename):
-            return
+    if output_filetype == 'srt' and not is_valid_srt(subtitle_filename):
+        return
 
     return subtitle_filename
 
