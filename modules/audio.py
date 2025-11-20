@@ -682,8 +682,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
             if track_language in pref_audio_langs:
                 add_track = False
-                if track_name.endswith('(Original)') or track_name in ("Original", "Original Stereo",
-                                                                       "Original 5.1", "Original 7.1"):
+                if track_name.endswith('(Original)') or track_name in ("Original", "Original (Stereo)",
+                                                                       "Original (5.1)", "Original (7.1)"):
                     original_audio_track_ids.append(track["id"])
                     original_audio_track_names.append(track_name)
                     original_audio_track_languages.append(track_language)
@@ -719,8 +719,8 @@ def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentar
 
             elif track_language not in pref_audio_langs and not audio_track_ids:
                 add_track = False
-                if track_name.endswith('(Original)') or track_name in ("Original", "Original Stereo",
-                                                                       "Original 5.1", "Original 7.1"):
+                if track_name.endswith('(Original)') or track_name in ("Original", "Original (Stereo)",
+                                                                       "Original (5.1)", "Original (7.1)"):
                     unmatched_original_audio_track_ids.append(track["id"])
                     unmatched_original_audio_track_names.append(track_name)
                     unmatched_original_audio_track_languages.append(track_language)

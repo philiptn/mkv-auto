@@ -1106,7 +1106,7 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     mkv_base, _, mkv_extension = input_file.rpartition('.')
     mkv_base_simple, _, a = filename.rpartition('.')
     extra_pattern = r"S000E\d{3}"
-    tags_pattern = r"(" + "|".join(re.escape(tag) for tag in excluded_tags) + r")$"
+    tags_pattern = r"(" + "|".join(re.escape(tag) for tag in extras_definitions) + r")$"
     is_extra = bool(re.search(extra_pattern, filename) or re.search(tags_pattern, mkv_base))
 
     file_info = reformat_filename(filename, True, False, False)

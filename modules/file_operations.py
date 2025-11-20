@@ -299,6 +299,8 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     full_info = {}
     full_info_found = False
     is_extra = False
+    extra_is_hdr = False
+    extra_is_4k = False
 
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
     keep_original_file_structure = check_config(config, 'general', 'keep_original_file_structure')
@@ -309,21 +311,50 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     media_type = file_info["media_type"]
     media_name = file_info["media_name"]
 
-    tv_extra_match = re.search(r"S000E\d+\s*-\s*(?P<original>.+)$", base, re.IGNORECASE)
+    extras_pattern = "|".join(
+        re.escape(e.lstrip("-")) for e in extras_definitions
+    )
+
+    tv_extra_match = re.search(
+        rf"S000E\d+\s*[-\s_]*"
+        rf"(?P<original>.*\b(?:{extras_pattern})\b.*)$",
+        base,
+        re.IGNORECASE,
+    )
+
     if tv_extra_match:
+        is_extra = True
         restored_filename = tv_extra_match.group("original") + ext
+        if restored_filename.startswith('HDR - '):
+            extra_is_hdr = True
+            restored_filename = restored_filename.strip('HDR - ')
+        elif restored_filename.endswith('4K - '):
+            extra_is_4k = True
+            restored_filename = restored_filename.strip('4K - ')
         if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
-            # Using S01E01 as a placeholder to get the full show name with year
             if normalize_filenames.lower() in ('full', 'full-jf'):
                 full_info = get_tv_episode_metadata(logger, debug, f"{media_name}{sep}S01E01")
                 if full_info:
-                    new_folders_str = (f"{full_info['show_name']} ({full_info['show_year']}){sep}"
-                                       f"S01E01.mkv")
+                    additional_info = ''
+                    if extra_is_hdr:
+                        additional_info = f'{sep}HDR'
+                    if extra_is_4k:
+                        additional_info = f'{sep}4K'
+                    new_folders_str = (
+                        f"{full_info['show_name']} ({full_info['show_year']}){sep}"
+                        f"S01E01{additional_info}.mkv"
+                    )
                     full_info_found = True
-                    is_extra = True
     else:
         if media_type in ['movie', 'movie_hdr', 'movie_4k']:
-            pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
+            pattern = re.compile(
+                r"^" + re.escape(media_name) + r"(?P<extra>"
+                                               r"(?:[-\s_])(?:"
+                + extras_pattern +
+                r")(?:.+)?"
+                r")$",
+                re.IGNORECASE,
+            )
             movie_extra_match = pattern.match(base)
             if movie_extra_match:
                 restored_filename = movie_extra_match.group("extra") + ext
@@ -506,7 +537,7 @@ def replace_tags_in_file(file_path, replacement):
             tag = match.group(0)  # Capture the entire tag (e.g., "-trailer", "-sample")
 
             # Check if the tag is in the list of excluded tags
-            if any(excluded_tag in tag for excluded_tag in excluded_tags):
+            if any(excluded_tag in tag for excluded_tag in extras_definitions):
                 return filename  # Return the original filename if tag is excluded
 
             base = tag_regex.sub(replacement + (match.group(2) or ""), base)

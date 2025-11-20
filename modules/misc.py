@@ -98,7 +98,7 @@ SPINNER = None
 
 # List of tags to exclude from replacement
 # https://support.plex.tv/articles/local-files-for-trailers-and-extras/
-excluded_tags = [
+extras_definitions = [
     "-behindthescenes", "-deleted", "-featurette",
     "interview", "-scene", "-short", "-trailer", "-other"
 ]
@@ -125,7 +125,7 @@ def process_extras(input_folder):
                 continue
 
             # Check if the filename ends with any of the excluded tags
-            if any(base.lower().endswith(tag) for tag in excluded_tags):
+            if any(base.lower().endswith(tag) for tag in extras_definitions):
                 extras_files.append(f)
             elif ext.lower() in ('.jpg', '.png') and any(base.lower() == name for name in poster_base_names):
                 extras_files.append(f)
@@ -165,7 +165,7 @@ def process_extras(input_folder):
 
             # Extract the extra tag part from the filename to put it into the new name
             matching_tag = ''
-            for tag in excluded_tags:
+            for tag in extras_definitions:
                 if base.lower().endswith(tag):
                     matching_tag = tag
                     break
@@ -185,6 +185,10 @@ def process_extras(input_folder):
                 # TV show extras:
                 episode_num = f"{extras_counter:03d}"
                 new_filename = f"{media_name} - S000E{episode_num} - {extras_title}{matching_tag}{ext}"
+                if media_type == 'tv_show_hdr':
+                    new_filename = f"{media_name} - S000E{episode_num} HDR - {extras_title}{matching_tag}{ext}"
+                elif media_type == 'tv_show_4k':
+                    new_filename = f"{media_name} - S000E{episode_num} 4K - {extras_title}{matching_tag}{ext}"
                 extras_counter += 1
             else:
                 # Movie extras:
@@ -1213,7 +1217,7 @@ def return_media_info_string(filenames, type):
         base, ext = os.path.splitext(filename)
 
         # Determine if this is an extra by checking trailing excluded tags.
-        is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
+        is_extra = any(base.lower().endswith(tag) for tag in extras_definitions)
 
         if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_4k']:
             season, episodes = extract_season_episode(filename)
@@ -1323,7 +1327,7 @@ def print_media_info(logger, filenames):
         base, ext = os.path.splitext(filename)
 
         # Determine if this is an extra by checking trailing excluded tags.
-        is_extra = any(base.lower().endswith(tag) for tag in excluded_tags)
+        is_extra = any(base.lower().endswith(tag) for tag in extras_definitions)
 
         if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_4k']:
             season, episodes = extract_season_episode(filename)
