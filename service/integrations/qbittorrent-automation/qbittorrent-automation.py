@@ -178,21 +178,17 @@ def copy_torrent_content(torrent, mappings):
             log.warning(f"⚠️ Destination already exists, skipping: {final_destination}")
             return
 
-        # Use dot-prefixed temp folder in the same destination directory
-        temp_name = f".{torrent['name']}.partial"
-        temp_destination = os.path.join(destination_folder, temp_name)
-
         if os.path.isdir(source):
-            log.info(f"📂 Copying folder: {source} -> {temp_destination}")
-            shutil.copytree(source, temp_destination)
-            os.rename(temp_destination, final_destination)
+            log.info(f"📂 Copying folder: {source} -> {final_destination}")
+            shutil.copytree(source, final_destination)
             return 0
+
         elif os.path.isfile(source):
-            log.info(f"📄 Copying file: {source} -> {temp_destination}")
-            os.makedirs(os.path.dirname(temp_destination), exist_ok=True)
-            shutil.copy2(source, temp_destination)
-            os.rename(temp_destination, final_destination)
+            log.info(f"📄 Copying file: {source} -> {final_destination}")
+            os.makedirs(os.path.dirname(final_destination), exist_ok=True)
+            shutil.copy2(source, final_destination)
             return 0
+
         else:
             log.error(f"❌ Source does not exist: {source}")
             return -1
