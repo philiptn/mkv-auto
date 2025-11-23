@@ -347,14 +347,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                     full_info_found = True
     else:
         if media_type in ['movie', 'movie_hdr', 'movie_4k']:
-            pattern = re.compile(
-                r"^" + re.escape(media_name) + r"(?P<extra>"
-                                               r"(?:[-\s_])(?:"
-                + extras_pattern +
-                r")(?:.+)?"
-                r")$",
-                re.IGNORECASE,
-            )
+            pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
             movie_extra_match = pattern.match(base)
             if movie_extra_match:
                 restored_filename = movie_extra_match.group("extra") + ext
