@@ -49,7 +49,7 @@ $SUDO apt-get install mono-complete libhunspell-dev libmpv-dev tesseract-ocr \
 current_dir=$(pwd)
 mkdir -p ffmpeg_static_install
 cd ffmpeg_static_install
-wget -O ffmpeg.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2025-06-27-14-04/ffmpeg-n7.1.1-54-g6400860b9d-linux64-gpl-7.1.tar.xz
+wget -O ffmpeg.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2025-11-30-12-53/ffmpeg-n7.1.3-7-gf65fc0b137-linux64-gpl-7.1.tar.xz
 tar -xf ffmpeg.tar.xz
 cd ffmpeg-*/bin
 $SUDO cp ffmpeg ffprobe /usr/local/bin

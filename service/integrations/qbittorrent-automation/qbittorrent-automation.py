@@ -133,6 +133,11 @@ def get_completed_torrents():
 
         # Deduplicate torrents (sometimes torrents can have multiple tags)
         unique_torrents = {torrent['hash']: torrent for torrent in all_torrents}
+
+        if unique_torrents:
+            log.info("⏳ Completed torrents found. Waiting 30 seconds to let files finish writing to disk...")
+            time.sleep(30)
+
         return list(unique_torrents.values())
 
     except Exception as e:

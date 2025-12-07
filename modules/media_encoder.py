@@ -146,8 +146,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
             'pix_fmt': None,
         },
         'libx265': {
-            # rc-lookahead=32, aq-mode=3, bframes=4
-            'options': ['-x265-params', 'rc-lookahead=32:aq-mode=3:bframes=4:no-sao=1'],
+            'options': ['-x265-params', 'rc-lookahead=32:aq-mode=3:bframes=4:no-sao=1:strong-intra-smoothing=0:deblock=-2:-2'],
             'pix_fmt': None,
         },
         'libvpx-vp9': {
@@ -188,7 +187,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
         elif codec == 'libx265':
             for i, opt in enumerate(encoder_options[codec]['options']):
                 if opt == '-x265-params':
-                    encoder_options[codec]['options'][i + 1] += ':psy-rd=3:psy-rdoq=3'
+                    encoder_options[codec]['options'][i + 1] += ':psy-rd=2:psy-rdoq=1.5'
                     break
 
     # Remove 'encoding settings' metadata
