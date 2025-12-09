@@ -12,6 +12,8 @@ from modules.misc import *
 from modules.logger import *
 from modules.media_encoder import *
 
+mkv_auto_version = '3.1.1'
+
 
 def mkv_auto(args):
     input_dir = check_config(config, 'general', 'input_folder')
@@ -125,6 +127,8 @@ def mkv_auto(args):
             custom_print(logger,
                          f"{GREY}[INFO]{RESET} {format_size(done_info['required_space_gib'], True)} needed (350% of {format_size(done_info['actual_file_sizes'], True)})")
             custom_print(logger, f"{GREY}[INFO]{RESET} Only {format_size(done_info['available_space_gib'], True)} was available in TEMP.")
+
+        custom_print(logger, f"{GREY}[INFO]{RESET} MKV-Auto v{mkv_auto_version}")
 
         extract_archives(logger, temp_dir)
         flatten_season_folders(temp_dir)
