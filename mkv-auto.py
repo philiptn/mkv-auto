@@ -128,8 +128,6 @@ def mkv_auto(args):
                          f"{GREY}[INFO]{RESET} {format_size(done_info['required_space_gib'], True)} needed (350% of {format_size(done_info['actual_file_sizes'], True)})")
             custom_print(logger, f"{GREY}[INFO]{RESET} Only {format_size(done_info['available_space_gib'], True)} was available in TEMP.")
 
-        custom_print(logger, f"{GREY}[INFO]{RESET} MKV-Auto v{mkv_auto_version}")
-
         extract_archives(logger, temp_dir)
         flatten_season_folders(temp_dir)
         process_extras(temp_dir)
@@ -203,6 +201,7 @@ def mkv_auto(args):
             ram_info = get_ram_usage()
             max_workers = get_worker_thread_count()
 
+            custom_print(logger, f"{GREY}[INFO]{RESET} MKV-Auto v{mkv_auto_version}")
             custom_print(logger, f"{GREY}[INFO]{RESET} "
                                  f"CPU {BLUE}{get_block_gradient(psutil.cpu_percent(interval=0.5))}{RESET} {psutil.cpu_percent(interval=0.5):.0f}% "
                                  f"RAM {BLUE}{get_block_gradient(ram_info['percent_ram'])}{RESET} {ram_info['percent_ram']}%")
