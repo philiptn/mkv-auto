@@ -1,0 +1,137 @@
+name: Build image on Release
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      label:
+        description: 'Image tag (e.g. v1.2.3)'
+        required: true
+        type: string
+      latest:
+        description: 'Also tag as :latest?'
+        type: boolean
+        default: true
+        required: false
+      push_ghcr:
+        description: 'Push to GHCR?'
+        type: boolean
+        default: true
+        required: false
+      push_dockerhub:
+        description: 'Push to Docker Hub?'
+        type: boolean
+        default: true
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: ${{ github.event_name == 'release' || fromJSON(inputs.push_dockerhub || 'false') }}
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set image and tag
+        id: vars
+        shell: bash
+        run: |
+          GHCR_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          DOCKERHUB_IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${REPO_NAME,,}"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.label }}"
+            LATEST="${{ inputs.latest }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+            LATEST=true
+          fi
+
+          VERSION="${TAG#v}"
+
+          {
+            echo "GHCR_IMAGE=${GHCR_IMAGE}"
+            echo "DOCKERHUB_IMAGE=${DOCKERHUB_IMAGE}"
+            echo "VERSION=${VERSION}"
+            echo "LATEST=${LATEST}"
+
+            echo "TAGS_GHCR<<EOF"
+            echo "${GHCR_IMAGE}:${VERSION}"
+            [[ "${LATEST}" == "true" ]] && echo "${GHCR_IMAGE}:latest"
+            echo "EOF"
+
+            echo "TAGS_DH<<EOF"
+            echo "${DOCKERHUB_IMAGE}:${VERSION}"
+            [[ "${LATEST}" == "true" ]] && echo "${DOCKERHUB_IMAGE}:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Docker labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.GHCR_IMAGE }}
+          labels: |
+            org.opencontainers.image.title=${{ github.event.repository.name }}
+            org.opencontainers.image.description=${{ github.event.repository.description }}
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.version=${{ steps.vars.outputs.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build & push to GHCR (amd64)
+        if: ${{ github.event_name == 'release' || fromJSON(inputs.push_ghcr || 'false') }}
+        id: docker_build_ghcr
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          pull: true
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          cache-from: type=registry,ref=${{ steps.vars.outputs.GHCR_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ steps.vars.outputs.GHCR_IMAGE }}:buildcache,mode=max
+          tags: ${{ steps.vars.outputs.TAGS_GHCR }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build & push to Docker Hub (amd64)
+        if: ${{ github.event_name == 'release' || fromJSON(inputs.push_dockerhub || 'false') }}
+        id: docker_build_dh
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          pull: true
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          cache-from: type=registry,ref=${{ steps.vars.outputs.GHCR_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ steps.vars.outputs.GHCR_IMAGE }}:buildcache,mode=max
+          tags: ${{ steps.vars.outputs.TAGS_DH }}
+          labels: ${{ steps.meta.outputs.labels }}
