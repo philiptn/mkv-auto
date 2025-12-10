@@ -71,7 +71,7 @@ jobs:
             LATEST=true
           fi
 
-          VERSION="$TAG"
+          VERSION="${TAG#v}"
 
           {
             echo "GHCR_IMAGE=${GHCR_IMAGE}"
