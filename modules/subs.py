@@ -325,6 +325,8 @@ def remove_sdh_worker(logger, debug, input_file, remove_music, subtitleedit, mem
             sub.text = re.sub(r'\s*\*[^*]+\*\s*', ' ', sub.text)
             sub.text = re.sub(r'\s{2,}', ' ', sub.text)  # clean up double spaces
             sub.text = sub.text.strip()
+        # Remove lines that only contain "**"
+        subs[:] = [s for s in subs if s.text and not re.fullmatch(r'\*+', s.text)]
         subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
