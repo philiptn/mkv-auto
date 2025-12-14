@@ -325,8 +325,6 @@ def remove_sdh_worker(logger, debug, input_file, remove_music, subtitleedit, mem
             sub.text = re.sub(r'\s*\*[^*]+\*\s*', ' ', sub.text)
             sub.text = re.sub(r'\s{2,}', ' ', sub.text)  # clean up double spaces
             sub.text = sub.text.strip()
-        # Remove lines that only contain "**"
-        subs[:] = [s for s in subs if s.text and not re.fullmatch(r'\*+', s.text)]
         subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
 
@@ -340,6 +338,12 @@ def remove_sdh_worker(logger, debug, input_file, remove_music, subtitleedit, mem
             rm_author=False,
         )
         subs.save()
+
+        # Remove lines that only contain "**"
+        subs = pysrt.open(input_file)
+        subs[:] = [s for s in subs if s.text and not re.fullmatch(r'\*+', s.text)]
+        subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
+        shutil.move(f"{input_file}.tmp.srt", input_file)
 
         clean_invalid_utf8(input_file, f'{input_file}.tmp.srt')
         shutil.move(f"{input_file}.tmp.srt", input_file)
