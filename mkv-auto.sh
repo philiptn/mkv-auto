@@ -18,7 +18,7 @@ fi
 
 # Set defaults
 HOST_FOLDER="$(pwd)"
-IMAGE_REPO="philiptn/mkv-auto"
+IMAGE_REPO="ghcr.io/philiptn/mkv-auto"
 IMAGE_NAME=""  # Will be set later
 build_flag=false
 no_cache=false

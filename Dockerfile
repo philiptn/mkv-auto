@@ -118,6 +118,7 @@ RUN apt-get update && \
         libgtk2.0-0 \
         libsndfile1 \
         libcanberra-gtk-module \
+        libturbojpeg \
         git \
         xvfb \
         x11-utils \
