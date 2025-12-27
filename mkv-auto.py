@@ -12,7 +12,7 @@ from modules.misc import *
 from modules.logger import *
 from modules.media_encoder import *
 
-mkv_auto_version = 'DEV-2025-12'
+mkv_auto_version = 'v3.1.2'
 
 
 def mkv_auto(args):
