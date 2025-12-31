@@ -168,30 +168,63 @@ def translate_path(windows_path, mappings):
 
 
 def copy_torrent_content(torrent, mappings):
-    try:
-        source = translate_path(os.path.join(torrent['save_path'], torrent['name']), mappings)
+    temp_destination = None
 
-        matched_tag = next((tag for tag in torrent.get('tags', '').split(',') if tag in TARGETS), None)
+    try:
+        source = translate_path(
+            os.path.join(torrent['save_path'], torrent['name']),
+            mappings
+        )
+
+        matched_tag = next(
+            (tag for tag in torrent.get('tags', '').split(',') if tag in TARGETS),
+            None
+        )
         if not matched_tag:
             log.warning(f"⚠️ No matching tag in TARGETS for torrent '{torrent['name']}', skipping.")
-            return
+            return -1
 
         destination_folder = TARGETS[matched_tag]
         final_destination = os.path.join(destination_folder, torrent['name'])
 
+        base = os.path.basename(final_destination)
+        parent = os.path.dirname(final_destination)
+        temp_destination = os.path.join(parent, f".{base}")
+
+        # ensure destination folder exists
+        os.makedirs(destination_folder, exist_ok=True)
+
+        # clean up stale temp from previous crash
+        if os.path.exists(temp_destination):
+            log.warning(f"🧹 Removing stale temp destination: {temp_destination}")
+            if os.path.isdir(temp_destination):
+                shutil.rmtree(temp_destination, ignore_errors=True)
+            else:
+                try:
+                    os.remove(temp_destination)
+                except OSError:
+                    pass
+
         if os.path.exists(final_destination):
             log.warning(f"⚠️ Destination already exists, skipping: {final_destination}")
-            return
+            return -1
 
         if os.path.isdir(source):
-            log.info(f"📂 Copying folder: {source} -> {final_destination}")
-            shutil.copytree(source, final_destination)
+            log.info(f"📂 Copying folder: {source} -> {temp_destination}")
+            shutil.copytree(source, temp_destination)
+
+            # atomic publish
+            os.rename(temp_destination, final_destination)
+            log.info(f"✅ Folder copy complete: {final_destination}")
             return 0
 
         elif os.path.isfile(source):
-            log.info(f"📄 Copying file: {source} -> {final_destination}")
-            os.makedirs(os.path.dirname(final_destination), exist_ok=True)
-            shutil.copy2(source, final_destination)
+            log.info(f"📄 Copying file: {source} -> {temp_destination}")
+            shutil.copy2(source, temp_destination)
+
+            # atomic publish
+            os.rename(temp_destination, final_destination)
+            log.info(f"✅ File copy complete: {final_destination}")
             return 0
 
         else:
@@ -199,7 +232,18 @@ def copy_torrent_content(torrent, mappings):
             return -1
 
     except Exception as e:
-        log.error(f"❌ Failed to copy torrent '{torrent['name']}': {e}")
+        log.error(f"❌ Failed to copy torrent '{torrent.get('name')}': {e}")
+
+        # cleanup temp on failure
+        if temp_destination and os.path.exists(temp_destination):
+            if os.path.isdir(temp_destination):
+                shutil.rmtree(temp_destination, ignore_errors=True)
+            else:
+                try:
+                    os.remove(temp_destination)
+                except OSError:
+                    pass
+
         return -1
 
 
