@@ -1313,10 +1313,14 @@ def print_media_info(logger, filenames):
     tv_shows_extras = defaultdict(list)
     tv_shows_hdr = defaultdict(lambda: defaultdict(set))
     tv_shows_hdr_extras = defaultdict(list)
+    tv_shows_4k = defaultdict(lambda: defaultdict(set))
+    tv_shows_4k_extras = defaultdict(list)
     movies = []
     movie_extras = defaultdict(list)
     movies_hdr = []
     movie_hdr_extras = defaultdict(list)
+    movies_4k = []
+    movie_4k_extras = defaultdict(list)
     uncategorized = []
 
     for filename in filenames:
@@ -1334,12 +1338,16 @@ def print_media_info(logger, filenames):
             if is_extra:
                 if media_type == 'tv_show':
                     tv_shows_extras[media_name].append(filename)
+                elif media_type == 'tv_show_4k':
+                    tv_shows_4k_extras[media_name].append(filename)
                 else:
                     tv_shows_hdr_extras[media_name].append(filename)
             else:
                 if season is not None and episodes:
                     if media_type == 'tv_show':
                         tv_shows[media_name][season].update(episodes)
+                    if media_type == 'tv_show_4k':
+                        tv_shows_4k[media_name][season].update(episodes)
                     else:
                         tv_shows_hdr[media_name][season].update(episodes)
                 else:
@@ -1348,11 +1356,15 @@ def print_media_info(logger, filenames):
             if is_extra:
                 if media_type == 'movie':
                     movie_extras[media_name].append(filename)
+                if media_type == 'movie_4k':
+                    movie_4k_extras[media_name].append(filename)
                 else:
                     movie_hdr_extras[media_name].append(filename)
             else:
                 if media_type == 'movie':
                     movies.append(media_name)
+                if media_type == 'movie_4k':
+                    movies_4k.append(media_name)
                 else:
                     movies_hdr.append(media_name)
         else:
@@ -1379,7 +1391,7 @@ def print_media_info(logger, filenames):
 
     if tv_shows_hdr:
         print_no_timestamp(logger,
-                           f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} 4K/HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
+                           f"{GREY}[INFO]{RESET} {len(tv_shows_hdr)} HDR TV {print_multi_or_single(len(tv_shows_hdr), 'Show')}:")
         for show in sorted(tv_shows_hdr):
             seasons = sorted(tv_shows_hdr[show].keys())
             if len(seasons) == 1:
@@ -1395,6 +1407,25 @@ def print_media_info(logger, filenames):
                 if tv_shows_hdr_extras[show]:
                     tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_hdr_print}")
+
+    if tv_shows_4k:
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(tv_shows_4k)} 4K TV {print_multi_or_single(len(tv_shows_4k), 'Show')}:")
+        for show in sorted(tv_shows_4k):
+            seasons = sorted(tv_shows_4k[show].keys())
+            if len(seasons) == 1:
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(tv_shows_4k[show][season]))
+                tv_shows_4k_print = f"(Season {season}: Episode {episode_list})"
+                if tv_shows_4k_extras[show]:
+                    tv_shows_4k_print += f" (+{len(tv_shows_4k_extras[show])} {print_multi_or_single(len(tv_shows_4k_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_4k_print}")
+            else:
+                total_episodes = sum(len(tv_shows_4k[show][s]) for s in seasons)
+                tv_shows_4k_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                if tv_shows_4k_extras[show]:
+                    tv_shows_4k_print += f" (+{len(tv_shows_4k_extras[show])} {print_multi_or_single(len(tv_shows_4k_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_4k_print}")
 
     if movies:
         movies.sort()
@@ -1414,6 +1445,16 @@ def print_media_info(logger, filenames):
             if movie_hdr_extras[movie]:
                 print_no_timestamp(logger,
                                    f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
+            else:
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+    if movies_4k:
+        movies_4k.sort()
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(movies_4k)} 4K {print_multi_or_single(len(movies_4k), 'Movie')}:")
+        for movie in movies_4k:
+            if movie_4k_extras[movie]:
+                print_no_timestamp(logger,
+                                   f"  {BLUE}{movie}{RESET} (+{len(movie_4k_extras[movie])} {print_multi_or_single(len(movie_4k_extras[movie]), 'Extra')})")
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
