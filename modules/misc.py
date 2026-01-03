@@ -850,7 +850,7 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
     # Regular expression to match movies
     movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.*)$", re.IGNORECASE)
 
-    hdr_pattern = re.compile(r" HDR|.HDR")
+    hdr_pattern = re.compile(r" HDR|.HDR|.DV.")
     pattern_4k = re.compile(r" 2160p|.2160p| 4K|.4K")
     non_hdr_pattern = re.compile(r"h264|x264", re.IGNORECASE)
     non_4k_pattern = re.compile(r"1080p|720p", re.IGNORECASE)
