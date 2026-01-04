@@ -665,43 +665,43 @@ def unflatten_file(flattened_filename, output_folder):
         raise RuntimeError(f"Failed to unflatten file '{flattened_filename}': {e}")
 
 
-def format_time(seconds):
+def format_time(total_seconds):
     """Return a formatted string for the given duration in seconds."""
-    hours, remainder = divmod(seconds, 3600)
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
 
     parts = []
+
+    if days:
+        parts.append(f"{days} day" if days == 1 else f"{days} days")
+
     if hours:
-        if hours == 1:
-            parts.append(f"{hours} hour,")
-        else:
-            parts.append(f"{hours} hours,")
+        parts.append(f"{hours} hour" if hours == 1 else f"{hours} hours")
+
     if minutes:
-        if minutes == 1:
-            parts.append(f"{minutes} minute")
-        else:
-            parts.append(f"{minutes} minutes")
-    if seconds or not parts:  # If it's 0 seconds, we want to include it.
-        if seconds == 1:
-            parts.append(f"and {seconds} second")
-        else:
-            parts.append(f"and {seconds} seconds")
+        parts.append(f"{minutes} minute" if minutes == 1 else f"{minutes} minutes")
 
-    if seconds and (not hours and not minutes):
-        if seconds == 1:
-            return f"{seconds} second"
-        else:
-            return f"{seconds} seconds"
+    if seconds or not parts:
+        parts.append(f"{seconds} second" if seconds == 1 else f"{seconds} seconds")
+
+    # Handle natural language joining
+    if len(parts) == 1:
+        return parts[0]
     else:
-        return " ".join(parts)
+        return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
-def format_time_short(seconds):
+def format_time_short(total_seconds):
     """Return a formatted string for the given duration in seconds."""
-    hours, remainder = divmod(seconds, 3600)
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
 
     parts = []
+
+    if days:
+        parts.append(f"{days}d")
     if hours:
         parts.append(f"{hours}h")
     if minutes:
@@ -709,7 +709,7 @@ def format_time_short(seconds):
     if seconds or not parts:
         parts.append(f"{seconds}s")
 
-    if seconds and (not hours and not minutes):
+    if seconds and not days and not hours and not minutes:
         return f"{seconds} seconds"
     else:
         return " ".join(parts)

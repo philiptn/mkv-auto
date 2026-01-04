@@ -12,7 +12,7 @@ on:
       latest:
         description: 'Also tag as :latest?'
         type: boolean
-        default: true
+        default: false
         required: false
       push_ghcr:
         description: 'Push to GHCR?'
