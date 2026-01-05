@@ -1346,7 +1346,7 @@ def print_media_info(logger, filenames):
                 if season is not None and episodes:
                     if media_type == 'tv_show':
                         tv_shows[media_name][season].update(episodes)
-                    if media_type == 'tv_show_4k':
+                    elif media_type == 'tv_show_4k':
                         tv_shows_4k[media_name][season].update(episodes)
                     else:
                         tv_shows_hdr[media_name][season].update(episodes)
@@ -1356,14 +1356,14 @@ def print_media_info(logger, filenames):
             if is_extra:
                 if media_type == 'movie':
                     movie_extras[media_name].append(filename)
-                if media_type == 'movie_4k':
+                elif media_type == 'movie_4k':
                     movie_4k_extras[media_name].append(filename)
                 else:
                     movie_hdr_extras[media_name].append(filename)
             else:
                 if media_type == 'movie':
                     movies.append(media_name)
-                if media_type == 'movie_4k':
+                elif media_type == 'movie_4k':
                     movies_4k.append(media_name)
                 else:
                     movies_hdr.append(media_name)
