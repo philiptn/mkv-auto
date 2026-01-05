@@ -698,21 +698,25 @@ def format_time_short(total_seconds):
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
 
-    parts = []
+    units = [
+        ("day", days, "d"),
+        ("hour", hours, "h"),
+        ("minute", minutes, "m"),
+        ("second", seconds, "s"),
+    ]
 
-    if days:
-        parts.append(f"{days}d")
-    if hours:
-        parts.append(f"{hours}h")
-    if minutes:
-        parts.append(f"{minutes}m")
-    if seconds or not parts:
-        parts.append(f"{seconds}s")
+    non_zero = [(name, value, short) for name, value, short in units if value]
+    if len(non_zero) == 1:
+        name, value, _ = non_zero[0]
+        plural = "" if value == 1 else "s"
+        return f"{value} {name}{plural}"
 
-    if seconds and not days and not hours and not minutes:
-        return f"{seconds} seconds"
-    else:
-        return " ".join(parts)
+    parts = [f"{value}{short}" for _, value, short in non_zero]
+
+    if not parts:
+        return "0 seconds"
+
+    return " ".join(parts)
 
 
 def get_config(section, option, default_config):
@@ -720,8 +724,6 @@ def get_config(section, option, default_config):
     if variables_user.has_option(section, option):
         return variables_user.get(section, option)
     else:
-        # Print warning and use default if the user setting is missing
-        #print(f"{YELLOW}WARNING{RESET}: {BLUE}{option}{RESET} is missing from 'user.ini'. Using defaults.")
         return default_config.get(section, option)
 
 
