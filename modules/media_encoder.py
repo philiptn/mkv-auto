@@ -385,12 +385,11 @@ def encode_media_files(logger, debug, input_files, dirpath):
         'av1': 'AV1'
     }
     display_codec = codec_map.get(output_codec.lower(), output_codec)
-    speed_print = f"{encoding_speed}-{tune}" if tune else {encoding_speed}
 
     start_time = time.time()
 
     header = "FFMPEG"
-    description = f"Encode media to {display_codec} {speed_print.upper()} CRF-{quality_crf}"
+    description = f"Encode media to {display_codec} CRF-{quality_crf}"
 
     print_with_progress(logger, 0, total_files, header=header, description=description)
 
