@@ -431,7 +431,7 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
-        futures = {executor.submit(trim_audio_in_mkv_files_worker, debug, input_file, dirpath): index for
+        futures = {executor.submit(trim_audio_in_mkv_files_worker, logger, debug, input_file, dirpath): index for
                    index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
@@ -457,7 +457,7 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
     return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
 
 
-def trim_audio_in_mkv_files_worker(debug, input_file, dirpath):
+def trim_audio_in_mkv_files_worker(logger, debug, input_file, dirpath):
     input_file = os.path.join(dirpath, input_file)
     check_integrity_of_mkv(input_file)
 
@@ -476,7 +476,7 @@ def trim_audio_in_mkv_files_worker(debug, input_file, dirpath):
         debug, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
 
     if needs_processing_audio:
-        strip_audio_tracks_in_mkv(debug, input_file, wanted_audio_tracks, default_audio_track)
+        strip_audio_tracks_in_mkv(logger, debug, input_file, wanted_audio_tracks, default_audio_track)
 
     file_info, pretty_file_info = get_mkv_info(debug, input_file, False)
 
@@ -1619,7 +1619,7 @@ def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_
     return new_radarr_path, new_sonarr_path
 
 
-def strip_audio_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track):
+def strip_audio_tracks_in_mkv(logger, debug, filename, audio_tracks, default_audio_track):
     if debug:
         print(f"{GREY}\n[UTC {get_timestamp()}] [DEBUG]{RESET} strip_audio_tracks_in_mkv:\n")
         print(f"{BLUE}audio tracks to keep{RESET}: {audio_tracks}")
@@ -1658,6 +1658,7 @@ def strip_audio_tracks_in_mkv(debug, filename, audio_tracks, default_audio_track
     if result.returncode not in (0, 1):
         os.remove(temp_filename)
         result.check_returncode()
+        log_debug(logger, result.stderr)
 
     os.remove(filename)
     shutil.move(temp_filename, filename)
