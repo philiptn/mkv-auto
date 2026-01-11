@@ -460,7 +460,8 @@ def wait_for_stable_files(path):
             time.sleep(2.5)
             new_size = os.path.getsize(file_path)
             return initial_size == new_size
-        except Exception:
+        except Exception as e:
+            traceback.print_tb(e.__traceback__)
             raise
 
     stable_files = set()
