@@ -41,13 +41,6 @@ RIGHT_ARROW = '➝'
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
 
 
-class CorruptedFile(Exception):
-    """Custom exception to identify corrupted files."""
-    def __init__(self, message="Corrupted file detected", original_exception=None):
-        super().__init__(message)
-        self.original_exception = original_exception
-
-
 class ContinuousSpinner:
     def __init__(self, interval=0.1, frames=None):
         # Spinners

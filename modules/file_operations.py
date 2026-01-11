@@ -461,7 +461,7 @@ def wait_for_stable_files(path):
             new_size = os.path.getsize(file_path)
             return initial_size == new_size
         except Exception:
-            raise CorruptedFile
+            raise
 
     stable_files = set()
 

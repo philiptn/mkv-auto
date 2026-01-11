@@ -1236,7 +1236,9 @@ def remove_clutter_process(logger, debug, input_files, dirpath):
                 if updated_filename is not None:
                     all_updated_input_files[index] = updated_filename
             except Exception as e:
-                raise CorruptedFile
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
+                raise
     return all_updated_input_files
 
 
