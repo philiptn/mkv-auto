@@ -446,13 +446,9 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
                 if missing_subs_langs is not None:
                     all_missing_subs_langs[index] = missing_subs_langs
             except Exception as e:
-                for file in input_files:
-                    base, extension = os.path.splitext(file)
-                    new_base = base + "_tmp"
-                    temp_filename = new_base + extension
-                    if os.path.exists(temp_filename):
-                        os.remove(temp_filename)
-                raise CorruptedFile(original_exception=e)
+                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
+                raise
 
     return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
 

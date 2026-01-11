@@ -314,28 +314,14 @@ def mkv_auto(args):
                 show_the_cursor()
 
     except Exception as e:
-        if isinstance(e, CorruptedFile):
-            partial_str = 'copied' if not move_files else 'moved'
-            custom_print_no_newline(logger, f"{RED}[ERROR]{RESET} Partially {partial_str} "
-                                            f"files detected. Retrying...")
-            if e.original_exception:
-                log_debug(logger, f"{e.original_exception}")
-            if move_files and filenames_mkv_only:
-                for file in filenames_mkv_only:
-                    try:
-                        shutil.move(os.path.join(temp_dir, file), input_dir)
-                    except:
-                        pass
+        errored = True
+        if filenames_mkv_only:
+            custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving unprocessed "
+                                 f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
+            custom_print(logger, traceback.print_tb(e.__traceback__))
+            move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir, errored)
         else:
-            errored = True
-            # If anything were to fail, move files to output folder
-            if filenames_mkv_only:
-                custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving unprocessed "
-                                     f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
-                custom_print(logger, traceback.print_tb(e.__traceback__))
-                move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir, errored)
-            else:
-                custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured: {e}")
+            custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured: {e}")
 
         print_no_timestamp(logger, '')
         if hide_cursor:
