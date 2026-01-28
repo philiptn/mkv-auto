@@ -2,8 +2,8 @@
 
 log_file='/mkv-auto/files/mkv-auto.log'
 
-USER_ID=${UID:-1000}
-GROUP_ID=${GID:-1000}
+USER_ID=1000
+GROUP_ID=1000
 
 if grep -qEi 'microsoft|wsl' /proc/version 2>/dev/null; then
     IS_LINUX=true

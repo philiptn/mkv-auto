@@ -6,9 +6,66 @@ import shutil  # Added to enable directory removal
 import platform
 import time
 import math
+import json
+from typing import List, Union
 import concurrent.futures
 
 from modules.misc import *
+
+
+def resolve_quality_crf(
+    quality_crf_str: str,
+    input_files: List[str],
+    dirpath: str
+) -> str:
+    """
+    Parse QUALITY_CRF config and determine whether all input files
+    resolve to the same CRF value.
+
+    Returns:
+        int     -> single CRF value for all files
+        "MIXED" -> multiple CRF values are required
+    """
+    parts = quality_crf_str.split(":", 1)
+    base_crf = str(parts[0])
+
+    overrides = {}
+    if len(parts) == 2:
+        for entry in parts[1].split(","):
+            res, crf = entry.split("-", 1)
+            overrides[int(res)] = int(crf)
+
+    def get_width(filepath: str) -> int:
+        cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=width",
+            "-of", "json",
+            filepath
+        ]
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        data = json.loads(result.stdout)
+        return int(data["streams"][0]["width"])
+
+    resolved_crfs = set()
+
+    for filename in input_files:
+        full_path = f"{dirpath.rstrip('/')}/{filename}"
+        width = get_width(full_path)
+
+        crf = overrides.get(width, base_crf)
+        resolved_crfs.add(str(crf))
+
+        if len(resolved_crfs) > 1:
+            return "MiXED"
+
+    return resolved_crfs.pop() if resolved_crfs else base_crf
 
 
 def get_video_dimensions(filename):
@@ -94,7 +151,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
     crop_values = check_config(config, 'media-encoder', 'crop_values')
     limit_resolution = check_config(config, 'media-encoder', 'limit_resolution')
     output_codec = check_config(config, 'media-encoder', 'output_codec')
-    quality_crf = check_config(config, 'media-encoder', 'quality_crf')
+    input_quality_crf = check_config(config, 'media-encoder', 'quality_crf')
     encoding_speed = check_config(config, 'media-encoder', 'encoding_speed')
     tune = check_config(config, 'media-encoder', 'tune')
     custom_params = check_config(config, 'media-encoder', 'custom_params')
@@ -103,6 +160,8 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
         "initial_file_size": 0,
         "resulting_file_size": 0
     }
+
+    quality_crf = resolve_quality_crf(input_quality_crf, [input_file], dirpath)
 
     media_file = os.path.join(dirpath, input_file)
     filesize_info["initial_file_size"] = os.path.getsize(media_file)
@@ -210,7 +269,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
     # https://obsproject.com/forum/threads/can-you-please-explain-x264-option-threads.76917/
     if codec.lower() == "libx264":
         number_of_threads = min(16, number_of_threads)
-    log_debug(logger, f"File '{input_file}' will use {number_of_threads} threads with {codec}. "
+    log_debug(logger, f"File '{input_file}' will use {number_of_threads} threads with {codec}. CRF value {quality}, encoder speed {encoder_speed}, tune '{tune}'."
                       f"CPU usage alloc {cpu_usage_percentage}%")
 
     # Get original dimensions
@@ -350,7 +409,7 @@ def encode_media_files(logger, debug, input_files, dirpath):
     filesizes_info = [None] * total_files
 
     output_codec = check_config(config, 'media-encoder', 'output_codec')
-    quality_crf = check_config(config, 'media-encoder', 'quality_crf')
+    input_quality_crf = check_config(config, 'media-encoder', 'quality_crf')
     max_cpu_usage = check_config(config, 'general', 'max_cpu_usage')
 
     crop_values = check_config(config, 'media-encoder', 'crop_values')
@@ -358,6 +417,8 @@ def encode_media_files(logger, debug, input_files, dirpath):
     encoding_speed = check_config(config, 'media-encoder', 'encoding_speed')
     tune = check_config(config, 'media-encoder', 'tune')
     custom_params = check_config(config, 'media-encoder', 'custom_params')
+
+    quality_crf = resolve_quality_crf(input_quality_crf, input_files, dirpath)
 
     log_debug(logger, f"[MEDIA-ENCODER] Output codec: '{output_codec}'")
     log_debug(logger, f"[MEDIA-ENCODER] Quality CRF: '{quality_crf}'")
