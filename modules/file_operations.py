@@ -455,47 +455,62 @@ def safe_delete_dir(directory_path):
 def wait_for_stable_files(path):
     def is_file_stable(file_path):
         try:
-            size1 = os.path.getsize(file_path)
+            """Check if a file's size is stable (indicating it is fully copied)."""
+            initial_size = os.path.getsize(file_path)
             time.sleep(2.5)
-            size2 = os.path.getsize(file_path)
-            return size1 == size2
-        except FileNotFoundError:
-            return False  # file moved/deleted mid-check
-        except OSError:
-            return False
+            new_size = os.path.getsize(file_path)
+            return initial_size == new_size
+        except Exception as e:
+            traceback.print_tb(e.__traceback__)
+            raise
 
     stable_files = set()
-    max_workers = max(1, get_worker_thread_count())
 
     while True:
+        # Get the current list of files to check
         files = []
-        for dp, dns, fns in os.walk(path):
-            dns[:] = [d for d in dns if not d.startswith('.')]
-            files.extend(
-                os.path.join(dp, f)
-                for f in fns
-                if not f.startswith('.')
-            )
+        for dirpath, dirnames, filenames in os.walk(path):
+            # Modify dirnames in-place to skip directories starting with a dot
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            files.extend(os.path.join(dirpath, f) for f in filenames if not f.startswith('.'))
 
-        if not files:
-            break
+        def process_file(file_path):
+            if file_path in stable_files:
+                return None  # Skip already stable files
+            if is_file_stable(file_path):
+                return file_path  # Return stable file
+            return None
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(is_file_stable, f): f
-                for f in files
-                if f not in stable_files
-            }
+        # Calculate number of workers and internal threads
+        max_worker_threads = get_worker_thread_count()
+        num_workers = max(1, max_worker_threads)
 
-            for future in as_completed(futures):
-                if future.result():
-                    stable_files.add(futures[future])
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            future_to_file = {executor.submit(process_file, file): file for file in files if file not in stable_files}
 
-        # exit only when all *current* files are stable
-        if len(stable_files) == len(files):
-            break
+            for future in as_completed(future_to_file):
+                result = future.result()
+                if result:
+                    stable_files.add(result)
 
+        # Check again
         time.sleep(2.5)
+        files = []
+        for dirpath, dirnames, filenames in os.walk(path):
+            # Modify dirnames in-place to skip directories starting with a dot
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            files.extend(os.path.join(dirpath, f) for f in filenames if not f.startswith('.'))
+
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            future_to_file = {executor.submit(process_file, file): file for file in files if file not in stable_files}
+
+            for future in as_completed(future_to_file):
+                result = future.result()
+                if result:
+                    stable_files.add(result)
+
+        if len(stable_files) >= len(files):
+            break  # Exit if all files are stable
 
     return len(stable_files)
 
