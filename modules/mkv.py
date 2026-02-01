@@ -964,11 +964,46 @@ def remove_sdh_process_worker(logger, debug, input_subtitles, internal_threads, 
     return all_replacements
 
 
-def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_external_subs,
-                                    all_missing_subs_langs):
+def to_alpha2(lang):
+    if not lang:
+        return None
+
+    lang = lang.lower()
+
+    if len(lang) == 2:
+        return lang
+
+    if len(lang) == 3:
+        try:
+            return pycountry.languages.get(alpha_3=lang).alpha_2
+        except:
+            return None
+
+    return None
+
+
+def to_alpha2(lang):
+    if not lang:
+        return None
+
+    lang = lang.lower()
+
+    if len(lang) == 2:
+        return lang
+
+    if len(lang) == 3:
+        try:
+            return pycountry.languages.get(alpha_3=lang).alpha_2
+        except:
+            return None
+
+    return None
+
+
+def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
+                                    total_external_subs, all_missing_subs_langs):
     total_files = len(input_files)
 
-    # If no sub languages are missing, and no external subs are found, skip this process
     if all(sub == ['none'] for sub in all_missing_subs_langs) and not total_external_subs:
         return
 
@@ -982,21 +1017,34 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath, total_e
     description = f"Process missing subtitles"
 
     for index, input_file in enumerate(input_files):
-        input_file_with_path = os.path.join(dirpath, input_file)
-        mkv_base, _, mkv_extension = input_file_with_path.rpartition('.')
-
+        input_file_base = os.path.splitext(os.path.basename(input_file))[0].lower()
         truly_missing_subs_langs = []
+
+        episode_external_subs = []
+        for sublist in total_external_subs:
+            for sub in sublist:
+                sub_base = os.path.splitext(os.path.basename(sub))[0].lower()
+                if input_file_base in sub_base:
+                    episode_external_subs.append(sub_base)
+
         for lang in all_missing_subs_langs[index]:
-            if lang != 'none' and lang and lang.lower() != 'und':
-                if any(sub for sub in total_external_subs):
-                    input_file_base = re.sub(r'^[^/]+/', '', input_files[index]).replace(".mkv", "")
-                    if any(input_file_base in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in
-                           total_external_subs for sub in sublist):
-                        if not any(lang[:-1] in re.sub(r'^[^/]+/', '', sub).replace(".mkv", "") for sublist in
-                                   total_external_subs for sub in sublist):
-                            truly_missing_subs_langs.append(lang[:-1])
-                else:
-                    truly_missing_subs_langs.append(lang[:-1])
+            if not lang or lang == 'none' or lang.lower() == 'und':
+                continue
+
+            lang2 = to_alpha2(lang)
+            if not lang2:
+                continue
+
+            if not episode_external_subs:
+                truly_missing_subs_langs.append(lang2)
+                continue
+
+            if not any(
+                re.search(rf'(\.|_|-){lang2}(\.|_|-|$)', sub)
+                for sub in episode_external_subs
+            ):
+                truly_missing_subs_langs.append(lang2)
+
         all_truly_missing_subs_langs.append(truly_missing_subs_langs)
 
     # Copy default or user subliminal config file to dirpath
@@ -1369,6 +1417,24 @@ def normalize_title(title):
     return title.lower()
 
 
+def normalize_lang(lang):
+    if not lang:
+        return None
+
+    lang = lang.lower()
+
+    if len(lang) == 2:
+        try:
+            return pycountry.languages.get(alpha_2=lang).alpha_3
+        except:
+            return lang
+
+    if len(lang) == 3:
+        return lang
+
+    return lang
+
+
 def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs):
     download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
     main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
@@ -1376,142 +1442,119 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 
     pattern_season_episode = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
     match = pattern_season_episode.search(input_file)
-    if match:
-        season, episode = match.groups()
-        season_episode = f's{season}e{episode}'.lower()
-        show_name_raw = input_file[:match.start()]
-        show_name = re.sub(r'[._]+', ' ', show_name_raw).strip()
-    else:
-        season_episode = None
-        show_name = None
 
-    base, extension = os.path.splitext(input_file)
-    raw_name_no_ext = os.path.splitext(os.path.basename(input_file))[0]
+    if not match:
+        return [], missing_subs_langs
 
-    base_name_normalized = normalize_title(raw_name_no_ext)
+    season, episode = match.groups()
+    season_episode = f's{season}e{episode}'.lower()
+
+    show_name_raw = input_file[:match.start()]
+    show_name = re.sub(r'[._]+', ' ', show_name_raw).strip()
+    show_name_normalized = normalize_title(show_name)
 
     input_file_with_path = os.path.join(dirpath, input_file)
     file_info, _ = get_mkv_info(False, input_file_with_path, False)
     main_audio_track_lang = get_main_audio_track_language_3_letter(file_info)
-    all_langs = []
-    all_sub_files = []
-    updated_missing_subs_langs = []
-    show_name_normalized = ''
-    num = 1000
+    main_audio_lang_norm = normalize_lang(main_audio_track_lang)
+
+    base, _ = os.path.splitext(input_file)
 
     subtitle_files = sorted(
-        [f for f in os.listdir(dirpath) if f.split('.')[-1].lower() in ['srt', 'ass', 'sup', 'sub', 'idx']]
+        f for f in os.listdir(dirpath)
+        if f.split('.')[-1].lower() in {'srt', 'ass', 'sup', 'sub', 'idx'}
     )
 
     subtitle_pairs = {}
     for subtitle in subtitle_files:
         sub_base, sub_ext = os.path.splitext(subtitle)
-        matched_base = None
-        for existing_base in subtitle_pairs:
-            if sub_base.startswith(existing_base):
-                matched_base = existing_base
-                break
-        if sub_ext == ".idx":
-            if matched_base:
-                subtitle_pairs[matched_base]["idx"] = subtitle
-            else:
-                subtitle_pairs[sub_base] = {"idx": subtitle, "num": None}
-        elif sub_ext == ".sub":
-            if matched_base:
-                subtitle_pairs[matched_base]["sub"] = subtitle
-            else:
-                subtitle_pairs[sub_base] = {"sub": subtitle, "num": None}
+        if sub_ext in ('.idx', '.sub'):
+            subtitle_pairs.setdefault(sub_base, {})[sub_ext.lstrip('.')] = subtitle
 
     processed_subs = set()
+    episode_langs = set()
+    all_sub_files = []
+    num = 1000
 
     for subtitle in subtitle_files:
         if subtitle in processed_subs:
             continue
 
         sub_base, sub_ext = os.path.splitext(subtitle)
-        subtitle_path = os.path.join(dirpath, subtitle)
-
+        sub_base_lower = sub_base.lower()
         sub_base_normalized = normalize_title(sub_base)
-        if show_name:
-            show_name_normalized = normalize_title(show_name)
 
-        if season_episode:
-            match_condition = (season_episode in sub_base.lower() and show_name_normalized in sub_base_normalized)
+        if season_episode not in sub_base_lower:
+            continue
+
+        if show_name_normalized not in sub_base_normalized:
+            continue
+
+        lang_match = re.search(r'\.([a-z]{2,3})\.[^.]+$', subtitle, re.IGNORECASE)
+        if lang_match:
+            lang_code = normalize_lang(lang_match.group(1))
         else:
-            match_condition = (base_name_normalized in sub_base_normalized)
+            lang_code = main_audio_lang_norm or 'eng'
 
-        if match_condition:
-            lang_match = re.search(r'\.([a-z]{2,3})\.[^.]+$', subtitle, re.IGNORECASE)
-            if lang_match:
-                lang_part = lang_match.group(1)
-                if len(lang_part) == 2:
-                    try:
-                        lang_code = pycountry.languages.get(alpha_2=lang_part).alpha_3
-                    except:
-                        lang_code = lang_part
-                else:
-                    lang_code = lang_part
-            else:
-                if main_audio_track_lang == "und":
-                    lang_code = 'eng'
-                else:
-                    try:
-                        lang_code = pycountry.languages.get(name=main_audio_track_lang).alpha_3
-                    except:
-                        lang_code = 'eng'
+        episode_langs.add(lang_code)
 
-            all_langs.append(lang_code)
-            language = pycountry.languages.get(alpha_3=lang_code)
-            language_name = language.name if language else ''
-            if sub_ext in ('.idx', '.sub', '.sup'):
-                language_name = 'Original'
-            output_name_b64 = base64.b64encode(language_name.encode("utf-8")).decode("utf-8")
+        language = pycountry.languages.get(alpha_3=lang_code)
+        language_name = language.name if language else ''
 
-            if sub_base in subtitle_pairs and subtitle_pairs[sub_base]["num"] is None:
-                subtitle_pairs[sub_base]["num"] = num
-                num += 1
+        if sub_ext in ('.idx', '.sub', '.sup'):
+            language_name = 'Original'
 
-            if sub_base in subtitle_pairs and subtitle_pairs[sub_base]["num"] is not None:
-                assigned_num = subtitle_pairs[sub_base]["num"]
-                for ext in ['idx', 'sub']:
-                    if ext in subtitle_pairs[sub_base]:
-                        orig_name = subtitle_pairs[sub_base][ext]
-                        new_name = f"{base}_0_'{output_name_b64}'_{assigned_num}_{lang_code}.{ext}"
-                        new_path = os.path.join(dirpath, new_name)
-                        all_sub_files.append(new_path)
-                        os.rename(os.path.join(dirpath, orig_name), new_path)
-                        processed_subs.add(orig_name)
-            else:
-                new_subtitle_name = f"{base}_0_'{output_name_b64}'_{num}_{lang_code}.{sub_ext.lstrip('.')}"
-                new_subtitle_path = os.path.join(dirpath, new_subtitle_name)
-                all_sub_files.append(new_subtitle_path)
-                os.rename(subtitle_path, new_subtitle_path)
-                processed_subs.add(subtitle)
-                num += 1
+        output_name_b64 = base64.b64encode(language_name.encode("utf-8")).decode("utf-8")
+
+        subtitle_pairs.setdefault(sub_base, {})
+        subtitle_pairs[sub_base].setdefault("num", num)
+        assigned_num = subtitle_pairs[sub_base]["num"]
+
+        if "num" not in subtitle_pairs[sub_base]:
+            subtitle_pairs[sub_base]["num"] = num
+            num += 1
+
+        if any(k in subtitle_pairs[sub_base] for k in ('idx', 'sub')):
+            for ext in ('idx', 'sub'):
+                if ext in subtitle_pairs[sub_base]:
+                    orig = subtitle_pairs[sub_base][ext]
+                    new_name = f"{base}_0_'{output_name_b64}'_{assigned_num}_{lang_code}.{ext}"
+                    new_path = os.path.join(dirpath, new_name)
+                    os.rename(os.path.join(dirpath, orig), new_path)
+                    all_sub_files.append(new_path)
+                    processed_subs.add(orig)
+        else:
+            new_name = f"{base}_0_'{output_name_b64}'_{assigned_num}_{lang_code}{sub_ext}"
+            new_path = os.path.join(dirpath, new_name)
+            os.rename(os.path.join(dirpath, subtitle), new_path)
+            all_sub_files.append(new_path)
+            processed_subs.add(subtitle)
+
+    updated_missing_subs_langs = []
 
     for lang in missing_subs_langs:
+        lang_norm = normalize_lang(lang)
+
         if main_audio_language_subs_only:
-            if lang in main_audio_track_lang:
+            if lang_norm == main_audio_lang_norm and lang_norm not in episode_langs:
                 updated_missing_subs_langs.append(lang)
         else:
-            if lang not in all_langs:
+            if lang_norm not in episode_langs:
                 updated_missing_subs_langs.append(lang)
-    if not updated_missing_subs_langs:
-        updated_missing_subs_langs.append('none')
 
-    all_new_sub_files = []
     if pref_subs_langs != ['']:
-        for pref_lang in pref_subs_langs:
-            for index, lang in enumerate(all_langs):
-                if lang == pref_lang:
-                    all_new_sub_files.append(all_sub_files[index])
-        all_sub_files = all_new_sub_files
+        filtered = []
+        for i, lang in enumerate(episode_langs):
+            if lang in pref_subs_langs:
+                filtered.append(all_sub_files[i])
+        all_sub_files = filtered
+
     if main_audio_language_subs_only:
-        all_new_sub_files = []
-        for index, lang in enumerate(all_langs):
-            if lang == main_audio_track_lang:
-                all_new_sub_files.append(all_sub_files[index])
-        all_sub_files = all_new_sub_files
+        filtered = []
+        for i, lang in enumerate(episode_langs):
+            if lang == main_audio_lang_norm:
+                filtered.append(all_sub_files[i])
+        all_sub_files = filtered
 
     if download_missing_subs.lower() == 'always':
         if pref_subs_langs:
