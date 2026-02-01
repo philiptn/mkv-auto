@@ -8,9 +8,34 @@ import time
 import math
 import json
 from typing import List, Union
+from queue import Queue
 import concurrent.futures
 
 from modules.misc import *
+
+
+def encode_with_worker_id(
+    logger,
+    debug,
+    input_file,
+    dirpath,
+    per_file_cpu,
+    progress,
+    worker_id_pool
+):
+    worker_id = worker_id_pool.get()
+    try:
+        return encode_single_video_file(
+            logger,
+            debug,
+            input_file,
+            dirpath,
+            per_file_cpu,
+            progress,
+            worker_id
+        )
+    finally:
+        worker_id_pool.put(worker_id)
 
 
 def resolve_quality_crf(
@@ -83,6 +108,23 @@ def get_video_dimensions(filename):
     except ValueError:
         print(f"Error parsing video dimensions for {filename}: {result.stdout}")
         return None, None
+    
+
+def get_video_duration(path):
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        path
+    ]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    return float(result.stdout.strip())
 
 
 def auto_crop(file):
@@ -147,7 +189,7 @@ def calculate_output_dimensions(cropped_width, cropped_height, desired_ar):
     return output_width, output_height, pad_left, pad_right, pad_top, pad_bottom, scale
 
 
-def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
+def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, progress: ProgressState, worker_id):
     crop_values = check_config(config, 'media-encoder', 'crop_values')
     limit_resolution = check_config(config, 'media-encoder', 'limit_resolution')
     output_codec = check_config(config, 'media-encoder', 'output_codec')
@@ -160,6 +202,9 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
         "initial_file_size": 0,
         "resulting_file_size": 0
     }
+
+    FFMPEG_WEIGHT = 0.95
+    MKVMERGE_WEIGHT = 0.05
 
     quality_crf = resolve_quality_crf(input_quality_crf, [input_file], dirpath)
 
@@ -261,7 +306,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
     # CPU threads calculation
     num_cores = os.cpu_count()
     if codec.lower() == "libx265":
-        divisor = 4.3
+        divisor = 4.7
     else:
         divisor = 0.8
     number_of_threads = max(1, int(num_cores * (cpu_usage_percentage / 100) // divisor))
@@ -306,7 +351,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
 
     temp_video_file = os.path.join(dirpath, 'temp_video_' + os.path.basename(input_file))
     temp_file = os.path.join(dirpath, 'temp_' + os.path.basename(input_file))
-    cmd_ffmpeg = ['ffmpeg', '-y', '-i', media_file]
+    cmd_ffmpeg = ['ffmpeg', '-y', '-progress', 'pipe:1', '-nostats', '-i', media_file]
 
     if filter_str:
         cmd_ffmpeg.extend(['-vf', filter_str])
@@ -345,30 +390,113 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage):
         # A simple split() handles space-delimited arguments
         cmd_ffmpeg.extend(user_custom_ffmpeg.split())
 
-    try:
-        cmd_ffmpeg.append(temp_video_file)
-        log_debug(logger, f"[MEDIA-ENCODER] FFmpeg command: '{' '.join(cmd_ffmpeg)}'")
-        subprocess.run(cmd_ffmpeg, check=True, text=True, capture_output=True)
-    except subprocess.CalledProcessError as e:
+    cmd_ffmpeg.append(temp_video_file)
+    duration = get_video_duration(media_file)  # seconds
+
+    log_debug(logger, f"[MEDIA-ENCODER] FFmpeg command: '{' '.join(cmd_ffmpeg)}'")
+
+    process = subprocess.Popen(
+        cmd_ffmpeg,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    progress.start_worker(worker_id)
+
+    stdout_lines = []
+    stderr_lines = []
+
+    for line in process.stdout:
+        stdout_lines.append(line)
+
+        if not line.startswith("out_time_ms="):
+            continue
+
+        value = line.split("=", 1)[1].strip()
+        if value == "N/A":
+            continue
+
+        try:
+            out_time = int(value) / 1_000_000
+        except ValueError:
+            continue
+
+        if duration > 0:
+            progress.update_worker_progress(
+                worker_id,
+                (out_time / duration) * FFMPEG_WEIGHT
+            )
+
+    # Ensure process completes and stderr is collected
+    stderr = process.stderr.read()
+    stderr_lines.append(stderr)
+
+    process.wait()
+
+    if process.returncode != 0:
+        e = subprocess.CalledProcessError(
+            process.returncode,
+            cmd_ffmpeg,
+            output="".join(stdout_lines),
+            stderr="".join(stderr_lines)
+        )
         custom_print(logger, f"{RED}[ERROR]{RESET} FFmpeg failed with return code {e.returncode}")
         custom_print(logger, f"{RED}[STDERR]{RESET}\n{YELLOW}{e.stderr.strip()}{RESET}")
         custom_print(logger, f"{RED}[STDOUT]{RESET}\n{YELLOW}{e.stdout.strip()}{RESET}")
-        raise
+        raise e
 
-    try:
-        cmd_mkvmerge = [
-            'mkvmerge',
-            '-o', temp_file,
-            temp_video_file,
-            '--no-video', media_file
-        ]
-        log_debug(logger, f"[MEDIA-ENCODER] MKVMERGE command: '{' '.join(cmd_mkvmerge)}'")
-        subprocess.run(cmd_mkvmerge, check=True, text=True, capture_output=True)
-    except subprocess.CalledProcessError as e:
+    progress.update_worker_progress(worker_id, FFMPEG_WEIGHT)
+
+    cmd_mkvmerge = [
+        'mkvmerge',
+        '-o', temp_file,
+        temp_video_file,
+        '--no-video', media_file
+    ]
+
+    log_debug(logger, f"[MEDIA-ENCODER] MKVMERGE command: '{' '.join(cmd_mkvmerge)}'")
+
+    process = subprocess.Popen(
+        cmd_mkvmerge,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    stderr_lines = []
+
+    for line in process.stderr:
+        stderr_lines.append(line)
+
+        line = line.strip()
+        if not line.startswith("Progress:"):
+            continue
+
+        try:
+            percent = float(line.split(":", 1)[1].strip().rstrip("%"))
+        except ValueError:
+            continue
+
+        progress.update_worker_progress(
+            worker_id,
+            FFMPEG_WEIGHT + (percent / 100.0) * MKVMERGE_WEIGHT
+        )
+
+    process.wait()
+
+    if process.returncode != 0:
+        e = subprocess.CalledProcessError(
+            process.returncode,
+            cmd_mkvmerge,
+            stderr="".join(stderr_lines)
+        )
         custom_print(logger, f"{RED}[ERROR]{RESET} MKVMERGE failed with return code {e.returncode}")
         custom_print(logger, f"{RED}[STDERR]{RESET}\n{YELLOW}{e.stderr.strip()}{RESET}")
-        custom_print(logger, f"{RED}[STDOUT]{RESET}\n{YELLOW}{e.stdout.strip()}{RESET}")
-        raise
+        raise e
+
+    # Ensure worker reaches 100%
+    progress.update_worker_progress(worker_id, 1.0)
 
     # Cleanup
     os.remove(temp_video_file)
@@ -452,14 +580,32 @@ def encode_media_files(logger, debug, input_files, dirpath):
     header = "FFMPEG"
     description = f"Encode media to {display_codec} CRF-{quality_crf}"
 
-    print_with_progress(logger, 0, total_files, header=header, description=description)
+    progress = ProgressState(total_files, num_workers)
+    worker_id_pool = Queue()
+    for wid in range(num_workers):
+        worker_id_pool.put(wid)
+
+    print()
+    SPINNER = ContinuousSpinner(interval=0.15)
+    SPINNER.set_line_func(make_progress_line(progress, header, description))
+    SPINNER.start()
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(encode_single_video_file, logger, debug, input_file, dirpath, per_file_cpu): index for
-                   index, input_file in enumerate(input_files)}
+        futures = {
+            executor.submit(
+                encode_with_worker_id,
+                logger,
+                debug,
+                input_file,
+                dirpath,
+                per_file_cpu,
+                progress,
+                worker_id_pool
+            ): index
+            for index, input_file in enumerate(input_files)
+        }
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
                 updated_filename, filesize_info = future.result()
@@ -476,6 +622,12 @@ def encode_media_files(logger, debug, input_files, dirpath):
 
     end_time = time.time()
     processing_time = end_time - start_time
+
+    SPINNER.stop(
+        f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+        f"{description} {DONE}{CHECK}{RESET}"
+    )
+    SPINNER = None
 
     # Calculate total initial and resulting sizes
     total_initial_size = sum(info["initial_file_size"] for info in filesizes_info if info)

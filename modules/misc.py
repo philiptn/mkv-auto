@@ -41,6 +41,41 @@ RIGHT_ARROW = '➝'
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
 
 
+class ProgressState:
+    def __init__(self, total_files, num_workers):
+        self.total_files = total_files
+        self.completed_files = 0
+
+        # worker_id -> progress (0.0–1.0)
+        self.worker_progress = {i: 0.0 for i in range(num_workers)}
+
+        self._lock = threading.Lock()
+
+    def start_worker(self, worker_id):
+        with self._lock:
+            self.worker_progress[worker_id] = 0.0
+
+    def update_worker_progress(self, worker_id, fraction):
+        with self._lock:
+            fraction = max(0.0, min(1.0, fraction))
+            # monotonic
+            if fraction > self.worker_progress[worker_id]:
+                self.worker_progress[worker_id] = fraction
+
+    def finish_worker(self, worker_id):
+        with self._lock:
+            self.worker_progress[worker_id] = 1.0
+            self.completed_files += 1
+
+    def snapshot(self):
+        with self._lock:
+            return (
+                self.completed_files,
+                self.total_files,
+                dict(self.worker_progress)
+            )
+
+
 class ContinuousSpinner:
     def __init__(self, interval=0.1, frames=None):
         # Spinners
@@ -52,6 +87,7 @@ class ContinuousSpinner:
         self._thread = None
         self._idx = 0
         self._make_line = lambda: ""  # function returning the line text (excluding spinner)
+        self._max_len = 0
 
     def set_line_func(self, func):
         # func should be a callable returning the line text (timestamp included, etc.)
@@ -68,26 +104,55 @@ class ContinuousSpinner:
         self._stop_event.set()
         if self._thread:
             self._thread.join()
+
         if final_line:
-            sys.stdout.write(f"\r{final_line}\r")
+            pad = " " * max(0, self._max_len - len(final_line))
+            sys.stdout.write(f"\r{final_line}{pad}\r")
         else:
             sys.stdout.write("\r")
+
+        sys.stdout.flush()
 
     def _spin(self):
         while not self._stop_event.is_set():
             hide_cursor = check_config(config, 'general', 'hide_cursor')
             frame = self.frames[self._idx]
-            # Call the function that includes real-time UTC
             line_text = self._make_line()
+
+            rendered = f"{line_text}{ACTIVE}{frame}{RESET} "
+            self._max_len = max(self._max_len, len(rendered))
+
             if hide_cursor:
-                sys.stdout.write(f"\r\033[?25l{line_text}{ACTIVE}{frame}{RESET} \r")
+                sys.stdout.write(f"\r\033[?25l{rendered}\r")
             else:
-                sys.stdout.write(f"\r{line_text}{ACTIVE}{frame}{RESET} \r")
+                sys.stdout.write(f"\r{rendered}\r")
+
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)
 
 
 SPINNER = None
+
+
+def make_progress_line(progress, header, description):
+    def line():
+        done, total, workers = progress.snapshot()
+        overall_pct = (done / total * 100) if total else 0.0
+
+        workers_str = " ".join(
+            f"{p * 100:.1f}%"
+            for i, p in workers.items()
+            if p > 0.0
+        )
+
+        return (
+            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{description} "
+            f"({done}/{total}) "
+            + (f"{workers_str} " if workers_str else "")
+        )
+    return line
+
 
 # List of tags to exclude from replacement
 # https://support.plex.tv/articles/local-files-for-trailers-and-extras/
