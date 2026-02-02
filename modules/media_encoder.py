@@ -398,7 +398,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     process = subprocess.Popen(
         cmd_ffmpeg,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
         text=True
     )
 
