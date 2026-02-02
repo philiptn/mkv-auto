@@ -122,10 +122,13 @@ class ContinuousSpinner:
             rendered = f"{line_text}{ACTIVE}{frame}{RESET} "
             self._max_len = max(self._max_len, len(rendered))
 
+            pad = " " * (self._max_len - len(rendered))
+            full_line = rendered + pad
+
             if hide_cursor:
-                sys.stdout.write(f"\r\033[?25l{rendered}\r")
+                sys.stdout.write(f"\r\033[?25l{full_line}\r")
             else:
-                sys.stdout.write(f"\r{rendered}\r")
+                sys.stdout.write(f"\r{full_line}\r")
 
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)
@@ -142,7 +145,7 @@ def make_progress_line(progress, header, description):
         workers_str = " ".join(
             f"{p * 100:.1f}%"
             for i, p in workers.items()
-            if p > 0.0
+            if 0.0 < p < 1.0
         )
 
         return (

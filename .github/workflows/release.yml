@@ -31,6 +31,7 @@ permissions:
 
 jobs:
   build-and-push:
+    #runs-on: ubuntu-latest
     runs-on: [self-hosted, trusted]
     steps:
       - name: Checkout

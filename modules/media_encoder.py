@@ -203,8 +203,8 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         "resulting_file_size": 0
     }
 
-    FFMPEG_WEIGHT = 0.95
-    MKVMERGE_WEIGHT = 0.05
+    FFMPEG_WEIGHT = 0.99
+    MKVMERGE_WEIGHT = 0.01
 
     quality_crf = resolve_quality_crf(input_quality_crf, [input_file], dirpath)
 
@@ -487,8 +487,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         custom_print(logger, f"{RED}[STDERR]{RESET}\n{YELLOW}{e.stderr.strip()}{RESET}")
         raise e
 
-    # Ensure worker reaches 100%
-    progress.update_worker_progress(worker_id, 1.0)
+    progress.update_worker_progress(worker_id, 0.999)
 
     # Cleanup
     os.remove(temp_video_file)
@@ -570,7 +569,7 @@ def encode_media_files(logger, debug, input_files, dirpath):
     start_time = time.time()
 
     header = "FFMPEG"
-    description = f"Encode media to {display_codec} CRF-{quality_crf}"
+    description = f"Encoding {display_codec} CRF-{quality_crf}"
 
     progress = ProgressState(total_files, num_workers)
     worker_id_pool = Queue()
