@@ -145,7 +145,7 @@ def make_progress_line(progress, header, description):
         workers_str = " ".join(
             f"{p * 100:.1f}%"
             for i, p in workers.items()
-            if 0.0 < p < 1.0
+            if p > 0.0
         )
 
         return (
