@@ -487,7 +487,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         custom_print(logger, f"{RED}[STDERR]{RESET}\n{YELLOW}{e.stderr.strip()}{RESET}")
         raise e
 
-    progress.update_worker_progress(worker_id, 1.0)
+    progress.finish_worker(worker_id)
 
     # Cleanup
     os.remove(temp_video_file)
@@ -569,7 +569,8 @@ def encode_media_files(logger, debug, input_files, dirpath):
     start_time = time.time()
 
     header = "FFMPEG"
-    description = f"Encoding to {display_codec} CRF-{quality_crf}"
+    description = f"Encoding to {display_codec}"
+    done_description = f"Finished encoding to {display_codec} CRF-{quality_crf}"
 
     progress = ProgressState(total_files, num_workers)
     worker_id_pool = Queue()
@@ -616,7 +617,7 @@ def encode_media_files(logger, debug, input_files, dirpath):
 
     SPINNER.stop(
         f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
-        f"{description} {DONE}{CHECK}{RESET}"
+        f"{done_description} {DONE}{CHECK}{RESET}"
     )
     SPINNER = None
 

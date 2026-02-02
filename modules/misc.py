@@ -64,7 +64,7 @@ class ProgressState:
 
     def finish_worker(self, worker_id):
         with self._lock:
-            self.worker_progress[worker_id] = 1.0
+            self.worker_progress.pop(worker_id, None)
             self.completed_files += 1
 
     def snapshot(self):
