@@ -428,22 +428,14 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
                 (out_time / duration) * FFMPEG_WEIGHT
             )
 
-    # Ensure process completes and stderr is collected
-    stderr = process.stderr.read()
-    stderr_lines.append(stderr)
-
     process.wait()
 
     if process.returncode != 0:
         e = subprocess.CalledProcessError(
             process.returncode,
-            cmd_ffmpeg,
-            output="".join(stdout_lines),
-            stderr="".join(stderr_lines)
+            cmd_ffmpeg
         )
         custom_print(logger, f"{RED}[ERROR]{RESET} FFmpeg failed with return code {e.returncode}")
-        custom_print(logger, f"{RED}[STDERR]{RESET}\n{YELLOW}{e.stderr.strip()}{RESET}")
-        custom_print(logger, f"{RED}[STDOUT]{RESET}\n{YELLOW}{e.stdout.strip()}{RESET}")
         raise e
 
     progress.update_worker_progress(worker_id, FFMPEG_WEIGHT)
