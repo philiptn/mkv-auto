@@ -148,10 +148,14 @@ def make_progress_line(progress, header, description):
             if p > 0.0
         )
 
+        temp = get_cpu_temp_cached()
+        temp_str = f"{temp:.0f}°C " if temp else ""
+
         return (
             f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
             f"{description} "
             f"({done}/{total}) "
+            + temp_str
             + (f"{workers_str} " if workers_str else "")
         )
     return line
@@ -168,6 +172,47 @@ extras_definitions = [
 # https://support.plex.tv/articles/200220677-local-media-assets-movies/
 # https://support.plex.tv/articles/200220717-local-media-assets-tv-shows/
 poster_base_names = ["cover", "default", "folder", "movie", "poster"]
+
+
+_last_cpu_temp = None
+_last_cpu_temp_time = 0
+
+def get_cpu_temp_cached(interval=1.0):
+    global _last_cpu_temp, _last_cpu_temp_time
+
+    now = time.time()
+    if now - _last_cpu_temp_time < interval:
+        return _last_cpu_temp
+
+    _last_cpu_temp_time = now
+
+    try:
+        temps = psutil.sensors_temperatures()
+        if not temps:
+            _last_cpu_temp = None
+            return None
+
+        cpu_keys = ["coretemp", "k10temp", "cpu_thermal"]
+
+        values = []
+        for key in cpu_keys:
+            if key in temps:
+                for entry in temps[key]:
+                    if entry.current:
+                        values.append(entry.current)
+
+        if not values:
+            for entries in temps.values():
+                for entry in entries:
+                    if entry.label.lower().startswith(("core", "package")):
+                        values.append(entry.current)
+
+        _last_cpu_temp = max(values) if values else None
+
+    except Exception:
+        _last_cpu_temp = None
+
+    return _last_cpu_temp
 
 
 def process_extras(input_folder):
