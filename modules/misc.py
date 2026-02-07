@@ -177,7 +177,7 @@ poster_base_names = ["cover", "default", "folder", "movie", "poster"]
 _last_cpu_temp = None
 _last_cpu_temp_time = 0
 
-def get_cpu_temp_cached(interval=1.0):
+def get_cpu_temp_cached(interval=4.0):
     global _last_cpu_temp, _last_cpu_temp_time
 
     now = time.time()
