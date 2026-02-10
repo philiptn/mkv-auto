@@ -83,6 +83,9 @@ class ContinuousSpinner:
         # ["-", "\\", "|", "/"]
         self.frames = frames or ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         self.interval = interval
+        self.render_interval = 2.0  # seconds
+        self._cached_line = ""
+        self._last_render_time = 0
         self._stop_event = threading.Event()
         self._thread = None
         self._idx = 0
@@ -117,7 +120,12 @@ class ContinuousSpinner:
         while not self._stop_event.is_set():
             hide_cursor = check_config(config, 'general', 'hide_cursor')
             frame = self.frames[self._idx]
-            line_text = self._make_line()
+            
+            now = time.time()
+            if now - self._last_render_time >= self.render_interval:
+                self._cached_line = self._make_line()
+                self._last_render_time = now
+            line_text = self._cached_line
 
             rendered = f"{line_text}{ACTIVE}{frame}{RESET} "
             self._max_len = max(self._max_len, len(rendered))

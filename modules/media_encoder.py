@@ -427,7 +427,6 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
                 worker_id,
                 (out_time / duration) * FFMPEG_WEIGHT
             )
-
     process.wait()
 
     if process.returncode != 0:
@@ -470,10 +469,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         except ValueError:
             continue
 
-        progress.update_worker_progress(
-            worker_id,
-            FFMPEG_WEIGHT + (percent / 100.0) * MKVMERGE_WEIGHT
-        )
+        progress.update_worker_progress(worker_id, FFMPEG_WEIGHT + (percent / 100.0) * MKVMERGE_WEIGHT)
 
     process.wait()
 
