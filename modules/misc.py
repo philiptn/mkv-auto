@@ -127,7 +127,7 @@ class ContinuousSpinner:
                 self._last_render_time = now
             line_text = self._cached_line
 
-            rendered = f"{line_text}{ACTIVE}{frame}{RESET} "
+            rendered = f"{GREY}[UTC {get_timestamp()}] {line_text}{ACTIVE}{frame}{RESET} "
             self._max_len = max(self._max_len, len(rendered))
 
             pad = " " * (self._max_len - len(rendered))
@@ -160,7 +160,7 @@ def make_progress_line(progress, header, description):
         temp_str = f"{temp:.0f}°C " if temp else ""
 
         return (
-            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"[{header}]{RESET} "
             f"{description} "
             f"({done}/{total}) "
             + temp_str
@@ -369,7 +369,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
     def line_func():
         return (
-            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"[{header}]{RESET} "
             f"{description} ({current}/{total}) "
         )
 
@@ -408,7 +408,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
 
     def line_func():
         return (
-            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"[{header}]{RESET} "
             f"{description} {current_print} of {total} "
         )
 
