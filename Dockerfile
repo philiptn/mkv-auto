@@ -68,6 +68,18 @@ RUN set -eux; \
     cd / && rm -rf /tmp/ffmpeg_static_install
 
 RUN set -eux; \
+    DOVI_VERSION="2.3.1"; \
+    mkdir -p /opt/bin && \
+    cd /tmp && \
+    wget -O dovi_tool.tar.gz \
+        https://github.com/quietvoid/dovi_tool/releases/download/${DOVI_VERSION}/dovi_tool-${DOVI_VERSION}-x86_64-unknown-linux-musl.tar.gz && \
+    tar -xzf dovi_tool.tar.gz && \
+    cp dovi_tool /opt/bin/ && \
+    chmod +x /opt/bin/dovi_tool && \
+    /opt/bin/dovi_tool --version && \
+    rm -rf /tmp/dovi_tool*
+
+RUN set -eux; \
     handbrake_version="1.10.2"; \
     mkdir -p /tmp/handbrake && \
     cd /tmp/handbrake && \
@@ -124,6 +136,7 @@ RUN apt-get update && \
         x11-utils \
         flatpak \
         vim \
+        mediainfo \
         gosu && \
     add-apt-repository ppa:alex-p/tesseract-ocr5 -y && \
     apt-get update && \
@@ -135,6 +148,7 @@ RUN apt-get update && \
 COPY --from=build /opt/bin/ffmpeg /usr/local/bin/ffmpeg
 COPY --from=build /opt/bin/ffprobe /usr/local/bin/ffprobe
 COPY --from=build /opt/bin/HandBrakeCLI /usr/local/bin/HandBrakeCLI
+COPY --from=build /opt/bin/dovi_tool /usr/local/bin/dovi_tool
 COPY --from=build /pre/venv /pre/venv
 
 ENV VIRTUAL_ENV=/pre/venv

@@ -82,9 +82,9 @@ if [ "$build_flag" = true ]; then
         $SUDO docker system prune -a -f > /dev/null 2>&1
         $SUDO docker build --no-cache -t "$IMAGE_NAME" .
     else
-        echo "Building Docker image..."
+        #echo "Building Docker image..."
         $SUDO docker image rm "$IMAGE_NAME" > /dev/null 2>&1
-        $SUDO docker build -t "$IMAGE_NAME" . > /dev/null 2>&1
+        $SUDO docker build -t "$IMAGE_NAME" .
         echo -e "\033[K\033[1A\033[K"
     fi
 else

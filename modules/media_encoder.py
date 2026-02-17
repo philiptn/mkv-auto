@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 import re
-import shutil  # Added to enable directory removal
+import shutil
 import platform
 import time
 import math
@@ -189,6 +189,197 @@ def calculate_output_dimensions(cropped_width, cropped_height, desired_ar):
     return output_width, output_height, pad_left, pad_right, pad_top, pad_bottom, scale
 
 
+def detect_dolby_vision(input_file, logger=None):
+    """
+    Detect Dolby Vision using MediaInfo.
+    Returns: (is_dovi: bool, dv_profile: str or None)
+    """
+    try:
+        cmd = [
+            'mediainfo',
+            '--Output=JSON',
+            input_file
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+
+        data = json.loads(result.stdout)
+
+        tracks = data.get("media", {}).get("track", [])
+
+        for track in tracks:
+            if track.get("@type") != "Video":
+                continue
+
+            hdr_format = track.get("HDR_Format", "")
+            hdr_format_string = track.get("HDR_Format_String", "")
+            hdr_format_profile = track.get("HDR_Format_Profile", "")
+
+            combined = f"{hdr_format} {hdr_format_string}".lower()
+
+            if "dolby vision" in combined:
+                profile = hdr_format_profile or None
+                return True, profile
+
+        return False, None
+
+    except Exception as e:
+        return False, None
+
+
+def extract_rpu(input_file, rpu_file, logger, work_dir):
+    """
+    Robust Dolby Vision preparation.
+
+    For Profile 7:
+        mkvextract → dovi_tool convert (P8 BL+RPU)
+        then extract RPU from the converted stream
+
+    For Profile 8:
+        extract directly
+
+    Returns path to RPU or None.
+    """
+
+    temp_raw = os.path.join(work_dir, "temp_source.hevc")
+    temp_p8 = os.path.join(work_dir, "temp_p8.hevc")
+
+    # -------------------------------------------------
+    # Step 1: Detect DV profile
+    # -------------------------------------------------
+    is_dovi, dv_profile = detect_dolby_vision(input_file, logger)
+
+    if not is_dovi:
+        return None
+
+    # -------------------------------------------------
+    # Step 2: Extract raw HEVC from container
+    # -------------------------------------------------
+    log_debug(logger, "[DOVI] Extracting raw HEVC")
+
+    # Find video track id
+    identify = subprocess.run(
+        ["mkvmerge", "-J", input_file],
+        capture_output=True,
+        text=True
+    )
+
+    try:
+        data = json.loads(identify.stdout)
+        video_track = next(t for t in data["tracks"] if t["type"] == "video")
+        track_id = video_track["id"]
+    except Exception:
+        log_debug(logger, "[DOVI] Failed to detect video track")
+        return None
+
+    extract_cmd = [
+        "mkvextract",
+        "tracks",
+        input_file,
+        f"{track_id}:{temp_raw}"
+    ]
+
+    result = subprocess.run(
+        extract_cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    if result.returncode != 0 or not os.path.exists(temp_raw):
+        log_debug(logger, "[DOVI] mkvextract failed")
+        return None
+
+    # -------------------------------------------------
+    # Step 3: If Profile 7 → convert stream to P8 first
+    # -------------------------------------------------
+    source_for_rpu = temp_raw
+
+    if dv_profile and "07" in dv_profile:
+        log_debug(logger, "[DOVI] Profile 7 detected — converting stream to Profile 8.1")
+
+        convert_cmd = [
+            "dovi_tool",
+            "-m", "2",
+            "convert",
+            "--discard",
+            temp_raw,
+            "-o",
+            temp_p8
+        ]
+
+        conv = subprocess.run(
+            convert_cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        if conv.returncode != 0 or not os.path.exists(temp_p8):
+            log_debug(logger, f"[DOVI] Stream conversion failed: {conv.stderr.strip()}")
+            os.remove(temp_raw)
+            return None
+
+        os.remove(temp_raw)
+        source_for_rpu = temp_p8
+
+    # -------------------------------------------------
+    # Step 4: Extract RPU from clean stream
+    # -------------------------------------------------
+    log_debug(logger, "[DOVI] Extracting RPU from prepared stream")
+
+    extract_rpu_cmd = [
+        "dovi_tool",
+        "extract-rpu",
+        "-i", source_for_rpu,
+        "-o", rpu_file
+    ]
+
+    rpu_proc = subprocess.run(
+        extract_rpu_cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    # Cleanup temp streams
+    try:
+        os.remove(source_for_rpu)
+    except:
+        pass
+
+    if rpu_proc.returncode != 0 or not os.path.exists(rpu_file):
+        log_debug(logger, f"[DOVI] RPU extraction failed: {rpu_proc.stderr.strip()}")
+        return None
+
+    log_debug(logger, "[DOVI] RPU ready for injection")
+    return rpu_file
+
+
+def inject_rpu(video_file, rpu_file, output_file, logger):
+    log_debug(logger, "[DOVI] Injecting RPU")
+    cmd = [
+        'dovi_tool',
+        'inject-rpu',
+        '-i', video_file,
+        '--rpu-in', rpu_file,
+        '-o', output_file
+    ]
+    result = subprocess.run(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr)
+
+
 def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, progress: ProgressState, worker_id):
     crop_values = check_config(config, 'media-encoder', 'crop_values')
     limit_resolution = check_config(config, 'media-encoder', 'limit_resolution')
@@ -210,6 +401,31 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
 
     media_file = os.path.join(dirpath, input_file)
     filesize_info["initial_file_size"] = os.path.getsize(media_file)
+
+    # ---- Dolby Vision detection ----
+    is_dovi, dv_profile = detect_dolby_vision(media_file, logger)
+
+    rpu_file = None
+
+    if is_dovi:
+        log_debug(logger, f"[DOVI] Dolby Vision detected (Profile: {dv_profile})")
+
+        if dv_profile and "7" in dv_profile:
+            log_debug(logger, "[DOVI] UHD Blu-ray profile detected (BL+EL possible)")
+
+        temp_rpu_path = os.path.join(dirpath, 'temp_rpu.bin')
+
+        try:
+            rpu_file = extract_rpu(media_file, temp_rpu_path, logger, dirpath)
+
+            if rpu_file is None:
+                log_debug(logger, "[DOVI] No usable RPU — falling back to HDR10")
+                is_dovi = False
+
+        except Exception as e:
+            log_debug(logger, f"[DOVI] RPU extraction error: {e}")
+            is_dovi = False
+            rpu_file = None
 
     perform_auto_crop = False
     left = right = top = bottom = 0
@@ -314,7 +530,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     # https://obsproject.com/forum/threads/can-you-please-explain-x264-option-threads.76917/
     if codec.lower() == "libx264":
         number_of_threads = min(16, number_of_threads)
-    log_debug(logger, f"File '{input_file}' will use {number_of_threads} threads with {codec}. CRF value {quality}, encoder speed {encoder_speed}, tune '{tune}'."
+    log_debug(logger, f"File '{input_file}' will use {number_of_threads} threads with {codec}. CRF value {quality}, encoder speed {encoder_speed}, tune '{tune}'. "
                       f"CPU usage alloc {cpu_usage_percentage}%")
 
     # Get original dimensions
@@ -349,7 +565,10 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     # Build filter string
     filter_str = ",".join(filter_chain) if filter_chain else None
 
-    temp_video_file = os.path.join(dirpath, 'temp_video_' + os.path.basename(input_file))
+    if is_dovi:
+        temp_video_file = os.path.join(dirpath, 'temp_video.hevc')
+    else:
+        temp_video_file = os.path.join(dirpath, 'temp_video_' + os.path.basename(input_file))
     temp_file = os.path.join(dirpath, 'temp_' + os.path.basename(input_file))
     cmd_ffmpeg = ['ffmpeg', '-y', '-progress', 'pipe:1', '-nostats', '-i', media_file]
 
@@ -362,6 +581,14 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         '-crf', quality,
         '-threads', str(number_of_threads),  # Limit CPU usage
     ])
+    
+    if is_dovi:
+        cmd_ffmpeg.extend([
+            '-an',
+            '-sn',
+            '-dn',
+            '-f', 'hevc'
+        ])
 
     # Apply the encoder speed/preset depending on the codec
     if codec in ['libx264', 'libx265']:
@@ -438,6 +665,24 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         raise e
 
     progress.update_worker_progress(worker_id, FFMPEG_WEIGHT)
+
+    # ---- Re-inject Dolby Vision after encode ----
+    if is_dovi and os.path.exists(rpu_file):
+        injected_file = os.path.join(dirpath, 'temp_dovi.hevc')
+
+        try:
+            inject_rpu(temp_video_file, rpu_file, injected_file, logger)
+            os.remove(temp_video_file)
+            temp_video_file = injected_file
+            log_debug(logger, "[DOVI] RPU injection successful")
+        except Exception as e:
+            log_debug(logger, f"[DOVI] Injection failed, continuing without DV: {e}")
+
+        # Cleanup RPU
+        try:
+            os.remove(rpu_file)
+        except:
+            pass
 
     cmd_mkvmerge = [
         'mkvmerge',

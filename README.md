@@ -238,6 +238,12 @@ https://github.com/thombashi/pathvalidate
 seatgeek for thefuzz (fuzzy matching titles)  
 https://github.com/seatgeek/thefuzz  
 
+quietvoid for dovi_tool (main tool for handling Dolby Vision)  
+https://github.com/quietvoid/dovi_tool  
+
+cryptochrome for dovi_convert (automatic handling of Dolby Vision profiles)  
+https://github.com/cryptochrome/dovi_convert/  
+
 #### [Meme image source](https://www.facebook.com/photo.php?fbid=502535002295094)
 
 ## Donations
