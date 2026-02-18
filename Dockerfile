@@ -80,6 +80,16 @@ RUN set -eux; \
     rm -rf /tmp/dovi_tool*
 
 RUN set -eux; \
+    DOVI_CONVERT_VERSION="v8.1.1"; \
+    mkdir -p /opt/bin && \
+    cd /tmp && \
+    wget -O dovi_convert \
+        https://github.com/cryptochrome/dovi_convert/releases/download/${DOVI_CONVERT_VERSION}/dovi_convert.py && \
+    chmod +x dovi_convert && \
+    mv dovi_convert /opt/bin/dovi_convert && \
+    rm -rf /tmp/*
+
+RUN set -eux; \
     handbrake_version="1.10.2"; \
     mkdir -p /tmp/handbrake && \
     cd /tmp/handbrake && \
@@ -149,6 +159,7 @@ COPY --from=build /opt/bin/ffmpeg /usr/local/bin/ffmpeg
 COPY --from=build /opt/bin/ffprobe /usr/local/bin/ffprobe
 COPY --from=build /opt/bin/HandBrakeCLI /usr/local/bin/HandBrakeCLI
 COPY --from=build /opt/bin/dovi_tool /usr/local/bin/dovi_tool
+COPY --from=build /opt/bin/dovi_convert /usr/local/bin/dovi_convert
 COPY --from=build /pre/venv /pre/venv
 
 ENV VIRTUAL_ENV=/pre/venv

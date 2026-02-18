@@ -9,6 +9,7 @@ A fully automatic media processing tool that processes media files based on user
 - Automatically download missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal) (default enabled)
 - Generate audio tracks in various codec and channel configurations (DTS, AAC, AC3, 5.1, 2.0 etc.)
 - Encode video to various output codecs (H.265, H.265, AV1, VP9) using optimized encoding parameters
+- Automatically convert Dolby Vision Profile 7 to Profile 8.1 using [dovi_tool](https://github.com/quietvoid/dovi_tool) and [dovi_convert](https://github.com/cryptochrome/dovi_convert)
 - Convert any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and a custom Tesseract OCR library ([alex-p](https://launchpad.net/~alex-p/+archive/ubuntu/tesseract-ocr5))
 - Convert Advanced SubStation Alpha (ASS) and MP4 (tx3g) subtitles to SRT using Python libraries and FFmpeg
 - Remove SDH (such as `[PHONE RINGING]` or `*DOG GROWLING*`) from SRT subtitles (default enabled)

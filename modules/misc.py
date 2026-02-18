@@ -168,6 +168,24 @@ def make_progress_line(progress, header, description):
         )
     return line
 
+def make_progress_line_no_temp(progress, header, description):
+    def line():
+        done, total, workers = progress.snapshot()
+
+        workers_str = " ".join(
+            f"{p * 100:.0f}%"
+            for i, p in workers.items()
+            if p > 0.0
+        )
+
+        return (
+            f"[{header}]{RESET} "
+            f"{description} "
+            f"({done}/{total}) "
+            + (f"{workers_str} " if workers_str else "")
+        )
+    return line
+
 
 # List of tags to exclude from replacement
 # https://support.plex.tv/articles/local-files-for-trailers-and-extras/
@@ -1622,6 +1640,9 @@ config = {
         'keep_original_file_structure': get_config('general', 'KEEP_ORIGINAL_FILE_STRUCTURE', variables_defaults),
         'remove_all_title_names': get_config('general', 'REMOVE_ALL_TITLE_NAMES', variables_defaults).lower() == "true",
         'make_season_folders': get_config('general', 'MAKE_SEASON_FOLDERS', variables_defaults).lower() == "true"
+    },
+    'video': {
+        'convert_dolby_vision_to_p8': get_config('video', 'CONVERT_DOLBY_VISION_TO_P8', variables_defaults).lower() == "true"
     },
     'audio': {
         'pref_audio_langs': [item.strip() for item in get_config('audio', 'PREFERRED_AUDIO_LANG', variables_defaults).split(',')],

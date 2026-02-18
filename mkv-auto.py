@@ -182,6 +182,7 @@ def mkv_auto(args):
             download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
             remove_all_subtitles = check_config(config, 'subtitles', 'remove_all_subtitles')
             enable_media_encoder = check_config(config, 'media-encoder', 'enable_media_encoder')
+            convert_dolby_vision_to_p8 = check_config(config, 'video', 'convert_dolby_vision_to_p8')
 
             if not filenames:
                 exit(0)
@@ -298,6 +299,9 @@ def mkv_auto(args):
 
             if enable_media_encoder:
                 filenames_mkv_only = encode_media_files(logger, debug, filenames_mkv_only, dirpath)
+            
+            if convert_dolby_vision_to_p8 and not enable_media_encoder:
+                convert_dovi_files(logger, debug, filenames_mkv_only, dirpath)
 
             all_filenames = filenames_mkv_only + filenames_covers
             move_files_to_output_process(logger, debug, all_filenames, dirpath, all_dirnames, output_dir, errored)

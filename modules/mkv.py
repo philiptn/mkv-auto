@@ -12,6 +12,7 @@ import base64
 from collections import defaultdict, Counter
 from itertools import chain
 from pathlib import Path
+from queue import Queue
 
 from modules.misc import *
 from modules.audio import *
@@ -667,6 +668,263 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
     return all_subtitle_files
+
+
+def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
+                                 progress: ProgressState, worker_id):
+    """
+    Scan and convert Dolby Vision using dovi_convert turbo mode.
+    Adds detailed debugging and failure detection.
+    """
+
+    media_file = os.path.join(dirpath, input_file)
+
+    filesize_info = {
+        "initial_file_size": os.path.getsize(media_file),
+        "resulting_file_size": 0
+    }
+
+    progress.start_worker(worker_id)
+    start_time = time.time()
+    file_converted = "skip"
+
+    log_debug(logger, f"[DOVI] Processing: {media_file}")
+
+    # Only process typical video containers
+    if not input_file.lower().endswith((".mkv", ".mp4", ".m2ts", ".ts")):
+        log_debug(logger, f"[DOVI] Skipping (unsupported container): {input_file}")
+        progress.finish_worker(worker_id)
+        filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
+        return input_file, filesize_info
+
+    # -------------------------------------------------
+    # Stage 1: Scan
+    # -------------------------------------------------
+    scan_cmd = ["dovi_convert", "scan", media_file]
+    log_debug(logger, f"[DOVI] Scan command: {' '.join(scan_cmd)}")
+
+    scan_proc = subprocess.run(
+        scan_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    if debug or scan_proc.returncode != 0:
+        log_debug(logger, f"[DOVI][SCAN][STDOUT]\n{scan_proc.stdout}")
+        log_debug(logger, f"[DOVI][SCAN][STDERR]\n{scan_proc.stderr}")
+
+    if scan_proc.returncode != 0:
+        log_debug(logger, f"[DOVI] Scan failed (code {scan_proc.returncode}) — skipping")
+        progress.finish_worker(worker_id)
+        filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
+        return input_file, filesize_info
+
+    progress.update_worker_progress(worker_id, 0.25)
+
+    output = scan_proc.stdout.lower()
+
+    # Extract status line for debugging
+    if "status:" in output:
+        status_line = next(
+            (line.strip() for line in scan_proc.stdout.splitlines()
+             if "status:" in line.lower()),
+            ""
+        )
+        log_debug(logger, f"[DOVI] {status_line}")
+
+    if "action:" in output:
+        action_line = next(
+            (line.strip() for line in scan_proc.stdout.splitlines()
+             if "action:" in line.lower()),
+            ""
+        )
+        log_debug(logger, f"[DOVI] {action_line}")
+
+    # Skip if no conversion required
+    action = None
+    for line in scan_proc.stdout.splitlines():
+        if "action:" in line.lower():
+            action = line.split(":", 1)[1]
+            action = action.strip().replace("\r", "").upper()
+            break
+
+    log_debug(logger, f"[DOVI] Parsed action: {action}")
+
+    if "Profile 5" in status_line:
+        log_debug(logger, f"[DOVI] Profile 5 detected. Unable to convert to Profile 8.1: {input_file}")
+        file_converted = "fail"
+        progress.finish_worker(worker_id)
+        filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
+        return input_file, filesize_info, file_converted
+
+    if not action or "CONVERT" not in action:
+        log_debug(logger, f"[DOVI] No action taken: {input_file}")
+        progress.finish_worker(worker_id)
+        filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
+        return input_file, filesize_info, file_converted
+
+    # -------------------------------------------------
+    # Stage 2: Convert (Turbo)
+    # -------------------------------------------------
+    log_debug(logger, f"[DOVI] Starting conversion: {input_file}")
+
+    convert_cmd = [
+        "dovi_convert",
+        "convert",
+        media_file
+    ]
+
+    log_debug(logger, f"[DOVI] Convert command: {' '.join(convert_cmd)}")
+
+    process = subprocess.Popen(
+        convert_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    output_lines = []
+    saw_progress = False
+
+    for line in process.stdout:
+        output_lines.append(line)
+        l = line.lower().strip()
+
+        if debug:
+            log_debug(logger, f"[DOVI] {line.strip()}")
+
+        if "[1/3]" in l:
+            progress.update_worker_progress(worker_id, 0.50)
+            saw_progress = True
+        elif "[2/3]" in l:
+            progress.update_worker_progress(worker_id, 0.75)
+        elif "[3/3]" in l:
+            progress.update_worker_progress(worker_id, 0.95)
+
+    process.wait()
+
+    full_output = "".join(output_lines)
+
+    if process.returncode != 0:
+        log_debug(logger, "[DOVI] Conversion FAILED")
+        log_debug(logger, f"[DOVI] Exit code: {process.returncode}")
+        log_debug(logger, f"[DOVI] Output:\n{full_output}")
+
+        raise subprocess.CalledProcessError(
+            process.returncode,
+            convert_cmd,
+            output=full_output
+        )
+
+    if not saw_progress:
+        log_debug(logger, "[DOVI] Warning: no stage progress detected")
+
+    # -------------------------------------------------
+    # Stage 3: Cleanup backup
+    # -------------------------------------------------
+    backup_file = media_file + ".bak.dovi_convert"
+
+    if os.path.exists(backup_file):
+        try:
+            os.remove(backup_file)
+            log_debug(logger, f"[DOVI] Removed backup: {backup_file}")
+        except Exception as e:
+            log_debug(logger, f"[DOVI] Failed to remove backup: {e}")
+
+    # -------------------------------------------------
+    # Validate result
+    # -------------------------------------------------
+    if os.path.exists(media_file):
+        new_size = os.path.getsize(media_file)
+        filesize_info["resulting_file_size"] = new_size
+
+        if new_size == filesize_info["initial_file_size"]:
+            log_debug(logger, "[DOVI] Warning: file size unchanged after conversion")
+    else:
+        log_debug(logger, "[DOVI] ERROR: output file missing after conversion")
+
+    elapsed = time.time() - start_time
+    log_debug(logger, f"[DOVI] Finished {input_file} in {elapsed:.2f}s")
+    file_converted = "true"
+
+    progress.finish_worker(worker_id)
+
+    return input_file, filesize_info, file_converted
+
+
+def convert_dovi_files(logger, debug, input_files, dirpath):
+    """
+    Multithreaded Dolby Vision conversion using dovi_convert turbo mode.
+    Only converts when scan says Action: CONVERT.
+    """
+
+    total_files = len(input_files)
+    updated_filenames = [None] * total_files
+    filesizes_info = [None] * total_files
+    files_converted = [None] * total_files
+
+    max_worker_threads = get_worker_thread_count()
+    num_workers = min(max_worker_threads, total_files)
+
+    # Turbo is disk-light but still heavy I/O
+    num_workers = min(num_workers, 4)
+
+    header = "DOVI"
+    description = "Dolby Vision → Profile 8.1"
+    done_description = "Dolby Vision → Profile 8.1"
+    fail_description = "Dolby Vision Profile 5 → SKIP"
+
+    progress = ProgressState(total_files, num_workers)
+    worker_id_pool = Queue()
+    for wid in range(num_workers):
+        worker_id_pool.put(wid)
+
+    print()
+    SPINNER = ContinuousSpinner(interval=0.15)
+    SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description))
+    SPINNER.start()
+
+    def worker_wrapper(index, input_file):
+        worker_id = worker_id_pool.get()
+        try:
+            result = dovi_scan_and_convert_single(
+                logger,
+                debug,
+                input_file,
+                dirpath,
+                progress,
+                worker_id
+            )
+            return index, result
+        finally:
+            worker_id_pool.put(worker_id)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {
+            executor.submit(worker_wrapper, index, input_file): index
+            for index, input_file in enumerate(input_files)
+        }
+
+        for future in concurrent.futures.as_completed(futures):
+            index, (updated_filename, filesize_info, file_converted) = future.result()
+            updated_filenames[index] = updated_filename
+            filesizes_info[index] = filesize_info
+            files_converted[index] = file_converted
+
+    if any(converted == 'fail' for converted in files_converted):
+        stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+                  f"{done_description} {DONE}~{RESET}")
+    if all(converted == 'true' for converted in files_converted):
+        stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+                  f"{done_description} {DONE}{CHECK}{RESET}")
+    if all(converted == 'fail' for converted in files_converted):
+        stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+                  f"{fail_description}")
+
+    SPINNER.stop(stop_print)
+    return updated_filenames
 
 
 def extract_subs_in_mkv_process_worker(logger, debug, input_file, dirpath, internal_threads):
