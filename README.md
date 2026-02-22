@@ -8,7 +8,7 @@ A fully automatic media processing tool that processes media files based on user
 - Remove any audio or subtitle tracks from video that does not match user preferences
 - Automatically download missing subtitles languages using [Subliminal](https://github.com/Diaoul/subliminal) (default enabled)
 - Generate audio tracks in various codec and channel configurations (DTS, AAC, AC3, 5.1, 2.0 etc.)
-- Encode video to various output codecs (H.265, H.265, AV1, VP9) using optimized encoding parameters
+- Encode video to various output codecs (H.264, H.265, AV1, VP9) using optimized encoding parameters
 - Automatically convert Dolby Vision Profile 7 to Profile 8.1 using [dovi_tool](https://github.com/quietvoid/dovi_tool) and [dovi_convert](https://github.com/cryptochrome/dovi_convert)
 - Convert any picture-based subtitles (BluRay/DVD) to SupRip (SRT) using SubtitleEdit and a custom Tesseract OCR library ([alex-p](https://launchpad.net/~alex-p/+archive/ubuntu/tesseract-ocr5))
 - Convert Advanced SubStation Alpha (ASS) and MP4 (tx3g) subtitles to SRT using Python libraries and FFmpeg
@@ -44,22 +44,10 @@ A simplified config for just keeping English audio and subtitles can be seen in 
 
 ## Ways to run MKV-Auto
 
-- [Process files manually (Linux - Native Python)](#process-files-manually-linux---native-python)
 - [Process files manually (Windows/Linux - Docker)](#process-files-manually-windowslinux---docker)
 - [Process files automatically (Docker service - Linux)](#process-files-automatically-docker-service---linux)
 - [Process files automatically from qBittorrent (Service + qBittorrent integration)](#process-files-automatically-from-qbittorrent-service--qbittorrent-integration)
 - [Process files automatically on import (Service + Sonarr/Radarr integration)](#process-files-automatically-on-import-service--sonarrradarr-integration)
-
-### Process files manually (Linux - Native Python)
-
-To run MKV-Auto natively in Python, you need to be running Ubuntu 22.04 LTS.
-
-1. Run `./prerequisites.sh` to install the necessary `apt` and `pip` packages needed for this utility to work.
-2. Place the media files inside the `input/` folder. Alternatively, a custom input folder can be specified using `--input_folder` option. Enclosing the directories in double quotes (`--input_folder "folder/input media"`) is recommended to prevent any parsing errors. MKV-Auto will then copy all the files it can fit into `<mkv-auto folder>/.tmp/` unless a custom `TEMP_DIR` is specified. 
-3. Activate the Python virtual environment using `source venv/bin/activate` or `. venv/bin/activate`.
-4. Run the tool using `python3 mkv-auto.py`
-5. Processed files can then be found in the output folder, categorized as either a movie or TV Show.
-6. To exit the Python virtual environment, run `deactivate` in the terminal.
 
 ### Process files manually (Windows/Linux - Docker)
 
@@ -77,7 +65,7 @@ To run MKV-Auto natively in Python, you need to be running Ubuntu 22.04 LTS.
     `--build` (build and run MKV-Auto using the local code, useful for debugging)  
     `--no-cache` (clear build cache when building the local Docker image)  
     `--copy` (copy files from input folder, not move them)  
-    `--tag` (run with a specific tag `philiptn/mkv-auto:<tag>`)
+    `--tag` (run with a specific tag `mkv-auto:<tag>`)
 
 ### Process files automatically (Docker service - Linux)
 

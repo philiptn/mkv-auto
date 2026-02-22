@@ -1,5 +1,6 @@
 import subprocess
 import json
+import tempfile
 import os
 import re
 from tqdm import tqdm
@@ -283,21 +284,29 @@ def get_main_audio_track_language(file_info):
 
 
 def remove_all_mkv_track_tags(debug, filename):
-    command = ['mkvpropedit', filename,
-               '--edit', 'track:v1', '--set', 'name=',
-               '--set', 'flag-default=1', '-e', 'info', '-s', 'title=']
+    # Create a temporary empty tags XML
+    empty_xml_content = '<?xml version="1.0"?><Tags></Tags>'
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xml", mode="w") as tmp:
+        tmp.write(empty_xml_content)
+        empty_xml_path = tmp.name
+
+    command = [
+        'mkvpropedit', filename,
+        '--tags', f'all:{empty_xml_path}',
+        '--edit', 'track:v1', '--set', 'name=',
+        '--set', 'flag-default=1',
+        '--edit', 'info', '--set', 'title='
+    ]
 
     if debug:
-        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing track tags in MKV...")
-        print('')
-        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}")
-        print(f"{RESET}")
+        print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Cleaning MKV metadata...")
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
     result = subprocess.run(command, capture_output=True, text=True)
+    os.remove(empty_xml_path)
+
     if result.returncode != 0:
-        print('')
-        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stdout}")
-        print(f"{RESET}")
+        print(f"\n{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stderr}")
     result.check_returncode()
 
 
@@ -670,6 +679,48 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
     return all_subtitle_files
 
 
+def has_dolby_vision(file_path):
+    scan_cmd = ["dovi_convert", "scan", file_path]
+
+    try:
+        proc = subprocess.run(
+            scan_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True
+        )
+    except Exception:
+        return False
+
+    if proc.returncode != 0:
+        return False
+
+    output = proc.stdout
+
+    # True only if Dolby Vision profile detected
+    return "DV Profile" in output
+
+
+def upgrade_dv_to_dv_hdr_filename(filename):
+    name, ext = os.path.splitext(filename)
+
+    # Match separator + DV and capture separator
+    dv_pattern = re.compile(r'(?i)(?P<sep>[.\- _])dv(?=$|[.\- _])')
+    hdr_pattern = re.compile(r'(?i)(?:^|[.\- _])hdr(?=$|[.\- _])')
+
+    has_dv = dv_pattern.search(name)
+    has_hdr = hdr_pattern.search(name)
+
+    if has_dv and not has_hdr:
+        def repl(match):
+            sep = match.group('sep')
+            return f"{sep}DV{sep}HDR"
+
+        name = dv_pattern.sub(repl, name, count=1)
+
+    return name + ext
+
+
 def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
                                  progress: ProgressState, worker_id):
     """
@@ -724,6 +775,13 @@ def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
 
     output = scan_proc.stdout.lower()
 
+    # Hard check: skip if no Dolby Vision detected
+    if "dv profile" not in output:
+        log_debug(logger, f"[DOVI] No Dolby Vision detected: {input_file}")
+        progress.finish_worker(worker_id)
+        filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
+        return input_file, filesize_info, "skip"
+
     # Extract status line for debugging
     if "status:" in output:
         status_line = next(
@@ -753,13 +811,13 @@ def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
 
     if "Profile 5" in status_line:
         log_debug(logger, f"[DOVI] Profile 5 detected. Unable to convert to Profile 8.1: {input_file}")
-        file_converted = "fail"
+        file_converted = "p5"
         progress.finish_worker(worker_id)
         filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
         return input_file, filesize_info, file_converted
 
-    if not action or "CONVERT" not in action:
-        log_debug(logger, f"[DOVI] No action taken: {input_file}")
+    if "CONVERT" not in action:
+        log_debug(logger, f"[DOVI] No conversion required: {input_file}")
         progress.finish_worker(worker_id)
         filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
         return input_file, filesize_info, file_converted
@@ -848,6 +906,25 @@ def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
     elapsed = time.time() - start_time
     log_debug(logger, f"[DOVI] Finished {input_file} in {elapsed:.2f}s")
     file_converted = "true"
+    # -------------------------------------------------
+    # Stage 4: Upgrade filename (Profile 7 → DV HDR)
+    # -------------------------------------------------
+    try:
+        new_filename = upgrade_dv_to_dv_hdr_filename(input_file)
+
+        if new_filename != input_file:
+            old_path = media_file
+            new_path = os.path.join(dirpath, new_filename)
+
+            if not os.path.exists(new_path):
+                os.rename(old_path, new_path)
+                log_debug(logger, f"[DOVI] Renamed DV → DV HDR: {input_file} -> {new_filename}")
+                input_file = new_filename
+            else:
+                log_debug(logger, f"[DOVI] Rename skipped (target exists): {new_filename}")
+
+    except Exception as e:
+        log_debug(logger, f"[DOVI] Filename upgrade failed: {e}")
 
     progress.finish_worker(worker_id)
 
@@ -868,8 +945,23 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     max_worker_threads = get_worker_thread_count()
     num_workers = min(max_worker_threads, total_files)
 
-    # Turbo is disk-light but still heavy I/O
-    num_workers = min(num_workers, 4)
+    # -------------------------------------------------
+    # Pre-scan: keep only files that actually contain Dolby Vision
+    # -------------------------------------------------
+    dovi_files = []
+
+    for f in input_files:
+        if not f.lower().endswith((".mkv", ".mp4", ".m2ts", ".ts")):
+            continue
+
+        full_path = os.path.join(dirpath, f)
+
+        if has_dolby_vision(full_path):
+            dovi_files.append(f)
+
+    if not dovi_files:
+        return input_files
+    input_files = dovi_files
 
     header = "DOVI"
     description = "Dolby Vision → Profile 8.1"
@@ -913,13 +1005,16 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
             filesizes_info[index] = filesize_info
             files_converted[index] = file_converted
 
-    if any(converted == 'fail' for converted in files_converted):
+    stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+                  f"{done_description} {DONE}{CHECK}{RESET}")
+
+    if any(converted == 'true' for converted in files_converted) and any(converted == 'fail' for converted in files_converted):
         stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
                   f"{done_description} {DONE}~{RESET}")
-    if all(converted == 'true' for converted in files_converted):
+    if any(converted == 'true' for converted in files_converted) and not any(converted == 'fail' for converted in files_converted):
         stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
                   f"{done_description} {DONE}{CHECK}{RESET}")
-    if all(converted == 'fail' for converted in files_converted):
+    if all(converted == 'p5' for converted in files_converted):
         stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
                   f"{fail_description}")
 
@@ -1385,7 +1480,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
         combined_failed = [item for sublist in all_failed_downloads_simple for item in sublist]
 
         if combined_downloaded:
-            downloaded_subs_info = return_media_info_string(combined_downloaded, GREEN)
+            downloaded_subs_info = return_media_info_string(logger, combined_downloaded, GREEN)
             for index, info in enumerate(downloaded_subs_info):
                 if index + 1 == len(downloaded_subs_info) and not combined_failed:
                     custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
@@ -1393,7 +1488,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
                     custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
 
         if combined_failed:
-            failed_downloads_info = return_media_info_string(combined_failed, RED)
+            failed_downloads_info = return_media_info_string(logger, combined_failed, RED)
             for index, info in enumerate(failed_downloads_info):
                 if index + 1 == len(failed_downloads_info):
                     custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")

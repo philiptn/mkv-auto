@@ -1,3 +1,9 @@
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message="urllib3.*doesn't match a supported version"
+)
+
 import configparser
 import sys
 import traceback
@@ -301,7 +307,7 @@ def mkv_auto(args):
                 filenames_mkv_only = encode_media_files(logger, debug, filenames_mkv_only, dirpath)
             
             if convert_dolby_vision_to_p8 and not enable_media_encoder:
-                convert_dovi_files(logger, debug, filenames_mkv_only, dirpath)
+                filenames_mkv_only = convert_dovi_files(logger, debug, filenames_mkv_only, dirpath)
 
             all_filenames = filenames_mkv_only + filenames_covers
             move_files_to_output_process(logger, debug, all_filenames, dirpath, all_dirnames, output_dir, errored)

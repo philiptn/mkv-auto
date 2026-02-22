@@ -1,4 +1,4 @@
-FROM ubuntu:24.04@sha256:4fdf0125919d24aec972544669dcd7d6a26a8ad7e6561c73d5549bd6db258ac2 AS build
+FROM ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9 AS build
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC
@@ -113,7 +113,7 @@ RUN python3.12 -m venv /pre/venv && \
     /pre/venv/bin/pip install -r /pre/requirements.txt
 
 
-FROM ubuntu:24.04@sha256:4fdf0125919d24aec972544669dcd7d6a26a8ad7e6561c73d5549bd6db258ac2
+FROM ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC

@@ -39,6 +39,7 @@ CROSS_BOLD = '✘'
 RIGHT_ARROW = '➝'
 
 custom_date_format = 'UTC %Y-%m-%d %H:%M:%S'
+tv_metadata_cache = {}
 
 
 class ProgressState:
@@ -239,6 +240,35 @@ def get_cpu_temp_cached(interval=4.0):
         _last_cpu_temp = None
 
     return _last_cpu_temp
+
+
+def get_tv_show_metadata_cached(logger, debug, media_name, sep):
+    """
+    Returns cached show metadata.
+    Only calls API once per show.
+    """
+
+    key = media_name.lower().strip()
+
+    if key in tv_metadata_cache:
+        return tv_metadata_cache[key]
+
+    # Use S01E01 to resolve show name/year
+    lookup_key = f"{media_name}{sep}S01E01"
+    info = get_tv_episode_metadata(logger, debug, lookup_key)
+
+    if info:
+        tv_metadata_cache[key] = {
+            "show_name": info.get("show_name", media_name),
+            "show_year": info.get("show_year", "")
+        }
+    else:
+        tv_metadata_cache[key] = {
+            "show_name": media_name,
+            "show_year": ""
+        }
+
+    return tv_metadata_cache[key]
 
 
 def process_extras(input_folder):
@@ -984,10 +1014,21 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
     # Regular expression to match movies
     movie_pattern = re.compile(r"^(.*?)[ .]*(?:\((\d{4})\)|(\d{4}))[ .]*(.*\.*)$", re.IGNORECASE)
 
-    hdr_pattern = re.compile(r" HDR|.HDR|.DV.")
     pattern_4k = re.compile(r" 2160p|.2160p| 4K|.4K")
     non_hdr_pattern = re.compile(r"h264|x264", re.IGNORECASE)
     non_4k_pattern = re.compile(r"1080p|720p", re.IGNORECASE)
+
+    # HDR / DV detection
+    dv_pattern = re.compile(
+        r'(?i)(?:^|[.\- _])(?:dv|dovi|dolby[ ._-]?vision)(?=$|[.\- _])'
+    )
+    hdr_pattern = re.compile(
+        r'(?i)(?:^|[.\- _])(?:hdr10\+?|hdr)(?=$|[.\- _])'
+    )
+
+    is_dv = dv_pattern.search(filename) is not None
+    is_hdr = hdr_pattern.search(filename) is not None and not non_hdr_pattern.search(filename)
+    is_hdr_any = is_hdr or is_dv
 
     # Regular expression to detect editions: {edition-Director's Cut}, etc.
     edition_pattern = re.compile(r"{edition-(.*?)}", re.IGNORECASE)
@@ -1017,7 +1058,13 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
         season = int(tv_match1.group(4))
         episode = int(tv_match1.group(5))
 
-        if is_hdr:
+        if is_dv and is_hdr:
+            media_type = 'tv_show_dv_hdr'
+            folder = tv_hdr_folder
+        elif is_dv:
+            media_type = 'tv_show_dv'
+            folder = tv_hdr_folder
+        elif is_hdr:
             media_type = 'tv_show_hdr'
             folder = tv_hdr_folder
         elif is_4k:
@@ -1061,7 +1108,13 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
         season_start = int(tv_match2.group(4))
         season_end = int(tv_match2.group(5))
 
-        if is_hdr:
+        if is_dv and is_hdr:
+            media_type = 'tv_show_dv_hdr'
+            folder = tv_hdr_folder
+        elif is_dv:
+            media_type = 'tv_show_dv'
+            folder = tv_hdr_folder
+        elif is_hdr:
             media_type = 'tv_show_hdr'
             folder = tv_hdr_folder
         elif is_4k:
@@ -1103,7 +1156,13 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
             title = to_sentence_case(title)
         year = movie_match.group(2) or movie_match.group(3)
 
-        if is_hdr:
+        if is_dv and is_hdr:
+            media_type = 'movie_dv_hdr'
+            folder = movie_hdr_folder
+        elif is_dv:
+            media_type = 'movie_dv'
+            folder = movie_hdr_folder
+        elif is_hdr:
             media_type = 'movie_hdr'
             folder = movie_hdr_folder
         elif is_4k:
@@ -1304,8 +1363,11 @@ def compact_names_list(names):
     return names
 
 
-def compact_episode_list(episodes, zfill=False):
+def compact_episode_list(episodes, zfill=False, with_e=False):
     # Summarize consecutive episode numbers as ranges.
+    if not episodes:
+        return ""
+
     episodes = sorted(episodes)
     ranges = []
     range_start = range_end = episodes[0]
@@ -1318,29 +1380,31 @@ def compact_episode_list(episodes, zfill=False):
             range_start = range_end = episode
     ranges.append((range_start, range_end))
 
-    # Determine the padding logic
+    # Determine the padding and prefix logic
     def format_episode(num):
         if zfill:
-            return f"{num:02}" if num < 100 else f"{num:03}"
-        return str(num)
+            num_str = f"{num:02}" if num < 100 else f"{num:03}"
+        else:
+            num_str = str(num)
 
-    # Format the ranges with optional zfill
+        return f"E{num_str}" if with_e else num_str
+
+    # Format the ranges
     return ", ".join(
-        f"{format_episode(start)}" if start == end else f"{format_episode(start)}-{format_episode(end)}"
+        f"{format_episode(start)}"
+        if start == end
+        else f"{format_episode(start)}-{format_episode(end)}"
         for start, end in ranges
     )
 
 
-def return_media_info_string(filenames, type):
+def return_media_info_string(logger, filenames, type):
     tv_shows = defaultdict(lambda: defaultdict(set))
     tv_shows_extras = defaultdict(list)
-    tv_shows_hdr = defaultdict(lambda: defaultdict(set))
-    tv_shows_hdr_extras = defaultdict(list)
     movies = []
     movie_extras = defaultdict(list)
-    movies_hdr = []
-    movie_hdr_extras = defaultdict(list)
     uncategorized = []
+    normalize_filenames = check_config(config, 'general', 'normalize_filenames')
 
     return_str_list = []
 
@@ -1349,41 +1413,56 @@ def return_media_info_string(filenames, type):
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
         base, ext = os.path.splitext(filename)
+        
+        q = detect_quality_flags(filename)
+        if media_type.startswith('tv_show'):
+            if q["is_dv_hdr"]:
+                media_type = 'tv_show_dv_hdr'
+            elif q["is_dv"]:
+                media_type = 'tv_show_dv'
+            elif q["is_hdr"]:
+                media_type = 'tv_show_hdr'
+
+        elif media_type.startswith('movie'):
+            if q["is_dv_hdr"]:
+                media_type = 'movie_dv_hdr'
+            elif q["is_dv"]:
+                media_type = 'movie_dv'
+            elif q["is_hdr"]:
+                media_type = 'movie_hdr'
 
         # Determine if this is an extra by checking trailing excluded tags.
         is_extra = any(base.lower().endswith(tag) for tag in extras_definitions)
 
-        if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_4k']:
+        if media_type.startswith('tv_show'):
             season, episodes = extract_season_episode(filename)
+
             if is_extra:
-                if media_type == 'tv_show':
-                    tv_shows_extras[media_name].append(filename)
-                else:
-                    tv_shows_hdr_extras[media_name].append(filename)
+                tv_shows_extras[media_name].append(filename)
             else:
                 if season is not None and episodes:
-                    if media_type == 'tv_show':
-                        tv_shows[media_name][season].update(episodes)
-                    else:
-                        tv_shows_hdr[media_name][season].update(episodes)
+                    tv_shows[media_name][season].update(episodes)
                 else:
                     uncategorized.append(media_name)
-        elif media_type in ['movie', 'movie_hdr', 'movie_4k']:
+
+        elif media_type.startswith('movie'):
             if is_extra:
-                if media_type == 'movie':
-                    movie_extras[media_name].append(filename)
-                else:
-                    movie_hdr_extras[media_name].append(filename)
+                movie_extras[media_name].append(filename)
             else:
-                if media_type == 'movie':
-                    movies.append(media_name)
-                else:
-                    movies_hdr.append(media_name)
+                movies.append(media_name)
         else:
             uncategorized.append(media_name)
     if tv_shows:
         for show in sorted(tv_shows):
             show_no_year = re.sub(r'\(\d{4}\)', '', show).strip()
+            if normalize_filenames.lower() in ('full', 'full-jf'):
+                meta = get_tv_show_metadata_cached(logger, False, media_name, ' ')
+                if meta["show_year"]:
+                    show_display = f"{meta['show_name']} ({meta['show_year']})"
+                else:
+                    show_display = meta["show_name"]
+            else:
+                show_display = media_name
             seasons = sorted(tv_shows[show].keys())
             for index, season in enumerate(seasons):
                 episode_list = compact_episode_list(sorted(tv_shows[show][season]))
@@ -1391,40 +1470,15 @@ def return_media_info_string(filenames, type):
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
                 if index == 0:
-                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_print})")
+                    return_str_list.append(f"{type}{show_display}{RESET} ({tv_shows_print})")
                 else:
-                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_print})")
-
-    if tv_shows_hdr:
-        for show in sorted(tv_shows_hdr):
-            show_no_year = re.sub(r'\(\d{4}\)', '', show).strip()
-            seasons = sorted(tv_shows_hdr[show].keys())
-            for index, season in enumerate(seasons):
-                episode_list = compact_episode_list(sorted(tv_shows_hdr[show][season]))
-                tv_shows_hdr_print = f"Season {season}: Episode {episode_list}"
-                if tv_shows_hdr_extras[show]:
-                    tv_shows_hdr_print += f" (+{len(tv_shows_hdr_extras[show])} {print_multi_or_single(len(tv_shows_hdr_extras[show]), 'Extra')})"
-                if index == 0:
-                    return_str_list.append(f"{type}{show}{RESET} ({tv_shows_hdr_print})")
-                else:
-                    return_str_list.append(f"{' ' * len(show)} ({tv_shows_hdr_print})")
-
+                    return_str_list.append(f"{' ' * len(show_display)} ({tv_shows_print})")
     if movies:
         movies.sort()
         for movie in movies:
             return_str = ''
             if movie_extras[movie]:
                 return_str += f"{type}{movie}{RESET} (+{len(movie_extras[movie])} {print_multi_or_single(len(movie_extras[movie]), 'Extra')})"
-            else:
-                return_str += f"{type}{movie}{RESET}"
-            return_str_list.append(return_str)
-
-    if movies_hdr:
-        movies_hdr.sort()
-        for movie in movies_hdr:
-            return_str = ''
-            if movie_hdr_extras[movie]:
-                return_str += f"{type}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})"
             else:
                 return_str += f"{type}{movie}{RESET}"
             return_str_list.append(return_str)
@@ -1439,6 +1493,28 @@ def return_media_info_string(filenames, type):
     return return_str_list
 
 
+def detect_quality_flags(filename):
+    dv_pattern = re.compile(
+        r'(?i)(?:^|[.\- _])(dv|dovi|dolby[ ._-]?vision)(?=$|[.\- _])'
+    )
+
+    hdr_pattern = re.compile(
+        r'(?i)(?:^|[.\- _])(hdr10\+?|hdr)(?=$|[.\- _])'
+    )
+
+    false_hdr = re.compile(r'(?i)hdrip')
+    false_dv = re.compile(r'(?i)dvd')
+
+    is_dv = dv_pattern.search(filename) is not None and not false_dv.search(filename)
+    is_hdr = hdr_pattern.search(filename) is not None and not false_hdr.search(filename)
+
+    return {
+        "is_dv": is_dv,
+        "is_hdr": is_hdr,
+        "is_dv_hdr": is_dv and is_hdr
+    }
+
+
 def print_media_info(logger, filenames):
     # Ignore subtitles
     filenames = [f for f in filenames if f.endswith('.mkv')]
@@ -1449,31 +1525,70 @@ def print_media_info(logger, filenames):
     tv_shows_hdr_extras = defaultdict(list)
     tv_shows_4k = defaultdict(lambda: defaultdict(set))
     tv_shows_4k_extras = defaultdict(list)
+    tv_shows_dv = defaultdict(lambda: defaultdict(set))
+    tv_shows_dv_extras = defaultdict(list)
+    tv_shows_dv_hdr = defaultdict(lambda: defaultdict(set))
+    tv_shows_dv_hdr_extras = defaultdict(list)
     movies = []
     movie_extras = defaultdict(list)
     movies_hdr = []
     movie_hdr_extras = defaultdict(list)
     movies_4k = []
     movie_4k_extras = defaultdict(list)
+    movies_dv = []
+    movie_dv_extras = defaultdict(list)
+    movies_dv_hdr = []
+    movie_dv_hdr_extras = defaultdict(list)
     uncategorized = []
+
+    normalize_filenames = check_config(config, 'general', 'normalize_filenames')
 
     for filename in filenames:
         a, filename = unflatten_file(filename, '')
         file_info = reformat_filename(filename, True, False, False)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
+        # Normalize show name via cached API (TV only)
+        if media_type.startswith('tv_show'):
+            if normalize_filenames.lower() in ('full', 'full-jf'):
+                meta = get_tv_show_metadata_cached(logger, False, media_name, ' ')
+                if meta["show_year"]:
+                    media_name = f"{meta['show_name']} ({meta['show_year']})"
+                else:
+                    media_name = meta["show_name"]
         base, ext = os.path.splitext(filename)
+
+        q = detect_quality_flags(filename)
+        if media_type.startswith('tv_show'):
+            if q["is_dv_hdr"]:
+                media_type = 'tv_show_dv_hdr'
+            elif q["is_dv"]:
+                media_type = 'tv_show_dv'
+            elif q["is_hdr"]:
+                media_type = 'tv_show_hdr'
+
+        elif media_type.startswith('movie'):
+            if q["is_dv_hdr"]:
+                media_type = 'movie_dv_hdr'
+            elif q["is_dv"]:
+                media_type = 'movie_dv'
+            elif q["is_hdr"]:
+                media_type = 'movie_hdr'
 
         # Determine if this is an extra by checking trailing excluded tags.
         is_extra = any(base.lower().endswith(tag) for tag in extras_definitions)
 
-        if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_4k']:
+        if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_dv', 'tv_show_dv_hdr', 'tv_show_4k']:
             season, episodes = extract_season_episode(filename)
             if is_extra:
                 if media_type == 'tv_show':
                     tv_shows_extras[media_name].append(filename)
                 elif media_type == 'tv_show_4k':
                     tv_shows_4k_extras[media_name].append(filename)
+                elif media_type == 'tv_show_dv_hdr':
+                    tv_shows_dv_hdr_extras[media_name].append(filename)
+                elif media_type == 'tv_show_dv':
+                    tv_shows_dv_extras[media_name].append(filename)
                 else:
                     tv_shows_hdr_extras[media_name].append(filename)
             else:
@@ -1482,16 +1597,22 @@ def print_media_info(logger, filenames):
                         tv_shows[media_name][season].update(episodes)
                     elif media_type == 'tv_show_4k':
                         tv_shows_4k[media_name][season].update(episodes)
+                    elif media_type == 'tv_show_dv_hdr':
+                        tv_shows_dv_hdr[media_name][season].update(episodes)
+                    elif media_type == 'tv_show_dv':
+                        tv_shows_dv[media_name][season].update(episodes)
                     else:
                         tv_shows_hdr[media_name][season].update(episodes)
-                else:
-                    uncategorized.append(media_name)
-        elif media_type in ['movie', 'movie_hdr', 'movie_4k']:
+        elif media_type in ['movie', 'movie_hdr', 'movie_dv', 'movie_dv_hdr', 'movie_4k']:
             if is_extra:
                 if media_type == 'movie':
                     movie_extras[media_name].append(filename)
                 elif media_type == 'movie_4k':
                     movie_4k_extras[media_name].append(filename)
+                elif media_type == 'movie_dv_hdr':
+                    movie_dv_hdr_extras[media_name].append(filename)
+                elif media_type == 'movie_dv':
+                    movie_dv_extras[media_name].append(filename)
                 else:
                     movie_hdr_extras[media_name].append(filename)
             else:
@@ -1499,6 +1620,10 @@ def print_media_info(logger, filenames):
                     movies.append(media_name)
                 elif media_type == 'movie_4k':
                     movies_4k.append(media_name)
+                elif media_type == 'movie_dv_hdr':
+                    movies_dv_hdr.append(media_name)
+                elif media_type == 'movie_dv':
+                    movies_dv.append(media_name)
                 else:
                     movies_hdr.append(media_name)
         else:
@@ -1522,6 +1647,44 @@ def print_media_info(logger, filenames):
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_print}")
+
+    if tv_shows_dv_hdr:
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(tv_shows_dv_hdr)} DV HDR TV {print_multi_or_single(len(tv_shows_dv_hdr), 'Show')}:")
+        for show in sorted(tv_shows_dv_hdr):
+            seasons = sorted(tv_shows_dv_hdr[show].keys())
+            if len(seasons) == 1:
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(tv_shows_dv_hdr[show][season]))
+                tv_shows_dv_hdr_print = f"(Season {season}: Episode {episode_list})"
+                if tv_shows_dv_hdr_extras[show]:
+                    tv_shows_dv_hdr_print += f" (+{len(tv_shows_dv_hdr_extras[show])} {print_multi_or_single(len(tv_shows_dv_hdr_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_dv_hdr_print}")
+            else:
+                total_episodes = sum(len(tv_shows_dv_hdr[show][s]) for s in seasons)
+                tv_shows_dv_hdr_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                if tv_shows_dv_hdr_extras[show]:
+                    tv_shows_dv_hdr_print += f" (+{len(tv_shows_dv_hdr_extras[show])} {print_multi_or_single(len(tv_shows_dv_hdr_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_dv_hdr_print}")
+
+    if tv_shows_dv:
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(tv_shows_dv)} DV TV {print_multi_or_single(len(tv_shows_dv), 'Show')}:")
+        for show in sorted(tv_shows_dv):
+            seasons = sorted(tv_shows_dv[show].keys())
+            if len(seasons) == 1:
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(tv_shows_dv[show][season]))
+                tv_shows_dv_print = f"(Season {season}: Episode {episode_list})"
+                if tv_shows_dv_extras[show]:
+                    tv_shows_dv_print += f" (+{len(tv_shows_dv_extras[show])} {print_multi_or_single(len(tv_shows_dv_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_dv_print}")
+            else:
+                total_episodes = sum(len(tv_shows_dv[show][s]) for s in seasons)
+                tv_shows_dv_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                if tv_shows_dv_extras[show]:
+                    tv_shows_dv_print += f" (+{len(tv_shows_dv_extras[show])} {print_multi_or_single(len(tv_shows_dv_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_dv_print}")
 
     if tv_shows_hdr:
         print_no_timestamp(logger,
@@ -1571,6 +1734,28 @@ def print_media_info(logger, filenames):
             else:
                 print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
 
+    if movies_dv_hdr:
+        movies_dv_hdr.sort()
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(movies_dv_hdr)} DV HDR {print_multi_or_single(len(movies_dv_hdr), 'Movie')}:")
+        for movie in movies_dv_hdr:
+            if movie_hdr_extras[movie]:
+                print_no_timestamp(logger,
+                                   f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
+            else:
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+
+    if movies_dv:
+        movies_dv.sort()
+        print_no_timestamp(logger,
+                           f"{GREY}[INFO]{RESET} {len(movies_dv)} DV {print_multi_or_single(len(movies_dv), 'Movie')}:")
+        for movie in movies_dv:
+            if movie_hdr_extras[movie]:
+                print_no_timestamp(logger,
+                                   f"  {BLUE}{movie}{RESET} (+{len(movie_hdr_extras[movie])} {print_multi_or_single(len(movie_hdr_extras[movie]), 'Extra')})")
+            else:
+                print_no_timestamp(logger, f"  {BLUE}{movie}{RESET}")
+
     if movies_hdr:
         movies_hdr.sort()
         print_no_timestamp(logger,
@@ -1601,6 +1786,7 @@ def print_media_info(logger, filenames):
     print_no_timestamp(logger,
                        f"{GREY}[INFO]{RESET} {len(filenames)} media {print_multi_or_single(len(filenames), 'file')} in total.")
     print_no_timestamp(logger, '')
+    tv_metadata_cache.clear()
 
 
 # Initialize configparser

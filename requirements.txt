@@ -4,7 +4,7 @@ subtitle-filter==1.5.0
 
 # For progress bar support
 # https://pypi.org/project/tqdm/
-tqdm==4.67.1
+tqdm==4.67.3
 
 # For parsing .ini files
 # https://pypi.org/project/configparser/
@@ -16,7 +16,7 @@ asstosrt==0.1.6
 
 # For automatically resyncing SRT subtitles to the audio stream
 # https://pypi.org/project/ffsubsync/
-ffsubsync==0.4.30
+ffsubsync==0.4.31
 
 # For removing all-uppercase letters in improperly formatted SDH subtitles
 # https://pypi.org/project/pysrt/
@@ -28,15 +28,15 @@ rarfile==4.2
 
 # For converting ISO 639-1 two-letter language codes to full country names
 # https://pypi.org/project/pycountry/
-pycountry==24.6.1
+pycountry==26.2.16
 
 # For downloading external subtitles
 # https://pypi.org/project/subliminal/
-subliminal==2.4.0
+subliminal==2.6.0
 
 # For calculating max OCR threads based on available system RAM
 # https://pypi.org/project/psutil/
-psutil==7.1.0
+psutil==7.2.2
 
 # For sanitizing filenames
 # https://pypi.org/project/pathvalidate/

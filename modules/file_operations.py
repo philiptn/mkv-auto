@@ -291,6 +291,28 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
     }
 
 
+def detect_dynamic_range_from_filename(filename):
+    dv_pattern = re.compile(
+        r'(?i)(?:^|[.\- _])(dv|dovi|dolby[ ._-]?vision)(?=$|[.\- _])'
+    )
+
+    hdr_pattern = re.compile(
+        r'(?i)(?:^|[.\- _])(hdr10\+?|hdr)(?=$|[.\- _])'
+    )
+
+    false_hdr = re.compile(r'(?i)hdrip')
+    false_dv = re.compile(r'(?i)dvd')
+
+    is_dv = dv_pattern.search(filename) is not None and not false_dv.search(filename)
+    is_hdr = hdr_pattern.search(filename) is not None and not false_hdr.search(filename)
+
+    return {
+        'is_dv': is_dv,
+        'is_hdr': is_hdr,
+        'is_dv_hdr': is_dv and is_hdr
+    }
+
+
 def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure):
     original_folders, original_restored_filename = unflatten_file(input_file_path, '')
 
@@ -310,6 +332,27 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     file_info = reformat_filename(original_restored_filename, True, False, False)
     media_type = file_info["media_type"]
     media_name = file_info["media_name"]
+
+    dynamic = detect_dynamic_range_from_filename(original_restored_filename)
+    is_dv = dynamic['is_dv']
+    is_hdr = dynamic['is_hdr']
+    is_dv_hdr = dynamic['is_dv_hdr']
+
+    if media_type.startswith('movie'):
+        if is_dv_hdr:
+            media_type = 'movie_dv_hdr'
+        elif is_dv:
+            media_type = 'movie_dv'
+        elif is_hdr:
+            media_type = 'movie_hdr'
+
+    elif media_type.startswith('tv_show'):
+        if is_dv_hdr:
+            media_type = 'tv_show_dv_hdr'
+        elif is_dv:
+            media_type = 'tv_show_dv'
+        elif is_hdr:
+            media_type = 'tv_show_hdr'
 
     extras_pattern = "|".join(
         re.escape(e.lstrip("-")) for e in extras_definitions
@@ -346,14 +389,18 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                     )
                     full_info_found = True
     else:
-        if media_type in ['movie', 'movie_hdr', 'movie_4k']:
+        if media_type in ['movie', 'movie_hdr', 'movie_dv', 'movie_dv_hdr', 'movie_4k']:
             pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
             movie_extra_match = pattern.match(base)
             if movie_extra_match:
                 restored_filename = movie_extra_match.group("extra") + ext
             else:
                 if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
-                    if media_type == 'movie_hdr':
+                    if media_type == 'movie_dv_hdr':
+                        restored_filename = f"{media_name}{sep}DV HDR{ext}"
+                    elif media_type == 'movie_dv':
+                        restored_filename = f"{media_name}{sep}DV{ext}"
+                    elif media_type == 'movie_hdr':
                         restored_filename = f"{media_name}{sep}HDR{ext}"
                     elif media_type == 'movie_4k':
                         restored_filename = f"{media_name}{sep}4K{ext}"
@@ -361,15 +408,15 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                         restored_filename = f"{media_name}{ext}"
                 else:
                     restored_filename = original_restored_filename
-        elif media_type in ['tv_show', 'tv_show_hdr', 'tv_show_4k']:
+        elif media_type in ['tv_show', 'tv_show_hdr', 'tv_show_dv', 'tv_show_dv_hdr', 'tv_show_4k']:
             season, episodes = extract_season_episode(original_restored_filename)
             if season and episodes:
-                episode_list = compact_episode_list(episodes, True)
+                episode_list = compact_episode_list(episodes, True, True)
                 formatted_season = f"{season:02}" if season < 100 else f"{season:03}"
                 show_name_format = media_name
                 if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
                     if normalize_filenames.lower() in ('full', 'full-jf'):
-                        full_info = get_tv_episode_metadata(logger, debug, f"{media_name}{sep}S{formatted_season}E{episode_list}")
+                        full_info = get_tv_episode_metadata(logger, debug, f"{media_name}{sep}S{formatted_season}{episode_list}")
                         # If no match, try to get show name only using S01E01
                         if not full_info:
                             full_info = get_tv_episode_metadata(logger, debug,
@@ -382,12 +429,32 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                             show_name_format = f"{full_info['show_name']}"
                         else:
                             show_name_format = f"{full_info['show_name']} ({full_info['show_year']})"
-                    if media_type == 'tv_show_hdr':
+                    if media_type == 'tv_show_dv_hdr':
                         if full_info:
                             restored_filename = (f"{show_name_format}{sep}"
-                                                 f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{sep}HDR{ext}")
+                                                f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}DV HDR{ext}")
                             new_folders_str = (f"{show_name_format}{sep}"
-                                               f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{sep}HDR{ext}")
+                                            f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}DV HDR{ext}")
+                            media_name = full_info['show_name']
+                            full_info_found = True
+                        else:
+                            restored_filename = f"{media_name}{sep}S{formatted_season}E{episode_list}{sep}DV HDR{ext}"
+                    elif media_type == 'tv_show_dv':
+                        if full_info:
+                            restored_filename = (f"{show_name_format}{sep}"
+                                                f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}DV{ext}")
+                            new_folders_str = (f"{show_name_format}{sep}"
+                                            f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}DV{ext}")
+                            media_name = full_info['show_name']
+                            full_info_found = True
+                        else:
+                            restored_filename = f"{media_name}{sep}S{formatted_season}E{episode_list}{sep}DV{ext}"
+                    elif media_type == 'tv_show_hdr':
+                        if full_info:
+                            restored_filename = (f"{show_name_format}{sep}"
+                                                 f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}HDR{ext}")
+                            new_folders_str = (f"{show_name_format}{sep}"
+                                               f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}HDR{ext}")
                             media_name = full_info['show_name']
                             full_info_found = True
                         else:
@@ -395,9 +462,9 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                     elif media_type == 'tv_show_4k':
                         if full_info:
                             restored_filename = (f"{show_name_format}{sep}"
-                                                 f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{sep}4K{ext}")
+                                                 f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}4K{ext}")
                             new_folders_str = (f"{show_name_format}{sep}"
-                                               f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{sep}4K{ext}")
+                                               f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{sep}4K{ext}")
                             media_name = full_info['show_name']
                             full_info_found = True
                         else:
@@ -405,9 +472,9 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                     else:
                         if full_info:
                             restored_filename = (f"{show_name_format}{sep}"
-                                                 f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{ext}")
+                                                 f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{ext}")
                             new_folders_str = (f"{show_name_format}{sep}"
-                                               f"S{formatted_season}E{episode_list}{sep}{full_info['episode_title']}{ext}")
+                                               f"S{formatted_season}{episode_list}{sep}{full_info['episode_title']}{ext}")
                             media_name = full_info['show_name']
                             full_info_found = True
                         else:

@@ -392,6 +392,24 @@ def inject_rpu(video_file, rpu_file, output_file, logger):
         raise RuntimeError(result.stderr)
 
 
+def upgrade_filename_to_dv_hdr(basename):
+    # Match separator + DV and capture the separator
+    dv_pattern = re.compile(r'(?i)(?P<sep>[.\- _])dv(?=$|[.\- _])')
+    hdr_pattern = re.compile(r'(?i)(?:^|[.\- _])hdr(?=$|[.\- _])')
+
+    has_dv = dv_pattern.search(basename)
+    has_hdr = hdr_pattern.search(basename)
+
+    if has_dv and not has_hdr:
+        def repl(match):
+            sep = match.group('sep')
+            return f"{sep}DV{sep}HDR"
+
+        basename = dv_pattern.sub(repl, basename, count=1)
+
+    return basename
+
+
 def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, progress: ProgressState, worker_id):
     crop_values = check_config(config, 'media-encoder', 'crop_values')
     limit_resolution = check_config(config, 'media-encoder', 'limit_resolution')
@@ -779,6 +797,8 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     for substring in remove_substrings:
         pattern = re.compile(re.escape(substring), re.IGNORECASE)
         basename = pattern.sub('', basename)
+    if is_dovi:
+        basename = upgrade_filename_to_dv_hdr(basename)
     cleaned_filename = os.path.join(basename + '.mkv')
 
     os.rename(temp_file, os.path.join(dirpath, cleaned_filename))
