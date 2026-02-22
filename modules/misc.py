@@ -1490,6 +1490,7 @@ def return_media_info_string(logger, filenames, type):
             return_str += f"{type}{item}{RESET}"
             return_str_list.append(return_str)
 
+    tv_metadata_cache.clear()
     return return_str_list
 
 
