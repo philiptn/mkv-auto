@@ -46,6 +46,11 @@ class ProgressState:
     def __init__(self, total_files, num_workers):
         self.total_files = total_files
         self.completed_files = 0
+        self.total_duration = 0.0
+        self.encoded_duration = 0.0
+        self.worker_durations = {}
+        self.worker_start_times = {}
+        self.worker_best_eta = {}
 
         # worker_id -> progress (0.0–1.0)
         self.worker_progress = {i: 0.0 for i in range(num_workers)}
@@ -54,7 +59,8 @@ class ProgressState:
 
     def start_worker(self, worker_id):
         with self._lock:
-            self.worker_progress[worker_id] = 0.0
+            self.worker_start_times[worker_id] = time.time()
+            self.worker_best_eta[worker_id] = None
 
     def update_worker_progress(self, worker_id, fraction):
         with self._lock:
@@ -75,6 +81,25 @@ class ProgressState:
                 self.total_files,
                 dict(self.worker_progress)
             )
+    def update_encoded_duration(self, worker_id, current_seconds):
+        with self._lock:
+            prev = self.worker_durations.get(worker_id, 0.0)
+            delta = current_seconds - prev
+            if delta > 0:
+                self.encoded_duration += delta
+                self.worker_durations[worker_id] = current_seconds
+    def get_smoothed_eta(self, new_eta):
+        with self._lock:
+            if new_eta <= 0:
+                return new_eta
+
+            if self.best_eta_seconds is None:
+                self.best_eta_seconds = new_eta
+            else:
+                # Only allow ETA to decrease
+                self.best_eta_seconds = min(self.best_eta_seconds, new_eta)
+
+            return self.best_eta_seconds
 
 
 class ContinuousSpinner:
@@ -146,32 +171,80 @@ class ContinuousSpinner:
 SPINNER = None
 
 
-def make_progress_line(progress, header, description):
+def format_eta_single(seconds: float) -> str:
+    if seconds <= 0:
+        return "0s"
+
+    seconds = int(seconds)
+
+    days = seconds // 86400
+    if days >= 1:
+        return f"{days}d"
+
+    hours = seconds // 3600
+    if hours >= 1:
+        return f"{hours}h"
+
+    minutes = seconds // 60
+    if minutes >= 1:
+        return f"{minutes}m"
+
+    return f"{seconds}s"
+
+
+def get_worker_eta(progress, worker_id, progress_value):
+    if progress_value <= 0.01:
+        return f"∞{GREY}|{RESET}"
+
+    start = progress.worker_start_times.get(worker_id)
+    if not start:
+        return f"∞{GREY}|{RESET}"
+
+    elapsed = time.time() - start
+    total_estimated = elapsed / progress_value
+    remaining = total_estimated - elapsed
+
+    best = progress.worker_best_eta.get(worker_id)
+    if best is None or remaining < best:
+        progress.worker_best_eta[worker_id] = remaining
+        best = remaining
+
+    return f"{format_eta_single(best)}{BLUE}|{RESET}"
+
+
+def render_worker_status(progress, worker_id, progress_value):
+    pct = progress_value * 100
+    block = get_block_gradient(pct)
+    eta = get_worker_eta(progress, worker_id, progress_value)
+    return f"{eta}{pct:.0f}% "
+
+
+def make_progress_line(progress, header, description, start_time):
     def line():
         done, total, workers = progress.snapshot()
-        overall_pct = (done / total * 100) if total else 0.0
-
-        workers_str = " ".join(
-            f"{p * 100:.1f}%"
-            for i, p in workers.items()
-            if p > 0.0
-        )
 
         temp = get_cpu_temp_cached()
         temp_str = f"{temp:.0f}°C " if temp else ""
+
+        workers_str = "".join(
+            render_worker_status(progress, wid, workers.get(wid, 0.0))
+            for wid in sorted(workers.keys())
+        )
 
         return (
             f"[{header}]{RESET} "
             f"{description} "
             f"({done}/{total}) "
             + temp_str
-            + (f"{workers_str} " if workers_str else "")
+            + workers_str
         )
     return line
 
-def make_progress_line_no_temp(progress, header, description):
+
+def make_progress_line_no_temp(progress, header, description, start_time):
     def line():
         done, total, workers = progress.snapshot()
+        overall_pct = (done / total) if total else 0.0
 
         workers_str = " ".join(
             f"{p * 100:.0f}%"
@@ -179,10 +252,14 @@ def make_progress_line_no_temp(progress, header, description):
             if p > 0.0
         )
 
+        # ---- ETA calculation ----
+        eta_str = get_eta_from_duration(progress, start_time) + " "
+
         return (
             f"[{header}]{RESET} "
             f"{description} "
             f"({done}/{total}) "
+            + eta_str
             + (f"{workers_str} " if workers_str else "")
         )
     return line
@@ -1933,3 +2010,15 @@ def get_block_gradient(num):
         return "▓"  # high
     else:
         return "█"  # max
+
+def get_block_gradient_horizontal(num):
+    num = int(num)
+
+    if num < 5:
+        return "·"
+    elif num < 25:
+        return "▪"
+    elif num < 50:
+        return "■"
+    else:
+        return "█"

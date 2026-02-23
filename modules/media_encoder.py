@@ -44,14 +44,6 @@ def resolve_quality_crf(
     input_files: List[str],
     dirpath: str
 ) -> str:
-    """
-    Parse QUALITY_CRF config and determine whether all input files
-    resolve to the same CRF value.
-
-    Returns:
-        int     -> single CRF value for all files
-        "MIXED" -> multiple CRF values are required
-    """
     parts = quality_crf_str.split(":", 1)
     base_crf = str(parts[0])
 
@@ -534,7 +526,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     # CPU threads calculation
     num_cores = os.cpu_count()
     if codec.lower() == "libx265":
-        divisor = 4.7
+        divisor = 7.8
     else:
         divisor = 0.8
     number_of_threads = max(1, int(num_cores * (cpu_usage_percentage / 100) // divisor))
@@ -575,14 +567,15 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         filter_chain.append(scale_filter)
 
     # ---- Dolby Vision detection ----
-    is_dovi, dv_profile = detect_dolby_vision(media_file, logger)
+    if codec.lower() == "libx265":
+        is_dovi, dv_profile = detect_dolby_vision(media_file, logger)
 
     rpu_file = None
     crop_rpu = False
     if cropping and crop_filter != "crop=w=iw-0-0:h=ih-0-0:x=0:y=0":
         crop_rpu = True
 
-    if is_dovi:
+    if is_dovi and codec.lower() == "libx265":
         log_debug(logger, f"[DOVI] Dolby Vision detected (Profile: {dv_profile})")
 
         if dv_profile and "7" in dv_profile:
@@ -606,7 +599,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     # Build filter string
     filter_str = ",".join(filter_chain) if filter_chain else None
 
-    if is_dovi:
+    if is_dovi and codec.lower() == "libx265":
         temp_video_file = os.path.join(temp_dir, "video.hevc")
     else:
         temp_video_file = os.path.join(temp_dir, f"video_{safe_base}.mkv")
@@ -624,7 +617,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         '-threads', str(number_of_threads),  # Limit CPU usage
     ])
     
-    if is_dovi:
+    if is_dovi and codec.lower() == "libx265":
         cmd_ffmpeg.extend([
             '-an',
             '-sn',
@@ -696,6 +689,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
                 worker_id,
                 (out_time / duration) * FFMPEG_WEIGHT
             )
+            progress.update_encoded_duration(worker_id, out_time)
     process.wait()
 
     if process.returncode != 0:
@@ -709,7 +703,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     progress.update_worker_progress(worker_id, FFMPEG_WEIGHT)
 
     # ---- Re-inject Dolby Vision after encode ----
-    if is_dovi and os.path.exists(rpu_file):
+    if is_dovi and os.path.exists(rpu_file) and codec.lower() == "libx265":
         injected_file = os.path.join(temp_dir, "video_dovi.hevc")
 
         try:
@@ -867,10 +861,20 @@ def encode_media_files(logger, debug, input_files, dirpath):
     worker_id_pool = Queue()
     for wid in range(num_workers):
         worker_id_pool.put(wid)
+    
+    total_duration = 0
+    for f in input_files:
+        try:
+            total_duration += get_video_duration(os.path.join(dirpath, f))
+        except:
+            pass
+
+    progress.total_duration = total_duration
+    progress.encoded_duration = 0.0
 
     print()
     SPINNER = ContinuousSpinner(interval=0.15)
-    SPINNER.set_line_func(make_progress_line(progress, header, description))
+    SPINNER.set_line_func(make_progress_line(progress, header, description, start_time))
     SPINNER.start()
 
     # Use ThreadPoolExecutor to handle multithreading

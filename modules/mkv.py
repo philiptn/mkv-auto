@@ -974,8 +974,9 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
         worker_id_pool.put(wid)
 
     print()
+    start_time = time.time()
     SPINNER = ContinuousSpinner(interval=0.15)
-    SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description))
+    SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description, start_time))
     SPINNER.start()
 
     def worker_wrapper(index, input_file):
