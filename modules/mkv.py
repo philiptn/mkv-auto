@@ -254,17 +254,6 @@ def strip_mkv_title_and_track_names(debug, file_path):
                 stderr=subprocess.DEVNULL
             )
 
-        # Remove the title from the MKV file
-        command = ['mkvpropedit', str(file_path), '--edit', 'info', '--set', 'title=']
-        if debug:
-            print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
-
-        subprocess.run(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to process file: {file_path}\n{e.stderr}")
 

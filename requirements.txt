@@ -17,6 +17,9 @@ asstosrt==0.1.6
 # For automatically resyncing SRT subtitles to the audio stream
 # https://pypi.org/project/ffsubsync/
 ffsubsync==0.4.31
+# Needed in Python >= 3.12 as it is no longer a standard package
+# https://github.com/pypa/setuptools/issues/5174
+setuptools<82
 
 # For removing all-uppercase letters in improperly formatted SDH subtitles
 # https://pypi.org/project/pysrt/
