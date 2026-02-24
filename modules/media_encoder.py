@@ -523,10 +523,16 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
                 encoder_options[codec]['options'][i + 1] += ':no-info=1'
                 break
 
+    # Get original dimensions
+    orig_width, orig_height = get_video_dimensions(media_file)
+
     # CPU threads calculation
     num_cores = os.cpu_count()
     if codec.lower() == "libx265":
-        divisor = 7.8
+        if orig_width >= 3840:
+            divisor = 4.3
+        else:
+            divisor = 3.3
     else:
         divisor = 0.8
     number_of_threads = max(1, int(num_cores * (cpu_usage_percentage / 100) // divisor))
@@ -536,9 +542,6 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         number_of_threads = min(16, number_of_threads)
     log_debug(logger, f"File '{input_file}' will use {number_of_threads} threads with {codec}. CRF value {quality}, encoder speed {encoder_speed}, tune '{tune}'. "
                       f"CPU usage alloc {cpu_usage_percentage}%")
-
-    # Get original dimensions
-    orig_width, orig_height = get_video_dimensions(media_file)
 
     if cropping:
         if perform_auto_crop:
@@ -836,11 +839,6 @@ def encode_media_files(logger, debug, input_files, dirpath):
     max_worker_threads = get_worker_thread_count()
     num_workers = min(max_worker_threads, total_files)
 
-    if output_codec == 'h265':
-        num_workers = min(2, num_workers)
-    elif output_codec == 'h264':
-        num_workers = min(4, num_workers)
-
     per_file_cpu = float(max_cpu_usage) / num_workers
 
     codec_map = {
@@ -868,6 +866,28 @@ def encode_media_files(logger, debug, input_files, dirpath):
             total_duration += get_video_duration(os.path.join(dirpath, f))
         except:
             pass
+    
+    is_4k = False
+    for f in input_files:
+        try:
+            width, _ = get_video_dimensions(os.path.join(dirpath, f))
+            if width >= 3840:
+                is_4k = True
+                break
+        except:
+            pass
+
+    max_worker_threads = get_worker_thread_count()
+    num_workers = min(max_worker_threads, total_files)
+
+    if output_codec.lower() == 'h265':
+        if is_4k:
+            num_workers = 1
+        else:
+            num_workers = min(4, num_workers)
+
+    elif output_codec.lower() == 'h264':
+        num_workers = min(4, num_workers)
 
     progress.total_duration = total_duration
     progress.encoded_duration = 0.0

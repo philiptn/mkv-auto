@@ -48,30 +48,36 @@ class ProgressState:
         self.completed_files = 0
         self.total_duration = 0.0
         self.encoded_duration = 0.0
+        self.best_eta_seconds = None
+        self.active_workers = set()
         self.worker_durations = {}
         self.worker_start_times = {}
         self.worker_best_eta = {}
-
-        # worker_id -> progress (0.0–1.0)
-        self.worker_progress = {i: 0.0 for i in range(num_workers)}
-
+        self.worker_progress = {}
         self._lock = threading.Lock()
 
     def start_worker(self, worker_id):
         with self._lock:
+            self.worker_progress[worker_id] = 0.0
             self.worker_start_times[worker_id] = time.time()
             self.worker_best_eta[worker_id] = None
+            self.worker_durations[worker_id] = 0.0
 
     def update_worker_progress(self, worker_id, fraction):
         with self._lock:
-            fraction = max(0.0, min(1.0, fraction))
-            # monotonic
+            # Ensure worker exists
+            if worker_id not in self.worker_progress:
+                self.worker_progress[worker_id] = 0.0
+
             if fraction > self.worker_progress[worker_id]:
                 self.worker_progress[worker_id] = fraction
 
     def finish_worker(self, worker_id):
         with self._lock:
             self.worker_progress.pop(worker_id, None)
+            self.worker_start_times.pop(worker_id, None)
+            self.worker_best_eta.pop(worker_id, None)
+            self.worker_durations.pop(worker_id, None)
             self.completed_files += 1
 
     def snapshot(self):
