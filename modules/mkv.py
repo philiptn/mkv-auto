@@ -122,7 +122,7 @@ def get_mkv_info(debug, filename, silent):
         if result.returncode != 0:
             if not printed and not silent:
                 print(
-                    f"{GREY}[UTC {get_timestamp()}] [INFO]{RESET} Incoming file(s) detected in input folder. Waiting...")
+                    f"{GREY}[UTC {get_timestamp_short()}] [INFO]{RESET} Incoming file(s) detected in input folder. Waiting...")
                 printed = True
             time.sleep(5)
         if result.returncode == 0:
@@ -926,14 +926,6 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     Only converts when scan says Action: CONVERT.
     """
 
-    total_files = len(input_files)
-    updated_filenames = [None] * total_files
-    filesizes_info = [None] * total_files
-    files_converted = [None] * total_files
-
-    max_worker_threads = get_worker_thread_count()
-    num_workers = min(max_worker_threads, total_files)
-
     # -------------------------------------------------
     # Pre-scan: keep only files that actually contain Dolby Vision
     # -------------------------------------------------
@@ -952,10 +944,18 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
         return input_files
     input_files = dovi_files
 
+    total_files = len(input_files)
+    updated_filenames = [None] * total_files
+    filesizes_info = [None] * total_files
+    files_converted = [None] * total_files
+
+    max_worker_threads = get_worker_thread_count()
+    num_workers = min(max_worker_threads, total_files)
+
     header = "DOVI"
-    description = "Dolby Vision → Profile 8.1"
+    description = "Dolby Vision"
     done_description = "Dolby Vision → Profile 8.1"
-    fail_description = "Dolby Vision Profile 5 → SKIP"
+    fail_description = "Dolby Vision P5 → SKIP"
 
     progress = ProgressState(total_files, num_workers)
     worker_id_pool = Queue()
@@ -964,7 +964,7 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
 
     print()
     start_time = time.time()
-    SPINNER = ContinuousSpinner(interval=0.15)
+    SPINNER = ContinuousSpinner()
     SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description, start_time))
     SPINNER.start()
 
@@ -995,17 +995,17 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
             filesizes_info[index] = filesize_info
             files_converted[index] = file_converted
 
-    stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+    stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                   f"{done_description} {DONE}{CHECK}{RESET}")
 
     if any(converted == 'true' for converted in files_converted) and any(converted == 'fail' for converted in files_converted):
-        stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+        stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                   f"{done_description} {DONE}~{RESET}")
     if any(converted == 'true' for converted in files_converted) and not any(converted == 'fail' for converted in files_converted):
-        stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+        stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                   f"{done_description} {DONE}{CHECK}{RESET}")
     if all(converted == 'p5' for converted in files_converted):
-        stop_print = (f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+        stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                   f"{fail_description}")
 
     SPINNER.stop(stop_print)

@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from backports import configparser
 import re
 import subprocess
@@ -30,7 +30,7 @@ WHITE = '\033[97m'
 
 # Unicode symbols
 ACTIVE = RESET
-DONE = RESET
+DONE = GREY
 ERROR = RED
 CHECK = '✓'
 CHECK_BOLD = '✔'
@@ -109,11 +109,11 @@ class ProgressState:
 
 
 class ContinuousSpinner:
-    def __init__(self, interval=0.1, frames=None):
+    def __init__(self, interval=0.15, frames=None):
         # Spinners
         # ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         # ["-", "\\", "|", "/"]
-        self.frames = frames or ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self.frames = frames or [f"{GREY}-{RESET}", f"{GREY}\\{RESET}", f"{GREY}|{RESET}", f"{GREY}/{RESET}"]
         self.interval = interval
         self.render_interval = 2.0  # seconds
         self._cached_line = ""
@@ -159,7 +159,7 @@ class ContinuousSpinner:
                 self._last_render_time = now
             line_text = self._cached_line
 
-            rendered = f"{GREY}[UTC {get_timestamp()}] {line_text}{ACTIVE}{frame}{RESET} "
+            rendered = f"{GREY}[UTC {get_timestamp_short()}] {line_text}{ACTIVE}{frame}{RESET} "
             self._max_len = max(self._max_len, len(rendered))
 
             pad = " " * (self._max_len - len(rendered))
@@ -200,11 +200,11 @@ def format_eta_single(seconds: float) -> str:
 
 def get_worker_eta(progress, worker_id, progress_value):
     if progress_value <= 0.01:
-        return f"∞{GREY}|{RESET}"
+        return f"∞{GREY}┃{RESET}"
 
     start = progress.worker_start_times.get(worker_id)
     if not start:
-        return f"∞{GREY}|{RESET}"
+        return f"∞{GREY}┃{RESET}"
 
     elapsed = time.time() - start
     total_estimated = elapsed / progress_value
@@ -215,7 +215,7 @@ def get_worker_eta(progress, worker_id, progress_value):
         progress.worker_best_eta[worker_id] = remaining
         best = remaining
 
-    return f"{format_eta_single(best)}{BLUE}|{RESET}"
+    return f"{format_eta_single(best)}{BLUE}┃{RESET}"
 
 
 def render_worker_status(progress, worker_id, progress_value):
@@ -223,6 +223,11 @@ def render_worker_status(progress, worker_id, progress_value):
     block = get_block_gradient(pct)
     eta = get_worker_eta(progress, worker_id, progress_value)
     return f"{eta}{pct:.0f}% "
+
+
+def render_worker_status_simple(progress, worker_id, progress_value):
+    pct = progress_value * 100
+    return f"{pct:.0f}% "
 
 
 def make_progress_line(progress, header, description, start_time):
@@ -239,10 +244,9 @@ def make_progress_line(progress, header, description, start_time):
 
         return (
             f"[{header}]{RESET} "
-            f"{description} "
-            f"({done}/{total}) "
             + temp_str
             + workers_str
+            + f"({done}/{total}) "
         )
     return line
 
@@ -250,23 +254,16 @@ def make_progress_line(progress, header, description, start_time):
 def make_progress_line_no_temp(progress, header, description, start_time):
     def line():
         done, total, workers = progress.snapshot()
-        overall_pct = (done / total) if total else 0.0
-
-        workers_str = " ".join(
-            f"{p * 100:.0f}%"
-            for i, p in workers.items()
-            if p > 0.0
+        workers_str = "".join(
+            render_worker_status_simple(progress, wid, workers.get(wid, 0.0))
+            for wid in sorted(workers.keys())
         )
-
-        # ---- ETA calculation ----
-        eta_str = get_eta_from_duration(progress, start_time) + " "
 
         return (
             f"[{header}]{RESET} "
-            f"{description} "
-            f"({done}/{total}) "
-            + eta_str
-            + (f"{workers_str} " if workers_str else "")
+            + f"{description} "
+            + workers_str
+            + f"({done}/{total}) "
         )
     return line
 
@@ -495,7 +492,7 @@ def is_non_empty_file(filepath):
 def print_with_progress(logger, current, total, header, description="Processing"):
     global SPINNER
     if current == 0:
-        SPINNER = ContinuousSpinner(interval=0.15)
+        SPINNER = ContinuousSpinner()
         print()
 
     def line_func():
@@ -510,7 +507,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
     if total == -1 and SPINNER is not None:
         final_line = (
-            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
             f"{description} {CROSS} {' ' * ((len({str(total)}) * 2) + 8)}"
         )
         SPINNER.stop(final_line)
@@ -521,7 +518,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
     elif current == total and SPINNER is not None:
         final_line = (
-            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
             f"{description} {DONE}{CHECK}{RESET} {' ' * ((len({str(total)}) * 2) + 8)}"
         )
         SPINNER.stop(final_line)
@@ -535,7 +532,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
     current_print = (current + 1) if current < total else current
     global SPINNER
     if current == 0:
-        SPINNER = ContinuousSpinner(interval=0.15)
+        SPINNER = ContinuousSpinner()
 
     def line_func():
         return (
@@ -553,7 +550,7 @@ def print_final_spin_files(logger, current, total, header, description="Processi
 
     if SPINNER is not None:
         final_line = (
-            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
             f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
         )
         SPINNER.stop(final_line)
@@ -570,8 +567,9 @@ def print_final_spin_files(logger, current, total, header, description="Processi
 
 def custom_print(logger, message):
     message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}"
+    message_with_timestamp_short = f"{GREY}[UTC {get_timestamp_short()}]{RESET} {message}"
     # Print the message to the console with color
-    sys.stdout.write(message_with_timestamp + "\n")
+    sys.stdout.write(message_with_timestamp_short + "\n")
     # Log the message without color to the plain text log
     plain_message = remove_color_codes(message_with_timestamp)
     logger.info(plain_message)
@@ -582,8 +580,9 @@ def custom_print(logger, message):
 
 def custom_print_no_newline(logger, message):
     message_with_timestamp = f"{GREY}[UTC {get_timestamp()}]{RESET} {message}\r"
+    message_with_timestamp_short = f"{GREY}[UTC {get_timestamp_short()}]{RESET} {message}\r"
     # Print the message to the console with color
-    sys.stdout.write(message_with_timestamp)
+    sys.stdout.write(message_with_timestamp_short)
     # Log the message without color to the plain text log
     plain_message = remove_color_codes(message_with_timestamp)
     logger.info(plain_message)
@@ -781,9 +780,13 @@ def get_main_audio_track_language_3_letter(file_info):
 
 
 def get_timestamp():
-    """Return the current UTC timestamp in the desired format."""
-    current_time = datetime.utcnow()
+    current_time = datetime.now(timezone.utc)
     return current_time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_timestamp_short():
+    current_time = datetime.now(timezone.utc)
+    return current_time.strftime("%H:%M:%S")
 
 
 def flatten_season_folders(root_dir):
