@@ -850,11 +850,11 @@ def encode_media_files(logger, debug, input_files, dirpath):
     display_codec = codec_map.get(output_codec.lower(), output_codec)
 
     print()
-    custom_print_no_newline(logger, f"{GREY}[FFMPEG]{RESET} {display_codec} CRF-{quality_crf} ({encoding_speed}{f", {tune}" if tune else ''})")
+    custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} {display_codec} CRF-{quality_crf} ({encoding_speed}{f", {tune}" if tune else ''})")
 
     start_time = time.time()
 
-    header = "FFMPEG"
+    header = "ENCODER"
     description = f"Encoding media"
 
     progress = ProgressState(total_files, num_workers)
@@ -931,7 +931,7 @@ def encode_media_files(logger, debug, input_files, dirpath):
 
     end_time = time.time()
     processing_time = end_time - start_time
-    done_description = f"{GREY}[FFMPEG]{RESET} Encoding time: {format_time_short(int(processing_time))}"
+    done_description = f"{GREY}[ENCODER]{RESET} Encoding time: {format_time_short(int(processing_time))}"
 
     SPINNER.stop(
         f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
@@ -955,7 +955,7 @@ def encode_media_files(logger, debug, input_files, dirpath):
         formatted_initial = format_size(total_initial_size, False)
         formatted_result = format_size(total_resulting_size, False)
         print()
-        custom_print_no_newline(logger, f"{GREY}[FFMPEG]{RESET} Total savings: "
+        custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} Total savings: "
                                         f"{savings_percent}% {GREY}|{RESET}{formatted_initial} → {formatted_result}{GREY}|{RESET}")
 
     return updated_filenames
