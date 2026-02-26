@@ -408,7 +408,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
                         restored_filename = f"{media_name}{ext}"
                 else:
                     restored_filename = original_restored_filename
-        elif media_type in ['tv_show', 'tv_show_hdr', 'tv_show_dv', 'tv_show_dv_hdr', 'tv_show_4k']:
+        elif media_type in ['tv_show', 'tv_show_hdr', 'tv_show_dv', 'tv_show_dv_hdr', 'tv_show_4k', 'anime']:
             season, episodes = extract_season_episode(original_restored_filename)
             if season and episodes:
                 episode_list = compact_episode_list(episodes, True, True)

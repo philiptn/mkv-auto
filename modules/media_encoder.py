@@ -850,12 +850,12 @@ def encode_media_files(logger, debug, input_files, dirpath):
     display_codec = codec_map.get(output_codec.lower(), output_codec)
 
     print()
-    custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} {display_codec} CRF-{quality_crf} ({encoding_speed}{f", {tune}" if tune else ''})")
+    custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} {display_codec} CRF-{quality_crf} {encoding_speed.upper()}{f" {tune.upper()}" if tune else ''}")
 
     start_time = time.time()
 
     header = "ENCODER"
-    description = f"Encoding media"
+    description = f"Encoding"
 
     progress = ProgressState(total_files, num_workers)
     worker_id_pool = Queue()

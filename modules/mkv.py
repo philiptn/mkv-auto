@@ -955,7 +955,7 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     header = "DOVI"
     description = "Dolby Vision"
     done_description = "Dolby Vision → Profile 8.1"
-    fail_description = "Dolby Vision P5 → SKIP"
+    skip_description = "Dolby Vision Profile 5 → Skip"
 
     progress = ProgressState(total_files, num_workers)
     worker_id_pool = Queue()
@@ -1006,7 +1006,7 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
                   f"{done_description} {DONE}{CHECK}{RESET}")
     if all(converted == 'p5' for converted in files_converted):
         stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
-                  f"{fail_description}")
+                  f"{skip_description}")
 
     SPINNER.stop(stop_print)
     return updated_filenames
@@ -1991,7 +1991,7 @@ def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_
     file_info = reformat_filename(output_info["filename"], True, False, False)
     media_type = file_info["media_type"]
 
-    if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_4k']:
+    if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_4k', 'anime']:
         full_name = file_info["full_name"]
         if sonarr_api_key and file_info["media_name"]:
             new_sonarr_path = update_sonarr_path(logger, full_name, file_info["media_name"])

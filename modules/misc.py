@@ -235,7 +235,7 @@ def make_progress_line(progress, header, description, start_time):
         done, total, workers = progress.snapshot()
 
         temp = get_cpu_temp_cached()
-        temp_str = f"{temp:.0f}°C " if temp else ""
+        temp_str = f"CPU {temp:.0f}°C " if temp else ""
 
         workers_str = "".join(
             render_worker_status(progress, wid, workers.get(wid, 0.0))
@@ -338,16 +338,24 @@ def get_tv_show_metadata_cached(logger, debug, media_name, sep):
     info = get_tv_episode_metadata(logger, debug, lookup_key)
 
     if info:
+        genres = info.get("genres", [])
+        is_anime = info.get("is_anime", False)
+        if not is_anime and genres:
+            is_anime = any(g.lower() in ("anime",) for g in genres)
+
         tv_metadata_cache[key] = {
             "show_name": info.get("show_name", media_name),
-            "show_year": info.get("show_year", "")
+            "show_year": info.get("show_year", ""),
+            "genres": genres,
+            "is_anime": is_anime
         }
     else:
         tv_metadata_cache[key] = {
             "show_name": media_name,
-            "show_year": ""
+            "show_year": "",
+            "genres": [],
+            "is_anime": False
         }
-
     return tv_metadata_cache[key]
 
 
@@ -514,7 +522,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
         SPINNER = None
         logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {CROSS}")
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {CROSS}")
-        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {CROSS}")
+        logger.color(f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} {description} {CROSS}")
 
     elif current == total and SPINNER is not None:
         final_line = (
@@ -525,7 +533,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
         SPINNER = None
         logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {CHECK}")
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {CHECK}")
-        logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {description} {DONE}{CHECK}{RESET}")
+        logger.color(f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} {description} {DONE}{CHECK}{RESET}")
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing"):
@@ -560,7 +568,7 @@ def print_final_spin_files(logger, current, total, header, description="Processi
         logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
         logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {current} of {total} {CHECK}")
         logger.color(
-            f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} "
+            f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
             f"{description} {current} of {total} {DONE}{CHECK}{RESET}"
         )
 
@@ -575,7 +583,7 @@ def custom_print(logger, message):
     logger.info(plain_message)
     logger.debug(plain_message)
     # Log the message with color to the color log
-    logger.color(message_with_timestamp)
+    logger.color(message_with_timestamp_short)
 
 
 def custom_print_no_newline(logger, message):
@@ -588,7 +596,7 @@ def custom_print_no_newline(logger, message):
     logger.info(plain_message)
     logger.debug(plain_message)
     # Log the message with color to the color log
-    logger.color(message_with_timestamp)
+    logger.color(message_with_timestamp_short)
 
 
 def log_debug(logger, message):
@@ -1087,11 +1095,26 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
     movie_hdr_folder = check_config(config, 'general', 'movies_hdr_folder')
     tv_folder = check_config(config, 'general', 'tv_shows_folder')
     tv_hdr_folder = check_config(config, 'general', 'tv_shows_hdr_folder')
+    anime_folder = check_config(config, 'general', 'anime_folder')
     others_folder = check_config(config, 'general', 'others_folder')
     make_season_folders = check_config(config, 'general', 'make_season_folders')
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
 
     sep = ' ' if normalize_filenames.lower() in ('full-jf', 'simple-jf') else ' - '
+    lookup_anime = normalize_filenames.lower() in ('full', 'full-jf')
+
+    def lookup_anime(media_type, showname):
+        if not lookup_anime:
+            return media_type
+
+        try:
+            meta = get_tv_show_metadata_cached(None, False, showname, ' ')
+            if meta and meta.get("is_anime"):
+                return media_type.replace("tv_show", "anime")
+        except Exception:
+            pass
+
+        return media_type
 
     # Regular expression to match TV shows with season and episode, with or without year
     tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})e(\d{2,3})", re.IGNORECASE)
@@ -1160,6 +1183,10 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
             media_type = 'tv_show'
             folder = tv_folder
 
+        media_type = lookup_anime(media_type, showname)
+        if media_type.startswith('anime'):
+            folder = anime_folder
+
         base_name = f"{showname} ({year})" if year else showname
         media_name = f"{base_name} ({edition_name})" if edition_name else base_name
 
@@ -1209,6 +1236,10 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
         else:
             media_type = 'tv_show'
             folder = tv_folder
+
+        media_type = lookup_anime(media_type, showname)
+        if media_type.startswith('anime'):
+            folder = anime_folder
 
         base_name = f"{showname} ({year})" if year else showname
         media_name = f"{base_name} ({edition_name})" if edition_name else base_name
@@ -1348,6 +1379,9 @@ def get_tv_episode_metadata(logger, debug, input_str):
                 custom_print(logger, f"{YELLOW}{r}{RESET}")
             r.raise_for_status()
             results = r.json()
+            if debug:
+                custom_print(logger, f"Result:")
+                custom_print(logger, f"{YELLOW}{results}{RESET}")
         except (requests.RequestException, ValueError):
             return None
 
@@ -1380,6 +1414,13 @@ def get_tv_episode_metadata(logger, debug, input_str):
 
         best = year_filtered[0]
         show_data = best['show']
+
+        genres = show_data.get('genres', [])
+        is_anime = any(g.lower() == 'anime' for g in genres)
+
+        if debug:
+            custom_print(logger, f"Genres: {YELLOW}{genres}{RESET}")
+            custom_print(logger, f"Is anime: {YELLOW}{is_anime}{RESET}")
 
         episode_titles = []
         first_ep_data = None
@@ -1417,6 +1458,8 @@ def get_tv_episode_metadata(logger, debug, input_str):
             'season': season,
             'episode_number': episode_start,
             'airdate': first_ep_data.get('airdate'),
+            'genres': genres,
+            'is_anime': is_anime
         }
 
     except Exception:
@@ -1520,7 +1563,7 @@ def return_media_info_string(logger, filenames, type):
         # Determine if this is an extra by checking trailing excluded tags.
         is_extra = any(base.lower().endswith(tag) for tag in extras_definitions)
 
-        if media_type.startswith('tv_show'):
+        if media_type.startswith('tv_show') or media_type == 'anime':
             season, episodes = extract_season_episode(filename)
 
             if is_extra:
@@ -1616,6 +1659,8 @@ def print_media_info(logger, filenames):
     tv_shows_dv_extras = defaultdict(list)
     tv_shows_dv_hdr = defaultdict(lambda: defaultdict(set))
     tv_shows_dv_hdr_extras = defaultdict(list)
+    anime_shows = defaultdict(lambda: defaultdict(set))
+    anime_extras = defaultdict(list)
     movies = []
     movie_extras = defaultdict(list)
     movies_hdr = []
@@ -1635,14 +1680,17 @@ def print_media_info(logger, filenames):
         file_info = reformat_filename(filename, True, False, False)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
-        # Normalize show name via cached API (TV only)
-        if media_type.startswith('tv_show'):
+        if media_type.startswith('tv_show') or media_type == 'anime':
             if normalize_filenames.lower() in ('full', 'full-jf'):
                 meta = get_tv_show_metadata_cached(logger, False, media_name, ' ')
+
                 if meta["show_year"]:
                     media_name = f"{meta['show_name']} ({meta['show_year']})"
                 else:
                     media_name = meta["show_name"]
+
+                if meta.get("is_anime"):
+                    media_type = media_type.replace("tv_show", "anime")
         base, ext = os.path.splitext(filename)
 
         q = detect_quality_flags(filename)
@@ -1665,31 +1713,44 @@ def print_media_info(logger, filenames):
         # Determine if this is an extra by checking trailing excluded tags.
         is_extra = any(base.lower().endswith(tag) for tag in extras_definitions)
 
-        if media_type in ['tv_show', 'tv_show_hdr', 'tv_show_dv', 'tv_show_dv_hdr', 'tv_show_4k']:
+        if media_type in [
+            'tv_show', 'tv_show_hdr', 'tv_show_dv', 'tv_show_dv_hdr', 'tv_show_4k',
+            'anime', 'anime_hdr', 'anime_dv', 'anime_dv_hdr', 'anime_4k'
+            ]:
             season, episodes = extract_season_episode(filename)
+            is_anime_type = media_type.startswith('anime')
+
             if is_extra:
-                if media_type == 'tv_show':
-                    tv_shows_extras[media_name].append(filename)
-                elif media_type == 'tv_show_4k':
-                    tv_shows_4k_extras[media_name].append(filename)
-                elif media_type == 'tv_show_dv_hdr':
-                    tv_shows_dv_hdr_extras[media_name].append(filename)
-                elif media_type == 'tv_show_dv':
-                    tv_shows_dv_extras[media_name].append(filename)
+                if is_anime_type:
+                    if media_type == 'anime':
+                        anime_extras[media_name].append(filename)
                 else:
-                    tv_shows_hdr_extras[media_name].append(filename)
+                    if media_type == 'tv_show':
+                        tv_shows_extras[media_name].append(filename)
+                    elif media_type == 'tv_show_4k':
+                        tv_shows_4k_extras[media_name].append(filename)
+                    elif media_type == 'tv_show_dv_hdr':
+                        tv_shows_dv_hdr_extras[media_name].append(filename)
+                    elif media_type == 'tv_show_dv':
+                        tv_shows_dv_extras[media_name].append(filename)
+                    else:
+                        tv_shows_hdr_extras[media_name].append(filename)
             else:
                 if season is not None and episodes:
-                    if media_type == 'tv_show':
-                        tv_shows[media_name][season].update(episodes)
-                    elif media_type == 'tv_show_4k':
-                        tv_shows_4k[media_name][season].update(episodes)
-                    elif media_type == 'tv_show_dv_hdr':
-                        tv_shows_dv_hdr[media_name][season].update(episodes)
-                    elif media_type == 'tv_show_dv':
-                        tv_shows_dv[media_name][season].update(episodes)
+                    if is_anime_type:
+                        if media_type == 'anime':
+                            anime_shows[media_name][season].update(episodes)
                     else:
-                        tv_shows_hdr[media_name][season].update(episodes)
+                        if media_type == 'tv_show':
+                            tv_shows[media_name][season].update(episodes)
+                        elif media_type == 'tv_show_4k':
+                            tv_shows_4k[media_name][season].update(episodes)
+                        elif media_type == 'tv_show_dv_hdr':
+                            tv_shows_dv_hdr[media_name][season].update(episodes)
+                        elif media_type == 'tv_show_dv':
+                            tv_shows_dv[media_name][season].update(episodes)
+                        else:
+                            tv_shows_hdr[media_name][season].update(episodes)
         elif media_type in ['movie', 'movie_hdr', 'movie_dv', 'movie_dv_hdr', 'movie_4k']:
             if is_extra:
                 if media_type == 'movie':
@@ -1734,6 +1795,25 @@ def print_media_info(logger, filenames):
                 if tv_shows_extras[show]:
                     tv_shows_print += f" (+{len(tv_shows_extras[show])} {print_multi_or_single(len(tv_shows_extras[show]), 'Extra')})"
                 print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {tv_shows_print}")
+
+    if anime_shows:
+        print_no_timestamp(logger,
+            f"{GREY}[INFO]{RESET} {len(anime_shows)} Anime {print_multi_or_single(len(anime_shows), 'Show')}:")
+        for show in sorted(anime_shows):
+            seasons = sorted(anime_shows[show].keys())
+            if len(seasons) == 1:
+                season = seasons[0]
+                episode_list = compact_episode_list(sorted(anime_shows[show][season]))
+                anime_print = f"(Season {season}: Episode {episode_list})"
+                if anime_extras[show]:
+                    anime_print += f" (+{len(anime_extras[show])} {print_multi_or_single(len(anime_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {anime_print}")
+            else:
+                total_episodes = sum(len(anime_shows[show][s]) for s in seasons)
+                anime_print = f"(Season {seasons[0]}-{seasons[-1]}, {total_episodes} {print_multi_or_single(total_episodes, 'Episode')})"
+                if anime_extras[show]:
+                    anime_print += f" (+{len(anime_extras[show])} {print_multi_or_single(len(anime_extras[show]), 'Extra')})"
+                print_no_timestamp(logger, f"  {BLUE}{show}{RESET} {anime_print}")
 
     if tv_shows_dv_hdr:
         print_no_timestamp(logger,
@@ -1905,6 +1985,7 @@ config = {
         'movies_hdr_folder': get_config('general', 'MOVIES_HDR_FOLDER', variables_defaults),
         'tv_shows_folder': get_config('general', 'TV_SHOWS_FOLDER', variables_defaults),
         'tv_shows_hdr_folder': get_config('general', 'TV_SHOWS_HDR_FOLDER', variables_defaults),
+        'anime_folder': get_config('general', 'ANIME_FOLDER', variables_defaults),
         'others_folder': get_config('general', 'OTHERS_FOLDER', variables_defaults),
         'max_cpu_usage': get_config('general', 'MAX_CPU_USAGE', variables_defaults),
         'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults),
