@@ -138,7 +138,7 @@ def mkv_auto(args):
 
         extract_archives(logger, temp_dir)
         flatten_season_folders(temp_dir)
-        process_extras(temp_dir)
+        process_extras(temp_dir, logger)
 
         if remove_samples:
             remove_sample_files_and_dirs(temp_dir)
@@ -146,7 +146,7 @@ def mkv_auto(args):
         flatten_directories(logger, temp_dir)
 
         convert_all_videos_to_mkv(logger, debug, temp_dir, args.silent)
-        rename_others_file_to_folder(temp_dir)
+        rename_others_file_to_folder(temp_dir, logger)
 
         fix_episodes_naming(temp_dir)
         remove_ds_store(temp_dir)

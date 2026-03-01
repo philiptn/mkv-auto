@@ -329,7 +329,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
 
     sep = ' ' if normalize_filenames.lower() in ('full-jf', 'simple-jf') else ' - '
 
-    file_info = reformat_filename(original_restored_filename, True, False, False)
+    file_info = reformat_filename(original_restored_filename, True, False, False, logger)
     media_type = file_info["media_type"]
     media_name = file_info["media_name"]
 
@@ -487,7 +487,7 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
             restored_filename = original_restored_filename
 
     restored_filename = sanitize_filename(restored_filename)
-    new_folders, _ = reformat_filename(new_folders_str, False, full_info_found, is_extra)
+    new_folders, _ = reformat_filename(new_folders_str, False, full_info_found, is_extra, logger)
 
     if keep_original_file_structure == 'true':
         new_folders = original_folders

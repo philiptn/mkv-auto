@@ -359,7 +359,7 @@ def get_tv_show_metadata_cached(logger, debug, media_name, sep):
     return tv_metadata_cache[key]
 
 
-def process_extras(input_folder):
+def process_extras(input_folder, logger):
     # Recursively walk through the directories, skipping those starting with '.'
     for root, dirs, files in os.walk(input_folder):
         # Modify dirs in-place to skip hidden directories
@@ -392,7 +392,7 @@ def process_extras(input_folder):
         # We only need one representative file to determine the type and name.
         identified_media = None
         for nf in normal_files:
-            result = reformat_filename(nf, names_only=True, full_info_found=False, is_extra=False)
+            result = reformat_filename(nf, names_only=True, full_info_found=False, is_extra=False, logger=logger)
             if result['media_type'] in ['movie', 'movie_hdr', 'movie_4k', 'tv_show', 'tv_show_hdr', 'tv_show_4k']:
                 identified_media = result
                 break
@@ -1065,13 +1065,13 @@ def to_sentence_case(s):
         return s
 
 
-def rename_others_file_to_folder(input_dir):
+def rename_others_file_to_folder(input_dir, logger):
     others_folder = check_config(config, 'general', 'others_folder')
 
     # Iterate through the input directory recursively
     for root, dirs, files in os.walk(input_dir):
         parent_folder_name = os.path.basename(root)
-        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', False, False, False)
+        a, parent_folder_reformatted = reformat_filename(parent_folder_name + '.mkv', False, False, False, logger)
 
         # If the parent folder does not match any pattern, skip to next
         if parent_folder_reformatted.startswith(others_folder):
@@ -1082,7 +1082,7 @@ def rename_others_file_to_folder(input_dir):
             if not filename.endswith('.mkv'):
                 continue  # Skip non-mkv files
 
-            a, new_filename = reformat_filename(filename, False, False, False)
+            a, new_filename = reformat_filename(filename, False, False, False, logger)
             if new_filename.startswith(others_folder):
                 # Rename the file to match its parent folder
                 new_file_path = os.path.join(root, f"{parent_folder_name}.{filename.split('.')[-1]}")
@@ -1090,7 +1090,7 @@ def rename_others_file_to_folder(input_dir):
                 shutil.move(old_file_path, new_file_path)
 
 
-def reformat_filename(filename, names_only, full_info_found, is_extra):
+def reformat_filename(filename, names_only, full_info_found, is_extra, logger):
     movie_folder = check_config(config, 'general', 'movies_folder')
     movie_hdr_folder = check_config(config, 'general', 'movies_hdr_folder')
     tv_folder = check_config(config, 'general', 'tv_shows_folder')
@@ -1103,12 +1103,12 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
     sep = ' ' if normalize_filenames.lower() in ('full-jf', 'simple-jf') else ' - '
     lookup_anime = normalize_filenames.lower() in ('full', 'full-jf')
 
-    def lookup_anime(media_type, showname):
+    def lookup_anime_func(media_type, showname):
         if not lookup_anime:
             return media_type
 
         try:
-            meta = get_tv_show_metadata_cached(None, False, showname, ' ')
+            meta = get_tv_show_metadata_cached(logger, False, showname, ' ')
             if meta and meta.get("is_anime"):
                 return media_type.replace("tv_show", "anime")
         except Exception:
@@ -1183,7 +1183,7 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
             media_type = 'tv_show'
             folder = tv_folder
 
-        media_type = lookup_anime(media_type, showname)
+        media_type = lookup_anime_func(media_type, f"{showname} {year}" if year else showname)
         if media_type.startswith('anime'):
             folder = anime_folder
 
@@ -1237,7 +1237,7 @@ def reformat_filename(filename, names_only, full_info_found, is_extra):
             media_type = 'tv_show'
             folder = tv_folder
 
-        media_type = lookup_anime(media_type, showname)
+        media_type = lookup_anime_func(media_type, f"{showname} {year}" if year else showname)
         if media_type.startswith('anime'):
             folder = anime_folder
 
@@ -1343,16 +1343,23 @@ def get_tv_episode_metadata(logger, debug, input_str):
         episode_start = int(e_start)
         episode_end = int(e_end) if e_end else episode_start
 
-        show_name = re.sub(r'\(\d{4}\)', '', raw_show_name).strip()
-
         year_found = None
-        ymatch = re.search(r'\((\d{4})\)', raw_show_name)
+        ymatch = re.search(r'(?<!\d)(19\d{2}|20\d{2})(?!\d)', raw_show_name)
         if ymatch:
             year_found = ymatch.group(1)
 
+        show_name = raw_show_name
+        if year_found:
+            show_name = re.sub(
+                rf'[\s\.\-\_\(\)\[\]]*{year_found}[\s\.\-\_\(\)\[\]]*',
+                ' ',
+                show_name,
+                count=1
+            )
+        show_name = show_name.strip()
+
         if debug:
-            debug_year_str = f"Year match: {YELLOW}{bool(ymatch)} ({year_found}){RESET}" if bool(ymatch) else f"Year match: {YELLOW}{bool(ymatch)}{RESET}"
-            custom_print(logger, debug_year_str)
+            custom_print(logger, f"Year found: {YELLOW}{year_found}{RESET}")
 
         recognized_code = None
         parts = show_name.rsplit(' ', 1)
@@ -1401,18 +1408,37 @@ def get_tv_episode_metadata(logger, debug, input_str):
         else:
             code_filtered = results
 
-        year_filtered = []
-        if year_found:
-            for item in code_filtered:
-                p = item['show'].get('premiered')
-                if p and p.startswith(year_found):
-                    year_filtered.append(item)
-            if not year_filtered:
-                year_filtered = code_filtered
-        else:
-            year_filtered = code_filtered
+        def score_show(item):
+            show = item['show']
+            score = 0
+            score += item.get('score', 0)
 
-        best = year_filtered[0]
+            if year_found:
+                premiered = show.get('premiered')
+                if premiered:
+                    year = premiered[:4]
+                    if year == year_found:
+                        score += 100
+                    else:
+                        score -= abs(int(year) - int(year_found))
+
+            genres = [g.lower() for g in show.get('genres', [])]
+            if 'anime' in genres:
+                score += 50
+            elif 'animation' in genres:
+                score += 20
+
+            return score
+
+        candidates = code_filtered
+        candidates.sort(key=score_show, reverse=True)
+
+        if debug:
+            for c in candidates[:5]:
+                s = c['show']
+                custom_print(logger, f"Candidate: {s['name']} ({s.get('premiered')}) {s.get('genres')}")
+
+        best = candidates[0]
         show_data = best['show']
 
         genres = show_data.get('genres', [])
@@ -1447,9 +1473,6 @@ def get_tv_episode_metadata(logger, debug, input_str):
             episode_titles.append(ep_data.get('name'))
             if first_ep_data is None:
                 first_ep_data = ep_data
-
-        if not episode_titles or not first_ep_data:
-            return None
 
         return {
             'show_name': show_name,
@@ -1538,7 +1561,7 @@ def return_media_info_string(logger, filenames, type):
     return_str_list = []
 
     for filename in filenames:
-        file_info = reformat_filename(filename, True, False, False)
+        file_info = reformat_filename(filename, True, False, False, logger)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
         base, ext = os.path.splitext(filename)
@@ -1677,7 +1700,7 @@ def print_media_info(logger, filenames):
 
     for filename in filenames:
         a, filename = unflatten_file(filename, '')
-        file_info = reformat_filename(filename, True, False, False)
+        file_info = reformat_filename(filename, True, False, False, logger)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]
         if media_type.startswith('tv_show') or media_type == 'anime':

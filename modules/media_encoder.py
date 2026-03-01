@@ -931,7 +931,7 @@ def encode_media_files(logger, debug, input_files, dirpath):
 
     end_time = time.time()
     processing_time = end_time - start_time
-    done_description = f"{GREY}[ENCODER]{RESET} Encoding time: {format_time_short(int(processing_time))}"
+    done_description = f"Encoding time: {format_time_short(int(processing_time))}"
 
     SPINNER.stop(
         f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
@@ -940,7 +940,7 @@ def encode_media_files(logger, debug, input_files, dirpath):
     SPINNER = None
     logger.info(f"[UTC {get_timestamp()}] [{header}] {done_description} {CHECK}")
     logger.debug(f"[UTC {get_timestamp()}] [{header}] {done_description} {CHECK}")
-    logger.color(f"{GREY}[UTC {get_timestamp()}] [{header}]{RESET} {done_description} {DONE}{CHECK}{RESET}")
+    logger.color(f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} {done_description} {DONE}{CHECK}{RESET}")
 
     # Calculate total initial and resulting sizes
     total_initial_size = sum(info["initial_file_size"] for info in filesizes_info if info)
