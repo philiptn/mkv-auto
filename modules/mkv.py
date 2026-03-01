@@ -1408,7 +1408,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
     # Max workers is set to 1 to throttle downloads with Subliminal
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, input_file, dirpath,
-                                   all_truly_missing_subs_langs[index], internal_threads): index for index, input_file
+                                   all_truly_missing_subs_langs[index], internal_threads, logger): index for index, input_file
                    in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):

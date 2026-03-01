@@ -1449,7 +1449,6 @@ def get_tv_episode_metadata(logger, debug, input_str):
             custom_print(logger, f"Is anime: {YELLOW}{is_anime}{RESET}")
 
         episode_titles = []
-        first_ep_data = None
 
         for episode in range(episode_start, episode_end + 1):
             try:
@@ -1480,13 +1479,12 @@ def get_tv_episode_metadata(logger, debug, input_str):
             'episode_title': ' & '.join(episode_titles),
             'season': season,
             'episode_number': episode_start,
-            'airdate': first_ep_data.get('airdate'),
             'genres': genres,
             'is_anime': is_anime
         }
 
     except Exception:
-        return None
+        return {}
 
 
 def hide_the_cursor():
