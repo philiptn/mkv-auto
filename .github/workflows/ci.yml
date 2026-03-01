@@ -1,4 +1,4 @@
-name: Build and push image
+name: Build image on Release
 on:
   release:
     types: [ published ]
