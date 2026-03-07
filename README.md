@@ -16,7 +16,7 @@ A fully automatic media processing tool that processes media files based on user
 - Resynchronize any external or downloaded subtitles using FFsubsync to match the audio track in the media
 - Unpack any `.rar` or `.zip` archives and convert `.mp4` or `.avi` files to MKV before processing the media
 - Remove any hidden Closed Captions (CC) from the video stream using FFmpeg 
-- Automatically categorize and rename media content (TV Show/Movie, SDR/HDR) based on filename and TVMAZE
+- Automatically categorize and rename media content (TV Show/Movie/Anime, SDR/HDR/DV) based on filename and TVMAZE
 
 ### Even-Out-Sound (EOS)
 <img src="https://raw.githubusercontent.com/philiptn/mkv-auto/refs/heads/dev/resources/meme.jpg" width="400">

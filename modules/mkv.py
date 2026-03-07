@@ -926,28 +926,26 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     Only converts when scan says Action: CONVERT.
     """
 
-    # -------------------------------------------------
-    # Pre-scan: keep only files that actually contain Dolby Vision
-    # -------------------------------------------------
-    dovi_files = []
+    original_files = list(input_files)
 
-    for f in input_files:
+    # -------------------------------------------------
+    # Pre-scan: find files that contain Dolby Vision
+    # -------------------------------------------------
+    dovi_jobs = []
+
+    for index, f in enumerate(input_files):
         if not f.lower().endswith((".mkv", ".mp4", ".m2ts", ".ts")):
             continue
 
         full_path = os.path.join(dirpath, f)
 
         if has_dolby_vision(full_path):
-            dovi_files.append(f)
+            dovi_jobs.append((index, f))
 
-    if not dovi_files:
-        return input_files
-    input_files = dovi_files
+    if not dovi_jobs:
+        return original_files
 
-    total_files = len(input_files)
-    updated_filenames = [None] * total_files
-    filesizes_info = [None] * total_files
-    files_converted = [None] * total_files
+    total_files = len(dovi_jobs)
 
     max_worker_threads = get_worker_thread_count()
     num_workers = min(max_worker_threads, total_files)
@@ -958,58 +956,73 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     skip_description = "Dolby Vision Profile 5 → Skip"
 
     progress = ProgressState(total_files, num_workers)
+
     worker_id_pool = Queue()
     for wid in range(num_workers):
         worker_id_pool.put(wid)
 
     print()
     start_time = time.time()
+
     SPINNER = ContinuousSpinner()
     SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description, start_time))
     SPINNER.start()
 
-    def worker_wrapper(index, input_file):
+    results = {}
+    files_converted = []
+
+    def worker_wrapper(job_index, original_index, filename):
         worker_id = worker_id_pool.get()
         try:
-            result = dovi_scan_and_convert_single(
+            updated_filename, filesize_info, file_converted = dovi_scan_and_convert_single(
                 logger,
                 debug,
-                input_file,
+                filename,
                 dirpath,
                 progress,
                 worker_id
             )
-            return index, result
+            return original_index, updated_filename, file_converted
         finally:
             worker_id_pool.put(worker_id)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {
-            executor.submit(worker_wrapper, index, input_file): index
-            for index, input_file in enumerate(input_files)
-        }
+
+        futures = [
+            executor.submit(worker_wrapper, i, index, filename)
+            for i, (index, filename) in enumerate(dovi_jobs)
+        ]
 
         for future in concurrent.futures.as_completed(futures):
-            index, (updated_filename, filesize_info, file_converted) = future.result()
-            updated_filenames[index] = updated_filename
-            filesizes_info[index] = filesize_info
-            files_converted[index] = file_converted
+            original_index, updated_filename, file_converted = future.result()
+
+            results[original_index] = updated_filename
+            files_converted.append(file_converted)
+
+
+    final_files = list(original_files)
+    for index, new_name in results.items():
+        if new_name:
+            final_files[index] = new_name
 
     stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                   f"{done_description} {DONE}{CHECK}{RESET}")
 
-    if any(converted == 'true' for converted in files_converted) and any(converted == 'fail' for converted in files_converted):
+    if any(c == 'true' for c in files_converted) and any(c == 'fail' for c in files_converted):
         stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
-                  f"{done_description} {DONE}~{RESET}")
-    if any(converted == 'true' for converted in files_converted) and not any(converted == 'fail' for converted in files_converted):
+                      f"{done_description} {DONE}~{RESET}")
+
+    if any(c == 'true' for c in files_converted) and not any(c == 'fail' for c in files_converted):
         stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
-                  f"{done_description} {DONE}{CHECK}{RESET}")
-    if all(converted == 'p5' for converted in files_converted):
+                      f"{done_description} {DONE}{CHECK}{RESET}")
+
+    if all(c == 'p5' for c in files_converted):
         stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
-                  f"{skip_description}")
+                      f"{skip_description}")
 
     SPINNER.stop(stop_print)
-    return updated_filenames
+
+    return final_files
 
 
 def extract_subs_in_mkv_process_worker(logger, debug, input_file, dirpath, internal_threads):

@@ -1469,9 +1469,9 @@ def get_tv_episode_metadata(logger, debug, input_str):
                 custom_print(logger, f"Response:")
                 custom_print(logger, f"{YELLOW}{ep_data}{RESET}")
 
-            episode_titles.append(ep_data.get('name'))
-            if first_ep_data is None:
-                first_ep_data = ep_data
+            title = ep_data.get('name')
+            if title:
+                episode_titles.append(title)
 
         return {
             'show_name': show_name,
@@ -1483,7 +1483,8 @@ def get_tv_episode_metadata(logger, debug, input_str):
             'is_anime': is_anime
         }
 
-    except Exception:
+    except Exception as e:
+        log_debug(logger, f"Error during TVMAZE lookup: {e}")
         return {}
 
 
