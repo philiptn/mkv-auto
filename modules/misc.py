@@ -1351,13 +1351,12 @@ def get_tv_episode_metadata(logger, debug, input_str):
         show_name = raw_show_name
         if year_found:
             show_name = re.sub(
-                rf'[\s\.\-\_\(\)\[\]]*{year_found}[\s\.\-\_\(\)\[\]]*',
-                ' ',
+                rf'\(?{year_found}\)?',
+                '',
                 show_name,
                 count=1
             )
-        show_name = show_name.strip()
-
+        show_name = re.sub(r'\s{2,}', ' ', show_name).strip()
         if debug:
             custom_print(logger, f"Year found: {YELLOW}{year_found}{RESET}")
 
@@ -2041,6 +2040,7 @@ config = {
         'prioritize_subtitles': get_config('subtitles', 'PRIORITIZE_SUBTITLES', variables_defaults),
         'download_missing_subs': get_config('subtitles', 'DOWNLOAD_MISSING_SUBS', variables_defaults),
         'remove_all_subtitles': get_config('subtitles', 'REMOVE_ALL_SUBTITLES', variables_defaults).lower() == "true",
+        'normalize_position': get_config('subtitles', 'NORMALIZE_POSITION', variables_defaults).lower() == "true",
         'main_audio_language_subs_only': get_config('subtitles', 'MAIN_AUDIO_LANGUAGE_SUBS_ONLY', variables_defaults).lower() == "true",
         'redo_casing': get_config('subtitles', 'REDO_CASING', variables_defaults).lower() == "true"
     },

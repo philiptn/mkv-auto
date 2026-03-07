@@ -263,12 +263,17 @@ def remove_sdh_worker(logger, debug, input_file, remove_music, subtitleedit, mem
     replacements = []
 
     redo_casing = check_config(config, 'subtitles', 'redo_casing')
+    normalize_position = check_config(config, 'subtitles', 'normalize_position')
 
-    # Remove any color tags (html) in subtitle
     with open(input_file, 'r', encoding='utf-8') as file:
-        cleaned_content = re.sub(r'<font[^>]*>|</font>', '', file.read())
+        content = file.read()
+    # Remove html font tags
+    content = re.sub(r'<font[^>]*>|</font>', '', content)
+    # Normalize subtitle positions (remove ASS alignment tags like {\an8})
+    if normalize_position:
+        content = re.sub(r'\{\\an[1-9]\}\s*', '', content)
     with open(f"{input_file}_tmp.srt", 'w', encoding='utf-8') as file:
-        file.write(cleaned_content)
+        file.write(content)
     os.remove(input_file)
     shutil.move(f"{input_file}_tmp.srt", input_file)
     subtitle_tmp = f"{input_file}_tmp.srt"
