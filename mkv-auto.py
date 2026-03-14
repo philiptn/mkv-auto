@@ -134,7 +134,7 @@ def mkv_auto(args):
                          f"{GREY}[INFO]{RESET} {format_size(done_info['required_space_gib'], True)} needed (350% of {format_size(done_info['actual_file_sizes'], True)})")
             custom_print(logger, f"{GREY}[INFO]{RESET} Only {format_size(done_info['available_space_gib'], True)} was available in TEMP.")
 
-        custom_print(logger, f"{GREY}[INFO]{RESET} MKV-Auto {mkv_auto_version}")
+        custom_print_no_newline(logger, f"{GREY}[INFO]{RESET} MKV-Auto {mkv_auto_version}")
 
         extract_archives(logger, temp_dir)
         flatten_season_folders(temp_dir)
@@ -193,6 +193,7 @@ def mkv_auto(args):
             if not filenames:
                 exit(0)
 
+            print()
             print_media_info(logger, filenames)
 
             for file in filenames_mkv_only:

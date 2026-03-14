@@ -72,7 +72,6 @@ def convert_all_videos_to_mkv(logger, debug, input_folder, silent):
             convert_video_to_mkv(debug, video_file, output_file)
         completed_count += 1
         print_with_progress(logger, completed_count, total_files, header=header, description=description)
-    print()
 
 
 def format_tracks_as_blocks(json_data, line_width=80):

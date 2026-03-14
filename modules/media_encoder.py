@@ -570,6 +570,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         filter_chain.append(scale_filter)
 
     # ---- Dolby Vision detection ----
+    is_dovi = False
     if codec.lower() == "libx265":
         is_dovi, dv_profile = detect_dolby_vision(media_file, logger)
 
