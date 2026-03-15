@@ -492,7 +492,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     user_custom_ffmpeg = custom_params
 
     # Map 'medium' and 'slow' to numerical speed values for AV1 and VP9 codecs
-    if encoder_speed.lower() in ('medium', 'slow') and codec in ('libsvtav1', 'libvpx-vp9'):
+    if encoder_speed.lower() in ('medium', 'slow', 'slower') and codec in ('libsvtav1', 'libvpx-vp9'):
         if encoder_speed.lower() == 'medium':
             if codec == 'libsvtav1':
                 encoder_speed = '6'
@@ -501,6 +501,11 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         elif encoder_speed.lower() == 'slow':
             if codec == 'libsvtav1':
                 encoder_speed = '4'
+            elif codec == 'libvpx-vp9':
+                encoder_speed = '0'
+        elif encoder_speed.lower() == 'slower':
+            if codec == 'libsvtav1':
+                encoder_speed = '2'
             elif codec == 'libvpx-vp9':
                 encoder_speed = '0'
 
