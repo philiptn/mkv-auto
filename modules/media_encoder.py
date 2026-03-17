@@ -653,7 +653,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     cmd_ffmpeg.extend(encoder_options[codec]['options'])
 
     # Add tune option if provided
-    if tune_option:
+    if tune_option and codec != "libvpx-vp9":
         cmd_ffmpeg.extend(['-tune', tune_option])
 
     # Add user-custom parameters if provided
@@ -830,6 +830,10 @@ def encode_media_files(logger, debug, input_files, dirpath):
     encoding_speed = check_config(config, 'media-encoder', 'encoding_speed')
     tune = check_config(config, 'media-encoder', 'tune')
     custom_params = check_config(config, 'media-encoder', 'custom_params')
+
+    if output_codec.upper() == "VP9":
+        log_debug(logger, f"[MEDIA-ENCODER] Tune '{tune}' requested. This is not possible with VP9. Ignoring.")
+        tune = ''
 
     quality_crf = resolve_quality_crf(input_quality_crf, input_files, dirpath)
 
