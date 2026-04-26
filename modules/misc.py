@@ -108,6 +108,38 @@ class ProgressState:
             return self.best_eta_seconds
 
 
+_ANSI_ESCAPE_RE = re.compile(r'\033\[[0-9;?]*[a-zA-Z]')
+_ANSI_RESET = '\033[0m'
+
+
+def _visible_width(s):
+    """Visible-column width of s, ignoring ANSI escape sequences."""
+    return len(_ANSI_ESCAPE_RE.sub('', s))
+
+
+def _safe_reset_cut(rendered, common):
+    """Largest position p <= common such that rendered[:p] ends with a
+    complete RESET escape (\\033[0m). Returns 0 if no RESET fits.
+
+    Why: ANSI color is stateful. After a full-line write, the terminal sits
+    in whatever state the line ended in (typically RESET at end of line).
+    If we skip past a portion of this tick's render via cursor-forward and
+    emit the suffix, the suffix's bytes assume the state that *would* have
+    been set by the skipped portion — but we never emitted it this tick.
+    Cutting right after a RESET guarantees terminal state is default at
+    the cut, so the suffix rebuilds whatever state it needs from scratch.
+    """
+    end = common
+    while True:
+        pos = rendered.rfind(_ANSI_RESET, 0, end)
+        if pos == -1:
+            return 0
+        reset_end = pos + len(_ANSI_RESET)
+        if reset_end <= common:
+            return reset_end
+        end = pos
+
+
 class ContinuousSpinner:
     def __init__(self, interval=0.15, frames=None):
         # Spinners
@@ -123,6 +155,7 @@ class ContinuousSpinner:
         self._idx = 0
         self._make_line = lambda: ""  # function returning the line text (excluding spinner)
         self._max_len = 0
+        self._last_rendered = None  # last bytes written to stdout for diff redraw
 
     def set_line_func(self, func):
         # func should be a callable returning the line text (timestamp included, etc.)
@@ -141,18 +174,25 @@ class ContinuousSpinner:
             self._thread.join()
 
         if final_line:
-            pad = " " * max(0, self._max_len - len(final_line))
-            sys.stdout.write(f"\r{final_line}{pad}\r")
+            # \033[K wipes leftover bytes past final_line (e.g. when this
+            # render is shorter than the spinner's last frame).
+            sys.stdout.write(f"\r{final_line}\033[K\r")
         else:
+            # No final_line: leave the spinner's last frame visible. The
+            # next consumer of this line (typically another spinner) will
+            # overwrite via \r{content}\033[K\r on its first render, which
+            # both replaces the content and clears any tail. Clearing here
+            # would create a blank line during whatever runs in between.
             sys.stdout.write("\r")
 
         sys.stdout.flush()
+        self._last_rendered = None
 
     def _spin(self):
         while not self._stop_event.is_set():
             hide_cursor = check_config(config, 'general', 'hide_cursor')
             frame = self.frames[self._idx]
-            
+
             now = time.time()
             if now - self._last_render_time >= self.render_interval:
                 self._cached_line = self._make_line()
@@ -160,15 +200,36 @@ class ContinuousSpinner:
             line_text = self._cached_line
 
             rendered = f"{GREY}[UTC {get_timestamp_short()}] {line_text}{ACTIVE}{frame}{RESET} "
-            self._max_len = max(self._max_len, len(rendered))
 
-            pad = " " * (self._max_len - len(rendered))
-            full_line = rendered + pad
+            # Diff against last render. Within the same second the timestamp
+            # + header bytes are identical, so we skip past those columns
+            # with cursor-forward (\033[<n>C) and emit only the bytes that
+            # actually differ (frame, progress %, worker count). The cut
+            # must land right after a RESET escape so the terminal is in a
+            # known default state at the cut — otherwise the suffix renders
+            # in whatever color the previous line left active.
+            if rendered != self._last_rendered:
+                if self._last_rendered is None:
+                    out = f"\r{rendered}\033[K\r"
+                else:
+                    common = 0
+                    upper = min(len(rendered), len(self._last_rendered))
+                    while common < upper and rendered[common] == self._last_rendered[common]:
+                        common += 1
 
-            if hide_cursor:
-                sys.stdout.write(f"\r\033[?25l{full_line}\r")
-            else:
-                sys.stdout.write(f"\r{full_line}\r")
+                    cut = _safe_reset_cut(rendered, common)
+                    if cut > 0:
+                        skip_cols = _visible_width(rendered[:cut])
+                        out = f"\r\033[{skip_cols}C{rendered[cut:]}\033[K\r"
+                    else:
+                        out = f"\r{rendered}\033[K\r"
+
+                if hide_cursor:
+                    out = "\033[?25l" + out
+
+                sys.stdout.write(out)
+                sys.stdout.flush()
+                self._last_rendered = rendered
 
             time.sleep(self.interval)
             self._idx = (self._idx + 1) % len(self.frames)

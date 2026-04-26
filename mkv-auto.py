@@ -305,7 +305,7 @@ def mkv_auto(args):
             filenames_mkv_only = remove_clutter_process(logger, debug, filenames_mkv_only, dirpath)
 
             if enable_media_encoder:
-                filenames_mkv_only = encode_media_files(logger, debug, filenames_mkv_only, dirpath)
+                filenames_mkv_only = encode_media_files(logger, debug, filenames_mkv_only, dirpath, output_dir)
             
             if convert_dolby_vision_to_p8 and not enable_media_encoder:
                 filenames_mkv_only = convert_dovi_files(logger, debug, filenames_mkv_only, dirpath)

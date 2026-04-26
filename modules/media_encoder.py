@@ -13,6 +13,7 @@ from queue import Queue
 import concurrent.futures
 
 from modules.misc import *
+from modules.file_operations import move_file_to_output
 
 
 def encode_with_worker_id(
@@ -382,6 +383,42 @@ def inject_rpu(video_file, rpu_file, output_file, logger):
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr)
+
+
+CODEC_DISPLAY_NAME_MAP = {
+    'h264': 'x264',
+    'h265': 'x265',
+    'hevc': 'x265',
+    'vp9': 'VP9',
+    'av1': 'AV1',
+    'libx264': 'x264',
+    'libx265': 'x265',
+    'libvpx-vp9': 'VP9',
+    'libsvtav1': 'AV1',
+}
+
+
+def compute_post_encode_filename(input_file, output_codec, is_dovi):
+    """Return the .mkv basename the encoder will produce for `input_file`.
+
+    Mirrors the rename block at the tail of encode_single_video_file().
+    Caller decides whether DV detection has run (passes is_dovi).
+    """
+    codec_display_name = CODEC_DISPLAY_NAME_MAP.get(output_codec.lower())
+
+    replace_substrings = ['HEVC', 'AVC', 'H.265', 'H.264', 'h264', 'h265', 'x264', 'x265', 'VC-1']
+    remove_substrings = ['.REMUX', ' REMUX', 'REMUX']
+
+    basename = os.path.splitext(os.path.basename(input_file))[0]
+    for substring in replace_substrings:
+        pattern = re.compile(re.escape(substring), re.IGNORECASE)
+        basename = pattern.sub(codec_display_name, basename)
+    for substring in remove_substrings:
+        pattern = re.compile(re.escape(substring), re.IGNORECASE)
+        basename = pattern.sub('', basename)
+    if is_dovi:
+        basename = upgrade_filename_to_dv_hdr(basename)
+    return basename + '.mkv'
 
 
 def upgrade_filename_to_dv_hdr(basename):
@@ -779,30 +816,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     os.remove(temp_video_file)
     os.remove(media_file)
 
-    # Substrings to replace with codec_display_name
-    replace_substrings = ['HEVC', 'AVC', 'H.265', 'H.264', 'h264', 'h265', 'x264', 'x265', 'VC-1']
-    # Substrings to remove
-    remove_substrings = ['.REMUX', ' REMUX', 'REMUX']
-    # Determine codec display name for filename replacements
-    codec_display_name_map = {
-        'libx264': 'x264',
-        'libx265': 'x265',
-        'libvpx-vp9': 'VP9',
-        'libsvtav1': 'AV1'
-    }
-    codec_display_name = codec_display_name_map.get(codec)
-    basename = os.path.splitext(os.path.basename(input_file))[0]
-    # Replace substrings with codec_display_name
-    for substring in replace_substrings:
-        pattern = re.compile(re.escape(substring), re.IGNORECASE)
-        basename = pattern.sub(codec_display_name, basename)
-    # Remove substrings
-    for substring in remove_substrings:
-        pattern = re.compile(re.escape(substring), re.IGNORECASE)
-        basename = pattern.sub('', basename)
-    if is_dovi:
-        basename = upgrade_filename_to_dv_hdr(basename)
-    cleaned_filename = os.path.join(basename + '.mkv')
+    cleaned_filename = compute_post_encode_filename(input_file, codec, is_dovi)
 
     os.rename(temp_file, os.path.join(dirpath, cleaned_filename))
     filesize_info["resulting_file_size"] = os.path.getsize(os.path.join(dirpath, cleaned_filename))
@@ -816,7 +830,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     return cleaned_filename, filesize_info
 
 
-def encode_media_files(logger, debug, input_files, dirpath):
+def encode_media_files(logger, debug, input_files, dirpath, output_dir):
     total_files = len(input_files)
     updated_filenames = [None] * total_files
     filesizes_info = [None] * total_files
@@ -859,8 +873,53 @@ def encode_media_files(logger, debug, input_files, dirpath):
     }
     display_codec = codec_map.get(output_codec.lower(), output_codec)
 
+    if crop_values:
+        crop_banner = " AUTOCROP" if crop_values == 'auto' else f" CROP:{crop_values}"
+    else:
+        crop_banner = ''
+
     print()
-    custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} {display_codec} CRF-{quality_crf} {encoding_speed.upper()}{f" {tune.upper()}" if tune else ''}")
+    custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} {display_codec} CRF-{quality_crf} {encoding_speed.upper()}{f" {tune.upper()}" if tune else ''}{crop_banner}")
+
+    # Pre-encode copy: rename sources to their final post-encode filenames and
+    # copy them to the output destination so Plex/Sonarr can pick the media up
+    # immediately. The real encode runs against the renamed source in dirpath
+    # and the post-encode move overwrites the placeholder with the same name.
+    final_names = []
+    for f in input_files:
+        is_dovi_pre = False
+        if output_codec.lower() == 'h265':
+            is_dovi_pre, _ = detect_dolby_vision(os.path.join(dirpath, f), logger)
+        final_names.append(compute_post_encode_filename(f, output_codec, is_dovi_pre))
+
+    for original, final in zip(list(input_files), final_names):
+        if original != final:
+            os.rename(os.path.join(dirpath, original), os.path.join(dirpath, final))
+    input_files = list(final_names)
+
+    copy_workers = max(1, min(get_worker_thread_count(), total_files))
+    copy_description = f"Pre-copying {print_multi_or_single(total_files, 'file')} to destination folder"
+    copy_done = [0]
+
+    def _copy_line():
+        return f"[ENCODER]{RESET} {copy_description} ({copy_done[0]}/{total_files}) "
+
+    print()
+    copy_spinner = ContinuousSpinner(interval=0.15)
+    copy_spinner.set_line_func(_copy_line)
+    copy_spinner.start()
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=copy_workers) as executor:
+            copy_futures = [
+                executor.submit(move_file_to_output, logger, debug,
+                                os.path.join(dirpath, f), output_dir, None, copy=True)
+                for f in input_files
+            ]
+            for future in concurrent.futures.as_completed(copy_futures):
+                future.result()
+                copy_done[0] += 1
+    finally:
+        copy_spinner.stop()
 
     start_time = time.time()
 
@@ -904,7 +963,6 @@ def encode_media_files(logger, debug, input_files, dirpath):
     progress.total_duration = total_duration
     progress.encoded_duration = 0.0
 
-    print()
     SPINNER = ContinuousSpinner(interval=0.15)
     SPINNER.set_line_func(make_progress_line(progress, header, description, start_time))
     SPINNER.start()

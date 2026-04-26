@@ -313,7 +313,7 @@ def detect_dynamic_range_from_filename(filename):
     }
 
 
-def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure):
+def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure, copy=False):
     original_folders, original_restored_filename = unflatten_file(input_file_path, '')
 
     base, ext = os.path.splitext(original_restored_filename)
@@ -504,9 +504,12 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    log_debug(logger, f"Moving file '{input_file_path}' to '{output_path}'")
+    log_debug(logger, f"{'Copying' if copy else 'Moving'} file '{input_file_path}' to '{output_path}'")
     if os.path.exists(input_file_path):
-        shutil.move(input_file_path, output_path)
+        if copy:
+            shutil.copy2(input_file_path, output_path)
+        else:
+            shutil.move(input_file_path, output_path)
 
     return {
         "output_folder": new_folders,
