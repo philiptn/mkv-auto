@@ -861,9 +861,14 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
     log_debug(logger, f"[MEDIA-ENCODER] Custom parameters: '{custom_params}'")
 
     max_worker_threads = get_worker_thread_count()
-    num_workers = min(max_worker_threads, total_files)
+    codec = output_codec.lower()
 
-    per_file_cpu = float(max_cpu_usage) / num_workers
+    if codec in ('h265', 'h264'):
+        codec_cap = min(4, max_worker_threads)
+    else:
+        codec_cap = max_worker_threads
+
+    upper_bound = min(codec_cap, total_files) if total_files else 1
 
     codec_map = {
         'h265': 'H.265',
@@ -926,39 +931,28 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
     header = "ENCODER"
     description = f"Encoding"
 
-    progress = ProgressState(total_files, num_workers)
+    progress = ProgressState(total_files, upper_bound)
     worker_id_pool = Queue()
-    for wid in range(num_workers):
+    for wid in range(upper_bound):
         worker_id_pool.put(wid)
-    
+
+    file_meta = []
     total_duration = 0
-    for f in input_files:
+    for idx, f in enumerate(input_files):
+        full = os.path.join(dirpath, f)
         try:
-            total_duration += get_video_duration(os.path.join(dirpath, f))
+            w, _ = get_video_dimensions(full)
+        except:
+            w = None
+        try:
+            total_duration += get_video_duration(full)
         except:
             pass
-    
-    is_4k = False
-    for f in input_files:
-        try:
-            width, _ = get_video_dimensions(os.path.join(dirpath, f))
-            if width >= 3840:
-                is_4k = True
-                break
-        except:
-            pass
-
-    max_worker_threads = get_worker_thread_count()
-    num_workers = min(max_worker_threads, total_files)
-
-    if output_codec.lower() == 'h265':
-        if is_4k:
-            num_workers = 1
-        else:
-            num_workers = min(4, num_workers)
-
-    elif output_codec.lower() == 'h264':
-        num_workers = min(4, num_workers)
+        file_meta.append({
+            'index': idx,
+            'name': f,
+            'is_4k': (w or 0) >= 3840,
+        })
 
     progress.total_duration = total_duration
     progress.encoded_duration = 0.0
@@ -967,35 +961,68 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
     SPINNER.set_line_func(make_progress_line(progress, header, description, start_time))
     SPINNER.start()
 
-    # Use ThreadPoolExecutor to handle multithreading
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {
-            executor.submit(
-                encode_with_worker_id,
-                logger,
-                debug,
-                input_file,
-                dirpath,
-                per_file_cpu,
-                progress,
-                worker_id_pool
-            ): index
-            for index, input_file in enumerate(input_files)
-        }
-        for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            try:
-                index = futures[future]
-                updated_filename, filesize_info = future.result()
-                if updated_filename is not None:
-                    updated_filenames[index] = updated_filename
-                if filesize_info is not None:
-                    filesizes_info[index] = filesize_info
-            except Exception as e:
-                # Print the error and traceback
-                custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
-                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
-                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
-                raise
+    def can_submit(candidate, in_flight_metas):
+        if candidate['is_4k']:
+            return len(in_flight_metas) == 0
+        if any(m['is_4k'] for m in in_flight_metas):
+            return False
+        return len(in_flight_metas) < codec_cap
+
+    def per_file_cpu_for(meta):
+        if meta['is_4k']:
+            return float(max_cpu_usage)
+        if codec in ('h265', 'h264'):
+            return float(max_cpu_usage) / min(4, max_worker_threads)
+        return float(max_cpu_usage) / max_worker_threads
+
+    pending = list(file_meta)
+    in_flight = {}
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=upper_bound)
+    try:
+        while pending or in_flight:
+            progress_made = True
+            while progress_made and pending:
+                progress_made = False
+                for i, meta in enumerate(pending):
+                    if can_submit(meta, in_flight.values()):
+                        fut = executor.submit(
+                            encode_with_worker_id,
+                            logger,
+                            debug,
+                            meta['name'],
+                            dirpath,
+                            per_file_cpu_for(meta),
+                            progress,
+                            worker_id_pool,
+                        )
+                        in_flight[fut] = meta
+                        pending.pop(i)
+                        progress_made = True
+                        break
+
+            if not in_flight:
+                break
+
+            done, _ = concurrent.futures.wait(
+                in_flight.keys(),
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+            for fut in done:
+                meta = in_flight.pop(fut)
+                try:
+                    updated_filename, filesize_info = fut.result()
+                    if updated_filename is not None:
+                        updated_filenames[meta['index']] = updated_filename
+                    if filesize_info is not None:
+                        filesizes_info[meta['index']] = filesize_info
+                except Exception as e:
+                    custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
+                    traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                    print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
+                    raise
+    finally:
+        executor.shutdown(wait=True)
 
     end_time = time.time()
     processing_time = end_time - start_time

@@ -18,7 +18,7 @@ from modules.misc import *
 from modules.logger import *
 from modules.media_encoder import *
 
-mkv_auto_version = 'DEV 2026-04'
+mkv_auto_version = 'DEV-2026-05'
 
 
 def mkv_auto(args):
