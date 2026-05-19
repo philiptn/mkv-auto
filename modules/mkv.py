@@ -1922,9 +1922,11 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
     return all_sub_files, updated_missing_subs_langs
 
 
-def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnames, output_dir, errored):
+def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnames, output_dir, errored,
+                                 resolved_targets=None):
     total_files = len(input_files)
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
+    resolved_targets = resolved_targets or {}
     files = input_files
     files.sort()
 
@@ -1951,7 +1953,7 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(move_files_to_output_process_worker, logger, debug, input_file, dirpath, all_dirnames,
-                                   output_dir): index for index, input_file in enumerate(files)}
+                                   output_dir, resolved_targets.get(input_file)): index for index, input_file in enumerate(files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -1990,7 +1992,8 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, all_dirnam
         custom_print_no_newline(logger, print_msg)
 
 
-def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_dirnames, output_dir):
+def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_dirnames, output_dir,
+                                        resolved_target=None):
     input_file_with_path = os.path.join(dirpath, input_file)
     new_radarr_path = ''
     new_sonarr_path = ''
@@ -1998,7 +2001,10 @@ def move_files_to_output_process_worker(logger, debug, input_file, dirpath, all_
     radarr_api_key = check_config(config, 'integrations', 'radarr_api_key')
     sonarr_api_key = check_config(config, 'integrations', 'sonarr_api_key')
 
-    output_info = move_file_to_output(logger, debug, input_file_with_path, output_dir, all_dirnames)
+    if resolved_target is not None:
+        output_info = move_resolved_to_output(logger, input_file_with_path, resolved_target)
+    else:
+        output_info = move_file_to_output(logger, debug, input_file_with_path, output_dir, all_dirnames)
 
     file_info = reformat_filename(output_info["filename"], True, False, False, logger)
     media_type = file_info["media_type"]

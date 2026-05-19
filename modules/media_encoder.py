@@ -13,7 +13,7 @@ from queue import Queue
 import concurrent.futures
 
 from modules.misc import *
-from modules.file_operations import move_file_to_output
+from modules.file_operations import resolve_output_target, move_resolved_to_output
 
 
 def encode_with_worker_id(
@@ -902,6 +902,20 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
             os.rename(os.path.join(dirpath, original), os.path.join(dirpath, final))
     input_files = list(final_names)
 
+    # Resolve final destination paths once per file. Capped at 2 workers to
+    # match move_files_to_output_process()'s TVMaze rate-limit cap, so the
+    # pre-copy and post-encode move converge on the same destination path.
+    resolved_targets = {}
+    resolution_workers = max(1, min(2, total_files))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=resolution_workers) as resolver:
+        resolve_futures = {
+            resolver.submit(resolve_output_target, logger, debug,
+                            os.path.join(dirpath, f), output_dir, None): f
+            for f in input_files
+        }
+        for fut in concurrent.futures.as_completed(resolve_futures):
+            resolved_targets[resolve_futures[fut]] = fut.result()
+
     copy_workers = max(1, min(get_worker_thread_count(), total_files))
     copy_description = f"Pre-copying {print_multi_or_single(total_files, 'file')} to destination folder"
     copy_done = [0]
@@ -916,8 +930,8 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=copy_workers) as executor:
             copy_futures = [
-                executor.submit(move_file_to_output, logger, debug,
-                                os.path.join(dirpath, f), output_dir, None, copy=True)
+                executor.submit(move_resolved_to_output, logger,
+                                os.path.join(dirpath, f), resolved_targets[f], True)
                 for f in input_files
             ]
             for future in concurrent.futures.as_completed(copy_futures):
@@ -1053,4 +1067,4 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
         custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} Total savings: "
                                         f"{savings_percent}% {GREY}|{RESET}{formatted_initial} → {formatted_result}{GREY}|{RESET}")
 
-    return updated_filenames
+    return updated_filenames, resolved_targets

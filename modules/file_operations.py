@@ -313,7 +313,13 @@ def detect_dynamic_range_from_filename(filename):
     }
 
 
-def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure, copy=False):
+def resolve_output_target(logger, debug, input_file_path, output_folder, folder_structure):
+    """Compute the destination path and metadata for input_file_path without doing file I/O.
+
+    Splits the metadata work out of move_file_to_output() so callers can resolve
+    once (incurring a single TVMaze lookup per file) and reuse the result across
+    pre-copy and the post-encode move.
+    """
     original_folders, original_restored_filename = unflatten_file(input_file_path, '')
 
     base, ext = os.path.splitext(original_restored_filename)
@@ -503,6 +509,19 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
 
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
+    return {
+        "output_folder": new_folders,
+        "restored_filename": restored_filename,
+        "output_path": output_path,
+        "media_name": media_name,
+        "full_info_found": full_info_found,
+        "is_extra": is_extra,
+    }
+
+
+def move_resolved_to_output(logger, input_file_path, target, copy=False):
+    """Perform the file I/O for a pre-resolved target dict from resolve_output_target()."""
+    output_path = target["output_path"]
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     log_debug(logger, f"{'Copying' if copy else 'Moving'} file '{input_file_path}' to '{output_path}'")
     if os.path.exists(input_file_path):
@@ -512,10 +531,15 @@ def move_file_to_output(logger, debug, input_file_path, output_folder, folder_st
             shutil.move(input_file_path, output_path)
 
     return {
-        "output_folder": new_folders,
-        "media_name": media_name,
-        "filename": restored_filename
+        "output_folder": target["output_folder"],
+        "media_name": target["media_name"],
+        "filename": target["restored_filename"],
     }
+
+
+def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure, copy=False):
+    target = resolve_output_target(logger, debug, input_file_path, output_folder, folder_structure)
+    return move_resolved_to_output(logger, input_file_path, target, copy=copy)
 
 
 def safe_delete_dir(directory_path):
