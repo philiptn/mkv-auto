@@ -1491,7 +1491,15 @@ def get_tv_episode_metadata(logger, debug, input_str):
             return score
 
         candidates = code_filtered
-        candidates.sort(key=score_show, reverse=True)
+        if year_found:
+            candidates.sort(key=score_show, reverse=True)
+        else:
+            candidates.sort(
+                key=lambda c: (
+                    c['show'].get('premiered') or '9999',
+                    -c.get('score', 0),
+                )
+            )
 
         if debug:
             for c in candidates[:5]:
