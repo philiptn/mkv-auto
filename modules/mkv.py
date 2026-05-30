@@ -689,6 +689,50 @@ def has_dolby_vision(file_path):
     return "DV Profile" in output
 
 
+def classify_dolby_vision(file_path):
+    """
+    Run a single `dovi_convert scan` and classify the file:
+      "none"    - no Dolby Vision detected (or scan failed)
+      "p5"      - Dolby Vision Profile 5 (cannot convert to 8.1)
+      "convert" - conversion to Profile 8.1 required
+      "skip"    - Dolby Vision present but already 8.1 / no conversion needed
+    """
+    scan_cmd = ["dovi_convert", "scan", file_path]
+
+    try:
+        proc = subprocess.run(
+            scan_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True
+        )
+    except Exception:
+        return "none"
+
+    if proc.returncode != 0 or "DV Profile" not in proc.stdout:
+        return "none"
+
+    status_line = next(
+        (line.strip() for line in proc.stdout.splitlines()
+         if "status:" in line.lower()),
+        ""
+    )
+
+    action = ""
+    for line in proc.stdout.splitlines():
+        if "action:" in line.lower():
+            action = line.split(":", 1)[1].strip().replace("\r", "").upper()
+            break
+
+    if "Profile 5" in status_line:
+        return "p5"
+
+    if "CONVERT" in action:
+        return "convert"
+
+    return "skip"
+
+
 def upgrade_dv_to_dv_hdr_filename(filename):
     name, ext = os.path.splitext(filename)
 
@@ -734,7 +778,7 @@ def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
         log_debug(logger, f"[DOVI] Skipping (unsupported container): {input_file}")
         progress.finish_worker(worker_id)
         filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
-        return input_file, filesize_info
+        return input_file, filesize_info, file_converted
 
     # -------------------------------------------------
     # Stage 1: Scan
@@ -757,7 +801,7 @@ def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
         log_debug(logger, f"[DOVI] Scan failed (code {scan_proc.returncode}) — skipping")
         progress.finish_worker(worker_id)
         filesize_info["resulting_file_size"] = filesize_info["initial_file_size"]
-        return input_file, filesize_info
+        return input_file, filesize_info, file_converted
 
     progress.update_worker_progress(worker_id, 0.25)
 
@@ -938,7 +982,10 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
 
         full_path = os.path.join(dirpath, f)
 
-        if has_dolby_vision(full_path):
+        # Only enqueue files with real work: files needing conversion, or
+        # Profile 5 (reported as a skip). Files already at Profile 8.1 are
+        # left out so the stage produces no output at all when nothing is done.
+        if classify_dolby_vision(full_path) in ("convert", "p5"):
             dovi_jobs.append((index, f))
 
     if not dovi_jobs:
@@ -1004,22 +1051,29 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
         if new_name:
             final_files[index] = new_name
 
-    stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
-                  f"{done_description} {DONE}{CHECK}{RESET}")
+    converted_any = any(c == 'true' for c in files_converted)
+    failed_any = any(c == 'fail' for c in files_converted)
 
-    if any(c == 'true' for c in files_converted) and any(c == 'fail' for c in files_converted):
+    if converted_any and failed_any:
+        # Partial: some converted, some failed
         stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                       f"{done_description} {DONE}~{RESET}")
-
-    if any(c == 'true' for c in files_converted) and not any(c == 'fail' for c in files_converted):
+    elif converted_any:
+        # Success: at least one converted, none failed
         stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                       f"{done_description} {DONE}{CHECK}{RESET}")
-
-    if all(c == 'p5' for c in files_converted):
+    elif all(c == 'p5' for c in files_converted):
+        # Nothing converted, everything was Profile 5
         stop_print = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                       f"{skip_description}")
+    else:
+        # Nothing actually converted: don't claim a conversion happened
+        stop_print = None
 
-    SPINNER.stop(stop_print)
+    if stop_print is None:
+        SPINNER.stop()
+    else:
+        SPINNER.stop(stop_print)
 
     return final_files
 
