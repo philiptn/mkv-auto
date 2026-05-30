@@ -731,11 +731,23 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
             continue
 
         if duration > 0:
+            fraction = out_time / duration
             progress.update_worker_progress(
                 worker_id,
-                (out_time / duration) * FFMPEG_WEIGHT
+                fraction * FFMPEG_WEIGHT
             )
             progress.update_encoded_duration(worker_id, out_time)
+
+            # Live savings estimate: project the encoded video's final size from
+            # how much has been written so far. Skip the noisy early fraction.
+            if fraction > 0.02 and os.path.exists(temp_video_file):
+                cur = os.path.getsize(temp_video_file)
+                projected_video = cur / fraction
+                progress.update_size_estimate(
+                    worker_id,
+                    projected_video,
+                    filesize_info["initial_file_size"],
+                )
     process.wait()
 
     if process.returncode != 0:
@@ -820,6 +832,10 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
 
     os.rename(temp_file, os.path.join(dirpath, cleaned_filename))
     filesize_info["resulting_file_size"] = os.path.getsize(os.path.join(dirpath, cleaned_filename))
+    progress.record_completion(
+        filesize_info["initial_file_size"],
+        filesize_info["resulting_file_size"],
+    )
 
     # Cleanup temp workspace
     try:
