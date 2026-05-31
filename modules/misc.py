@@ -360,7 +360,10 @@ def make_progress_line(progress, header, description, start_time):
             elif med > displayed:
                 displayed += (med - displayed) * UP_ALPHA
             savings_state["displayed"] = displayed
-            savings_str = f"~{displayed:.0f}% SAVED "
+            if displayed >= 0:
+                savings_str = f"~{displayed:.0f}% SAVED "
+            else:
+                savings_str = f"~{-displayed:.0f}% BIGGER "
 
         workers_str = "".join(
             render_worker_status(progress, wid, workers.get(wid, 0.0))
