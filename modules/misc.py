@@ -1570,10 +1570,18 @@ def get_tv_episode_metadata(logger, debug, input_str):
         else:
             code_filtered = results
 
+        def norm(t):
+            return re.sub(r'[^a-z0-9]', '', (t or '').lower())
+
+        target_norm = norm(search_show_name)
+
         def score_show(item):
             show = item['show']
             score = 0
             score += item.get('score', 0)
+
+            if norm(show.get('name')) == target_norm:
+                score += 100
 
             if year_found:
                 premiered = show.get('premiered')
@@ -1592,23 +1600,44 @@ def get_tv_episode_metadata(logger, debug, input_str):
 
             return score
 
-        candidates = code_filtered
-        if year_found:
-            candidates.sort(key=score_show, reverse=True)
-        else:
-            candidates.sort(
-                key=lambda c: (
-                    c['show'].get('premiered') or '9999',
-                    -c.get('score', 0),
-                )
+        # Rank by title/year/genre match. "Oldest premiered" (from commit e9d7768)
+        # is demoted to a tiebreak that only matters between equal-scoring shows.
+        scored = sorted(
+            code_filtered,
+            key=lambda c: (
+                -score_show(c),
+                c['show'].get('premiered') or '9999',
+                -c.get('score', 0),
             )
+        )
 
         if debug:
-            for c in candidates[:5]:
+            for c in scored[:5]:
                 s = c['show']
-                custom_print(logger, f"Candidate: {s['name']} ({s.get('premiered')}) {s.get('genres')}")
+                custom_print(logger, f"Candidate: {s['name']} ({s.get('premiered')}) "
+                                     f"score={score_show(c):.4f} {s.get('genres')}")
 
-        best = candidates[0]
+        def fetch_episode(show_id, season_num, number):
+            try:
+                er = requests.get(
+                    f"https://api.tvmaze.com/shows/{show_id}/episodebynumber?season={season_num}&number={number}",
+                    timeout=10)
+                er.raise_for_status()
+                return er.json() or None
+            except (requests.RequestException, ValueError):
+                return None
+
+        # Disambiguate same-named shows by verifying the requested season/episode
+        # actually exists; fall back to the top-scored show if none verify.
+        MAX_VERIFY = 5
+        best, first_ep_data = None, None
+        for cand in scored[:MAX_VERIFY]:
+            data = fetch_episode(cand['show']['id'], season, episode_start)
+            if data:
+                best, first_ep_data = cand, data
+                break
+        if best is None:
+            best = scored[0]
         show_data = best['show']
 
         genres = show_data.get('genres', [])
@@ -1621,17 +1650,12 @@ def get_tv_episode_metadata(logger, debug, input_str):
         episode_titles = []
 
         for episode in range(episode_start, episode_end + 1):
-            try:
-                er = requests.get(
-                    f"https://api.tvmaze.com/shows/{show_data['id']}/episodebynumber?season={season}&number={episode}",
-                    timeout=10)
-                if debug:
-                    custom_print(logger, f"Getting show data from id {YELLOW}{show_data['id']} - S{season}E{episode}:{RESET}")
-                    custom_print(logger, f"{YELLOW}{er}{RESET}")
-                er.raise_for_status()
-                ep_data = er.json()
-            except (requests.RequestException, ValueError):
-                continue
+            if episode == episode_start and first_ep_data:
+                ep_data = first_ep_data
+            else:
+                ep_data = fetch_episode(show_data['id'], season, episode)
+            if debug:
+                custom_print(logger, f"Getting show data from id {YELLOW}{show_data['id']} - S{season}E{episode}{RESET}")
 
             if not ep_data:
                 continue
