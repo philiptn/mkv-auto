@@ -855,13 +855,18 @@ def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
         return input_file, filesize_info, file_converted
 
     # -------------------------------------------------
-    # Stage 2: Convert (Turbo)
+    # Stage 2: Convert (Safe Mode)
+    # Force --safe: turbo pipes ffmpeg | dovi_tool and only drains ffmpeg's
+    # stderr after dovi_tool finishes, which deadlocks on 4K FEL streams that
+    # spam ffmpeg stderr (fills the pipe buffer -> hang). Safe mode extracts
+    # the HEVC to disk first, avoiding the pipe entirely.
     # -------------------------------------------------
     log_debug(logger, f"[DOVI] Starting conversion: {input_file}")
 
     convert_cmd = [
         "dovi_convert",
         "convert",
+        "--safe",
         media_file
     ]
 
