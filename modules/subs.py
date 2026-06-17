@@ -1,4 +1,5 @@
 from subtitle_filter import Subtitles
+from dataclasses import replace
 import asstosrt
 import os
 import subprocess
@@ -251,15 +252,9 @@ def run_with_xvfb(command, memory_per_thread):
     return return_code
 
 
-def remove_sdh_worker(logger, debug, input_file, remove_music, subtitleedit, memory_per_thread):
-    base_lang_id_name_forced, _, original_extension = input_file.rpartition('.')
-    base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-    base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-    base_forced, _, name_encoded = base_name_forced.rpartition('_')
-    name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
-        "'") else name_encoded
-    name = base64.b64decode(name_encoded).decode("utf-8")
-    base, _, forced = base_forced.rpartition('_')
+def remove_sdh_worker(logger, debug, subtitle_track, remove_music, subtitleedit, memory_per_thread):
+    input_file = subtitle_track.path
+    language = subtitle_track.language
     replacements = []
 
     redo_casing = check_config(config, 'subtitles', 'redo_casing')
@@ -402,70 +397,56 @@ def remove_sdh(max_threads, logger, debug, input_files, remove_music, track_name
     return cleaned_track_names, all_replacements
 
 
-def convert_ass_to_srt(subtitle_files, main_audio_track_lang):
+def convert_ass_to_srt(subtitle_tracks, main_audio_track_lang):
     output_subtitles = []
     errored_ass_subs = []
     missing_subs_langs = []
     keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
     remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
 
-    for index, file in enumerate(subtitle_files):
-        if file.endswith('.ass'):
-            base_lang_id_name_forced, _, original_extension = file.rpartition('.')
-            base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-            base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-            base_forced, _, name_encoded = base_name_forced.rpartition('_')
-            name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
-                "'") else name_encoded
-            name = base64.b64decode(name_encoded).decode("utf-8")
-            base, _, forced = base_forced.rpartition('_')
+    for track in subtitle_tracks:
+        if track.extension == 'ass':
+            language = track.language
+            name = track.name or ''
 
-            if name:
-                original_name_b64 = name_encoded
-            else:
-                original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
-
-            if forced == '1':
+            if track.forced:
                 output_name = f'non-{main_audio_track_lang} dialogue'
-                output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
-                original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
-                final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
             else:
                 full_language = pycountry.languages.get(alpha_3=language)
                 if full_language:
-                    output_name = name if name != 'Original' else full_language.name
+                    output_name = name if name and name != 'Original' else full_language.name
                 else:
-                    output_name = name if name != 'Original' else ''
+                    output_name = name if name and name != 'Original' else ''
                 if remove_sdh:
                     output_name = remove_sdh_cc_text(output_name)
                     if 'SDH' in name.upper() or 'CC' in name.upper():
                         if "(from " not in output_name:
                             output_name = "{} (from {})".format(output_name, re.sub(r'[\[\]\(\)]', '', name))
 
-                output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
-                original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
-                final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
-
-            os.rename(file, original_subtitle)
-            ass_file = open(original_subtitle)
-            srt_output = asstosrt.convert(ass_file)
-            with open(final_subtitle, "w") as srt_file:
+            srt_path = os.path.splitext(track.path)[0] + '.srt'
+            with open(track.path) as ass_file:
+                srt_output = asstosrt.convert(ass_file)
+            with open(srt_path, "w") as srt_file:
                 srt_file.write(srt_output)
 
-            if is_valid_srt(final_subtitle):
+            if is_valid_srt(srt_path):
+                srt_track = SubtitleTrack(path=srt_path, track_id=track.track_id, language=language,
+                                          forced=track.forced, name=output_name, extension='srt',
+                                          source=track.source)
                 if keep_original_subtitles:
-                    output_subtitles = output_subtitles + [final_subtitle, original_subtitle]
+                    # The kept original is no longer the forced/dialogue track
+                    original_track = replace(track, forced=False)
+                    output_subtitles += [srt_track, original_track]
                 else:
-                    output_subtitles = output_subtitles + [final_subtitle]
+                    output_subtitles += [srt_track]
             else:
-                subtitle_file_info = decompose_subtitle_filename(original_subtitle)
-                errored_ass_subs.append(os.path.basename(f"{subtitle_file_info['base']}.{subtitle_file_info['extension']}"))
+                errored_ass_subs.append(track)
                 missing_subs_langs.append(language)
                 if keep_original_subtitles:
-                    output_subtitles = output_subtitles + [original_subtitle]
+                    output_subtitles += [track]
 
         else:
-            output_subtitles = output_subtitles + [file]
+            output_subtitles.append(track)
 
     return output_subtitles, errored_ass_subs, missing_subs_langs
 
@@ -490,21 +471,13 @@ def resync_srt_subs(max_threads, debug, input_file, subtitle_files):
         print('')
 
 
-def resync_srt_subs_worker(debug, input_file, subtitle_filename, max_retries, retry_delay):
-    base_lang_id_name_forced, _, original_extension = subtitle_filename.rpartition('.')
-    base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-    base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-    base_forced, _, name_encoded = base_name_forced.rpartition('_')
-    name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
-        "'") else name_encoded
-    name = base64.b64decode(name_encoded).decode("utf-8")
-    base, _, forced = base_forced.rpartition('_')
-
-    temp_filename = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"
+def resync_srt_subs_worker(debug, input_file, subtitle_track, max_retries, retry_delay):
+    subtitle_filename = subtitle_track.path
+    temp_filename = f"{subtitle_filename}.tmp.srt"
 
     # If the subtitle track is a forced track,
     # skip resyncing as these have tendency to get out of sync
-    if forced == '1' or f'non- Dialogue' in name:
+    if subtitle_track.forced or 'non- Dialogue' in (subtitle_track.name or ''):
         return
 
     command = ["ffs", input_file, "--max-offset-seconds", "10",
@@ -546,18 +519,16 @@ def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
         external = total_external_subs[i] if i < len(total_external_subs) else []
 
         def group_subs(subs):
-            """Groups subtitles by language, handling .sub/.idx pairs correctly."""
+            """Groups SubtitleTracks by language, keeping .sub/.idx pairs together."""
             sub_dict = {}
-            for sub in subs:
-                if not isinstance(sub, str):
-                    continue  # skip non-string items
-                match = re.search(r'_([a-z]{2,3})\.(srt|ass|sup|sub|idx)$', sub, re.IGNORECASE)
-                if match:
-                    lang, ext = match.groups()
-                    if ext in {"sub", "idx"}:
-                        sub_dict.setdefault(lang, {}).update({ext: sub})
-                    else:
-                        sub_dict[lang] = {"file": sub}
+            for track in subs or []:
+                if track is None:
+                    continue
+                lang = track.language
+                if track.extension in {"sub", "idx"}:
+                    sub_dict.setdefault(lang, {}).update({track.extension: track})
+                else:
+                    sub_dict[lang] = {"file": track}
             return sub_dict
 
         built_in_dict = group_subs(built_in)
@@ -573,7 +544,7 @@ def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
                 # prefer built-in, fall back to external if built-in missing
                 final_dict[lang] = built_in_dict.get(lang) or external_dict.get(lang)
 
-        # Convert dictionary back to list
+        # Convert dictionary back to a flat list of SubtitleTracks
         final_list = []
         for subs in final_dict.values():
             if "file" in subs:
@@ -607,21 +578,15 @@ def extract_subs_in_mkv(logger, max_threads, debug, filename, track_numbers, out
             index = future_to_index[future]
             results[index] = future.result()  # Store the result at the correct index
 
-    return results
+    # Drop tracks that failed extraction / validation (returned None)
+    return [track for track in results if track is not None]
 
 
 def extract_subtitle(logger, debug, filename, track, output_filetype, language, forced, name):
-    cleartext_name = name if name else 'Original'
     base, _, _ = filename.rpartition('.')
-    max_len = 255 - len('_tmp')
-
-    while True:
-        b64 = base64.b64encode(cleartext_name.encode("utf-8")).decode("utf-8")
-        subtitle_filename = f"{base}_{forced}_'{b64}'_{track}_{language}.{output_filetype}"
-        if len(subtitle_filename) <= max_len:
-            break
-        cut = max(cleartext_name.rfind(" "), cleartext_name.rfind("."))
-        cleartext_name = cleartext_name[:cut] if cut > 0 else cleartext_name[:-1]
+    # Plain working name; metadata travels on the returned SubtitleTrack, not in
+    # the filename. The track id only keeps sibling files unique.
+    subtitle_filename = f"{base}.si{track}.{output_filetype}"
 
     command = ["mkvextract", filename, "tracks", f"{track}:{subtitle_filename}"]
 
@@ -636,37 +601,27 @@ def extract_subtitle(logger, debug, filename, track, output_filetype, language, 
     if output_filetype == 'srt' and not is_valid_srt(subtitle_filename):
         return
 
-    return subtitle_filename
+    return SubtitleTrack(path=subtitle_filename, track_id=int(track), language=language,
+                         forced=bool(forced), name=name or '', extension=output_filetype,
+                         source='internal')
 
 
-def get_output_subtitle_string(filename, track_numbers, output_filetypes, subs_languages):
-    subtitle_filenames = []
-
-    for index, output_filetype in enumerate(output_filetypes):
-        base, _, _ = filename.rpartition('.')
-        subtitle_filename = f"{base}.{track_numbers[index]}.{subs_languages[index][:-1]}.{output_filetype}"
-        subtitle_filenames.append(subtitle_filename)
-
-    return subtitle_filenames
-
-
-def ocr_subtitles(logger, max_threads, memory_per_thread, debug, subtitle_files, main_audio_track_lang):
+def ocr_subtitles(logger, max_threads, memory_per_thread, debug, subtitle_tracks, main_audio_track_lang):
     subtitleedit_dir = 'utilities/SubtitleEdit'
     all_replacements = []
-    keep_original_subtitles = check_config(config, 'subtitles', 'keep_original_subtitles')
 
     if debug:
         print('\n')
 
     # Prepare to track the results in the order they were submitted
-    results = [None] * len(subtitle_files)  # Placeholder list for results
+    results = [None] * len(subtitle_tracks)  # Placeholder list for results
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
         # Submit all tasks and store futures in a dictionary with their index
         future_to_index = {
-            executor.submit(ocr_subtitle_worker, logger, memory_per_thread, debug, subtitle_files[i],
+            executor.submit(ocr_subtitle_worker, logger, memory_per_thread, debug, subtitle_tracks[i],
                             main_audio_track_lang, subtitleedit_dir): i
-            for i in range(len(subtitle_files))
+            for i in range(len(subtitle_tracks))
         }
 
         # As each future completes, store the result at the corresponding index
@@ -674,272 +629,114 @@ def ocr_subtitles(logger, max_threads, memory_per_thread, debug, subtitle_files,
             index = future_to_index[future]
             results[index] = future.result()
 
-    # Initialize lists for the structured results
+    # Aggregate the per-track results.
+    #   subtitles_all    = every track that should be muxed (converted + kept originals)
+    #   output_subtitles = the tracks that still need SDH/resync processing
     output_subtitles = []
     subtitles_all = []
-    updated_subtitle_languages = []
-    all_track_ids = []
-    all_track_names = []
-    all_track_forced = []
-    updated_sub_filetypes = []
     errored_ocr = []
     missing_subs_langs = []
 
-    # Process each result and organize the outputs
-    for original_file, output_subtitle, language, track_id, name, forced, replacements, original_extension in results:
-        all_replacements = replacements + all_replacements
-        if output_subtitle and output_subtitle not in ('ERROR', 'SKIP'):
-            full_language = pycountry.languages.get(alpha_3=language)
-            if full_language:
-                full_language = full_language.name
-            else:
-                full_language = ''
-            if keep_original_subtitles:
-                base_lang_id_name_forced, _, original_extension = original_file.rpartition('.')
-                base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-                base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-                base_forced, _, name_encoded = base_name_forced.rpartition('_')
-                name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
-                    "'") else name_encoded
-                original_name = base64.b64decode(name_encoded).decode("utf-8")
+    for res in results:
+        all_replacements = res['replacements'] + all_replacements
+        subtitles_all += res['tracks']
+        output_subtitles += res['processed']
+        errored_ocr += res['errored']
+        missing_subs_langs += res['missing']
 
-                updated_sub_filetypes = updated_sub_filetypes + ['srt', original_extension]
-                output_subtitles = output_subtitles + [output_subtitle]
-                subtitles_all = subtitles_all + [output_subtitle, original_file]
-                updated_subtitle_languages = updated_subtitle_languages + [language, language]
-                all_track_ids = all_track_ids + [track_id, track_id]
-                if 'forced' in name.lower() or (forced == '1'):
-                    all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue',
-                                                         name if name else "Original"]
-                    # Enable forced only for the generated file, not original
-                    all_track_forced = all_track_forced + [1, 0]
-                else:
-                    output_name = name
-                    all_track_names = all_track_names + [output_name if output_name else full_language, original_name if original_name else "Original"]
-                    all_track_forced = all_track_forced + [forced, forced]
-            else:
-                updated_sub_filetypes = updated_sub_filetypes + ['srt']
-                output_subtitles = output_subtitles + [output_subtitle]
-                subtitles_all = subtitles_all + [output_subtitle]
-                updated_subtitle_languages = updated_subtitle_languages + [language]
-                all_track_ids = all_track_ids + [track_id]
-                if 'forced' in name.lower() or (forced == '1'):
-                    all_track_names = all_track_names + [f'non-{main_audio_track_lang} dialogue']
-                    all_track_forced = all_track_forced + [1]
-                else:
-                    output_name = name
-                    all_track_names = all_track_names + [output_name if output_name else full_language]
-                    all_track_forced = all_track_forced + [forced]
-        else:
-            if output_subtitle in ('ERROR', 'SKIP'):
-                if output_subtitle == "ERROR":
-                    errored_ocr.append(original_file)
-                    missing_subs_langs.append(language)
-            if name not in ('ERROR', 'SKIP'):
-                output_subtitles.append(original_file)
-                subtitles_all.append(original_file)
-                all_track_names.append(name)
-            if original_extension not in ('ERROR', 'SKIP'):
-                updated_sub_filetypes.append(original_extension)
-            if language not in ('ERROR', 'SKIP'):
-                updated_subtitle_languages.append(language)
-            if track_id not in ('ERROR', 'SKIP'):
-                all_track_ids.append(track_id)
-            if forced not in ('ERROR', 'SKIP'):
-                all_track_forced.append(forced)
-
-    return (output_subtitles, subtitles_all, updated_subtitle_languages, all_track_ids, all_track_names,
-            all_track_forced, updated_sub_filetypes, all_replacements, errored_ocr, missing_subs_langs)
+    return output_subtitles, subtitles_all, all_replacements, errored_ocr, missing_subs_langs
 
 
-def ocr_subtitle_worker(logger, memory_per_thread, debug, file, main_audio_track_lang, subtitleedit_dir):
+def ocr_subtitle_worker(logger, memory_per_thread, debug, track, main_audio_track_lang, subtitleedit_dir):
     ocr_languages = check_config(config, 'subtitles', 'ocr_languages')
-    remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
+    always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
     replacements = []
-    # Create a temporary directory for this thread's SubtitleEdit instance
-    temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
-    try:
-        # Copy the SubtitleEdit directory to the temporary directory
-        local_subtitleedit_dir = os.path.join(temp_dir, 'SubtitleEdit')
-        shutil.copytree(subtitleedit_dir, local_subtitleedit_dir)
 
-        subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
-        subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
+    file = track.path
+    language = track.language
+    forced = track.forced
 
-        base_lang_id_name_forced, _, original_extension = file.rpartition('.')
-        base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-        base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-        base_forced, _, name_encoded = base_name_forced.rpartition('_')
-        name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
-            "'") else name_encoded
-        name = base64.b64decode(name_encoded).decode("utf-8")
-        base, _, forced = base_forced.rpartition('_')
+    def display_name():
+        if forced:
+            return f'non-{main_audio_track_lang} dialogue'
+        if track.name and track.name != 'Original':
+            name = track.name
+        else:
+            # Derive the language's full name (handles both alpha-2 and alpha-3 codes)
+            try:
+                if len(language) > 2:
+                    name = pycountry.languages.get(alpha_3=language).name
+                else:
+                    name = pycountry.languages.get(alpha_2=language).name
+            except Exception:
+                name = ''
+        if always_remove_sdh and name:
+            name = remove_sdh_cc_text(name)
+            if track.name and ('SDH' in track.name.upper() or 'CC' in track.name.upper()):
+                if "(from " not in name:
+                    name = "{} (from {})".format(name, re.sub(r'[\[\]\(\)]', '', track.name))
+        return name
 
-        if file.endswith('.sup') or file.endswith('.sub'):
-            if ocr_languages[0].lower() != 'all':
-                if language not in ocr_languages:
-                    if is_non_empty_file(file):
-                        final_subtitle = ''
-                        original_subtitle = file
-                    else:
-                        final_subtitle = 'SKIP'
-                        original_subtitle = 'SKIP'
-                        language = 'SKIP'
-                        name = 'SKIP'
-                        forced = 'SKIP'
-                        track_id = 'SKIP'
-                        original_extension = 'SKIP'
-                    return original_subtitle, final_subtitle, language, track_id, name, forced, replacements, original_extension
+    if track.extension in ('sup', 'sub'):
+        # Image-based subtitles that require OCR.
+        # Each gets a fresh SubtitleEdit instance in its own temp directory.
+        temp_dir = tempfile.mkdtemp(prefix='SubtitleEdit_')
+        try:
+            local_subtitleedit_dir = os.path.join(temp_dir, 'SubtitleEdit')
+            shutil.copytree(subtitleedit_dir, local_subtitleedit_dir)
+            subtitleedit_exe = os.path.join(local_subtitleedit_dir, 'SubtitleEdit.exe')
+            subtitleedit_settings = os.path.join(local_subtitleedit_dir, 'Settings.xml')
+
+            if ocr_languages[0].lower() != 'all' and language not in ocr_languages:
+                if is_non_empty_file(file):
+                    # OCR not requested for this language: keep the original as-is
+                    return {'tracks': [track], 'processed': [track], 'errored': [], 'missing': [], 'replacements': []}
+                return {'tracks': [], 'processed': [], 'errored': [], 'missing': [], 'replacements': []}
 
             update_tesseract_lang_xml(debug, language, subtitleedit_settings)
-
             command = ["mono", subtitleedit_exe, "/convert", file, "srt", "/SplitLongLines", "/encoding:utf-8"]
-
             if debug:
                 print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
 
             result = run_with_xvfb(command, memory_per_thread)
+            # SubtitleEdit writes the .srt next to the source, sharing its stem.
+            srt_path = os.path.splitext(file)[0] + '.srt'
 
-            output_subtitle = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.srt"
-            subtitle_tmp = f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}_tmp.srt"
-
-            if name:
-                original_name_b64 = name_encoded
-            else:
-                original_name_b64 = base64.b64encode('Original'.encode("utf-8")).decode("utf-8")
-
-            if forced == '1':
-                output_name = f'non-{main_audio_track_lang} dialogue'
-                output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
-                original_name_b64 = output_name_b64
-                original_subtitle = f"{base}_0_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
-                final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
-            else:
-                full_language = pycountry.languages.get(alpha_3=language)
-                if full_language:
-                    output_name = name if name != 'Original' else full_language.name
-                else:
-                    output_name = name if name != 'Original' else ''
-                if remove_sdh:
-                    output_name = remove_sdh_cc_text(output_name)
-                    if 'SDH' in name.upper() or 'CC' in name.upper():
-                        if "(from " not in output_name:
-                            output_name = "{} (from {})".format(output_name, re.sub(r'[\[\]\(\)]', '', name))
-                output_name_b64 = base64.b64encode(output_name.encode("utf-8")).decode("utf-8")
-                original_subtitle = f"{base}_{forced}_'{original_name_b64}'_{track_id}_{language}.{original_extension}"
-                final_subtitle = f"{base}_{forced}_'{output_name_b64}'_{track_id}_{language}.srt"
-
-            os.rename(file, original_subtitle)
-            if os.path.exists(output_subtitle):
-                os.rename(output_subtitle, final_subtitle)
-
-            if result != 0 or not is_valid_srt(final_subtitle):
+            if result != 0 or not is_valid_srt(srt_path):
                 log_debug(logger, result)
-                final_subtitle = 'ERROR'
-                output_name = 'ERROR'
-                forced = 'ERROR'
-                track_id = 'ERROR'
-                original_extension = 'ERROR'
+                # Keep the (unconverted) original muxable and flag it for retry.
+                return {'tracks': [track], 'processed': [track], 'errored': [track],
+                        'missing': [language], 'replacements': []}
 
-            if final_subtitle != 'ERROR':
-                if language == 'eng':
-                    current_replacements = find_and_replace(final_subtitle, 'ocr-replacements/replacements_eng_only.csv',
-                                                            subtitle_tmp)
-                    replacements = replacements + current_replacements
-                    current_replacements = find_and_replace(subtitle_tmp, 'ocr-replacements/replacements.csv', final_subtitle)
-                    os.remove(subtitle_tmp)
-                    replacements = replacements + current_replacements
-                elif language == 'nor':
-                    current_replacements = find_and_replace(final_subtitle, 'ocr-replacements/replacements_nor_only.csv',
-                                                            subtitle_tmp)
-                    replacements = replacements + current_replacements
-                    current_replacements = find_and_replace(subtitle_tmp, 'ocr-replacements/replacements.csv', final_subtitle)
-                    os.remove(subtitle_tmp)
-                    replacements = replacements + current_replacements
-                else:
-                    current_replacements = find_and_replace(final_subtitle, 'ocr-replacements/replacements.csv', subtitle_tmp)
-                    os.rename(subtitle_tmp, final_subtitle)
-                    replacements = replacements + current_replacements
-
-                # Also rename .idx file if processing VobSub subtitles.
-                if file.endswith('.sub'):
-                    os.rename(f"{base}_{forced}_'{name_encoded}'_{track_id}_{language}.idx",
-                              f"{base}_0_'{original_name_b64}'_{track_id}_{language}.idx")
-        else:
-            final_subtitle = ''
-            if forced == '1':
-                new_name = f'non-{main_audio_track_lang} dialogue'
+            subtitle_tmp = srt_path + '.tmp.srt'
+            if language == 'eng':
+                replacements += find_and_replace(srt_path, 'ocr-replacements/replacements_eng_only.csv', subtitle_tmp)
+                replacements += find_and_replace(subtitle_tmp, 'ocr-replacements/replacements.csv', srt_path)
+                os.remove(subtitle_tmp)
+            elif language == 'nor':
+                replacements += find_and_replace(srt_path, 'ocr-replacements/replacements_nor_only.csv', subtitle_tmp)
+                replacements += find_and_replace(subtitle_tmp, 'ocr-replacements/replacements.csv', srt_path)
+                os.remove(subtitle_tmp)
             else:
-                try:
-                    if len(language) > 2:
-                        new_name = pycountry.languages.get(alpha_3=language).name
-                    else:
-                        new_name = pycountry.languages.get(alpha_2=language).name
-                except:
-                    new_name = ''
+                replacements += find_and_replace(srt_path, 'ocr-replacements/replacements.csv', subtitle_tmp)
+                os.rename(subtitle_tmp, srt_path)
 
-            if name:
-                new_name = name
-                if remove_sdh:
-                    new_name = remove_sdh_cc_text(new_name)
-
-            output_name = new_name
-            name_b64 = base64.b64encode(new_name.encode("utf-8")).decode("utf-8")
-            original_subtitle = f"{base}_{forced}_'{name_b64}'_{track_id}_{language}.{original_extension}"
-            os.rename(file, original_subtitle)
-    finally:
-        # Clean up the temporary directory
-        shutil.rmtree(temp_dir)
-
-    return original_subtitle, final_subtitle, language, track_id, output_name, forced, replacements, original_extension
-
-
-def get_subtitle_tracks_metadata_lists(subtitle_files, max_threads):
-    # Prepare to track the results in the order they were submitted
-    results = [None] * len(subtitle_files)  # Placeholder list for results
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-        # Submit all tasks and store futures in a dictionary with their index
-        future_to_index = {
-            executor.submit(get_subtitle_tracks_metadata_lists_worker, subtitle_files[i]): i
-            for i in range(len(subtitle_files))
-        }
-
-        # As each future completes, store the result at the corresponding index
-        for future in concurrent.futures.as_completed(future_to_index):
-            index = future_to_index[future]
-            results[index] = future.result()
-
-    # Initialize lists for the structured results
-    updated_subtitle_languages = []
-    all_track_ids = []
-    all_track_names = []
-    all_track_forced = []
-    updated_sub_filetypes = []
-
-    # Process each result and organize the outputs
-    for language, track_id, name, forced, original_extension in results:
-        updated_sub_filetypes.append(original_extension)
-        updated_subtitle_languages.append(language)
-        all_track_ids.append(track_id)
-        all_track_names.append(name)
-        all_track_forced.append(forced)
-
-    return (updated_subtitle_languages, all_track_ids, all_track_names,
-            all_track_forced, updated_sub_filetypes)
-
-
-def get_subtitle_tracks_metadata_lists_worker(file):
-    base_lang_id_name_forced, _, original_extension = file.rpartition('.')
-    base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-    base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-    base_forced, _, name_encoded = base_name_forced.rpartition('_')
-    name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
-        "'") else name_encoded
-    name = base64.b64decode(name_encoded).decode("utf-8")
-    base, _, forced = base_forced.rpartition('_')
-
-    return language, track_id, name, forced, original_extension
+            srt_track = SubtitleTrack(path=srt_path, track_id=track.track_id, language=language,
+                                      forced=forced, name=display_name(), extension='srt', source=track.source)
+            tracks = [srt_track]
+            if check_config(config, 'subtitles', 'keep_original_subtitles'):
+                # The kept image-based original is never the forced/dialogue track.
+                original_name = track.name if track.name else 'Original'
+                tracks.append(replace(track, name=original_name, forced=False))
+            return {'tracks': tracks, 'processed': [srt_track], 'errored': [], 'missing': [],
+                    'replacements': replacements}
+        finally:
+            shutil.rmtree(temp_dir)
+    else:
+        # Already text-based (srt / leftover ass): just assign the display name.
+        new_track = replace(track, name=display_name())
+        return {'tracks': [new_track], 'processed': [new_track], 'errored': [], 'missing': [],
+                'replacements': []}
 
 
 def update_tesseract_lang_xml(debug, new_language, settings_file):

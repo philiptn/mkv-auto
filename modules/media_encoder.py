@@ -846,10 +846,11 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     return cleaned_filename, filesize_info
 
 
-def encode_media_files(logger, debug, input_files, dirpath, output_dir):
+def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=None):
     total_files = len(input_files)
     updated_filenames = [None] * total_files
     filesizes_info = [None] * total_files
+    origins = origins or {}
 
     output_codec = check_config(config, 'media-encoder', 'output_codec')
     input_quality_crf = check_config(config, 'media-encoder', 'quality_crf')
@@ -913,7 +914,12 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
             is_dovi_pre, _ = detect_dolby_vision(os.path.join(dirpath, f), logger)
         final_names.append(compute_post_encode_filename(f, output_codec, is_dovi_pre))
 
+    # Carry each file's original subfolder path forward onto its post-encode
+    # name so the destination can be resolved without parsing the filename.
+    relative_dir_by_final = {}
     for original, final in zip(list(input_files), final_names):
+        wf = origins.get(original)
+        relative_dir_by_final[final] = wf.relative_dir if wf else ""
         if original != final:
             os.rename(os.path.join(dirpath, original), os.path.join(dirpath, final))
     input_files = list(final_names)
@@ -926,7 +932,8 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir):
     with concurrent.futures.ThreadPoolExecutor(max_workers=resolution_workers) as resolver:
         resolve_futures = {
             resolver.submit(resolve_output_target, logger, debug,
-                            os.path.join(dirpath, f), output_dir, None): f
+                            os.path.join(dirpath, f), output_dir,
+                            relative_dir_by_final.get(f, ""), f): f
             for f in input_files
         }
         for fut in concurrent.futures.as_completed(resolve_futures):

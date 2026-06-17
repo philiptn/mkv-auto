@@ -13,12 +13,9 @@ from modules.misc import *
 # Function to extract a single audio track
 def extract_audio_track(debug, filename, track, language, name):
     base, _, _ = filename.rpartition('.')
-    try:
-        audio_language = pycountry.languages.get(alpha_3=language).alpha_2
-    except:
-        audio_language = language[:-1]
-
-    audio_filename = f"{base}.{track}.{audio_language}.mka"
+    # Plain working name; the track id only disambiguates files, it is never
+    # parsed back out. All metadata travels on the returned AudioTrack.
+    audio_filename = f"{base}.aud{track}.mka"
 
     command = [
         "ffmpeg",
@@ -50,46 +47,37 @@ def extract_audio_track(debug, filename, track, language, name):
         if result.returncode != 0:
             raise Exception("Error executing ffmpeg command: " + result.stderr)
 
-    return audio_filename, 'mkv', name, language
+    return AudioTrack(path=audio_filename, track_id=track, language=language, name=name, extension='mka')
 
 
 def extract_audio_tracks_in_mkv(internal_threads, debug, filename, track_numbers, audio_languages, audio_names):
     if not track_numbers:
         print(f"{GREY}[UTC {get_timestamp()}] [MKVEXTRACT]{RESET} Error: No track numbers passed.")
-        return
+        return []
 
     if debug:
         print()
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=internal_threads) as executor:
-        # Create a mapping of futures to their inputs for ordering
+        # Map each future back to its input index so results stay ordered
         futures = {
-            executor.submit(extract_audio_track, debug, filename, track, language, name): (track, language, name)
-            for track, language, name in zip(track_numbers, audio_languages, audio_names)
+            executor.submit(extract_audio_track, debug, filename, track, language, name): index
+            for index, (track, language, name) in enumerate(zip(track_numbers, audio_languages, audio_names))
         }
 
-        # Prepare containers for the results in the correct order
+        # Prepare a container for the AudioTrack results in the correct order
         ordered_results = [None] * len(track_numbers)
 
         for future in concurrent.futures.as_completed(futures):
             try:
-                # Get the original input index for this future
-                track, language, name = futures[future]
-                index = track_numbers.index(track)
-
-                # Fetch the result and store it in the correct order
-                audio_file, audio_extension, updated_audio_name, updated_audio_lang = future.result()
-                ordered_results[index] = (audio_file, audio_extension, updated_audio_name, updated_audio_lang)
+                ordered_results[futures[future]] = future.result()
             except Exception as e:
                 # Handle exceptions here, if necessary
                 print(f"Error extracting audio track: {e}")
                 raise
 
-    # Unzip the ordered results into separate lists
-    audio_files, audio_extensions, updated_audio_names, updated_audio_langs = zip(*ordered_results)
-
-    return audio_files, updated_audio_langs, updated_audio_names, audio_extensions
+    return ordered_results
 
 
 def parse_preferred_codecs(preferred_codec_string):
@@ -308,11 +296,12 @@ def get_pan_filter_eos_plus(source_channels, layout):
         return None
 
 
-def encode_single_preference(file, index, debug, languages, track_names, transformation, codec, ch_str,
+def encode_single_preference(audio_track, debug, transformation, codec, ch_str,
                              custom_ffmpeg_options):
-    base_and_lang_with_id, _, extension = file.rpartition('.')
-    base_with_id, _, lang = base_and_lang_with_id.rpartition('.')
-    base, _, original_track_id = base_with_id.rpartition('.')
+    file = audio_track.path
+    lang = audio_track.language
+    extension = audio_track.extension
+    work_dir = os.path.dirname(file)
 
     source_channels, source_layout = detect_source_channels_and_layout(debug, file)
     chosen_channels = channels_to_int(ch_str) if ch_str else None
@@ -337,12 +326,14 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         chosen_layout = 'Mono'
 
     unique_id = str(uuid.uuid4())
-    track_name = track_names[index].replace(" (Original)", "")
+    track_name = audio_track.name.replace(" (Original)", "")
 
     # If original no transformation or empty, just copy
     if codec == 'ORIG' and transformation is None or codec == '':
         final_out_ext = extension
-        final_out = f"{base}.{unique_id}.{lang}.{final_out_ext}"
+        # Opaque output path: identity/metadata is carried on the AudioTrack,
+        # never encoded into (or parsed from) the filename.
+        final_out = os.path.join(work_dir, f"{unique_id}.{final_out_ext}")
         command = ["ffmpeg", "-i", file, "-c:a", "copy"] + custom_ffmpeg_options + [final_out]
         if debug:
             print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
@@ -368,10 +359,11 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
                     pass
             else:
                 track_name = f"Original ({chosen_layout})"
-        return final_out_ext, languages[index], track_name, unique_id
+        return AudioTrack(path=final_out, track_id=unique_id, language=lang,
+                          name=track_name, extension=final_out_ext)
 
     # Unique temp wav
-    temp_wav = f"{base}.{unique_id}.{lang}.temp.wav"
+    temp_wav = os.path.join(work_dir, f"{unique_id}.temp.wav")
 
     # Decode to WAV
     decode_cmd = ["ffmpeg", "-i", file, "-c:a", "pcm_s16le", "-f", "wav"]
@@ -388,7 +380,7 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
         final_codec = extension
 
     final_out_ext = final_codec if final_codec != 'orig' else extension
-    final_out = f"{base}.{unique_id}.{lang}.{final_out_ext}"
+    final_out = os.path.join(work_dir, f"{unique_id}.{final_out_ext}")
     ffmpeg_final_opts = []
     track_name_final = ''
 
@@ -505,12 +497,13 @@ def encode_single_preference(file, index, debug, languages, track_names, transfo
 
     os.remove(temp_wav)
 
-    return final_out_ext, languages[index], track_name_final, unique_id
+    return AudioTrack(path=final_out, track_id=unique_id, language=lang,
+                      name=track_name_final, extension=final_out_ext)
 
 
-def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_names, preferred_codec_string):
-    if not audio_files:
-        return
+def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_string):
+    if not audio_tracks:
+        return []
 
     preferences = parse_preferred_codecs(preferred_codec_string)
     custom_ffmpeg_options = []
@@ -521,10 +514,10 @@ def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_n
     # Store futures by (track_index, preference_index) for ordering later
     futures_map = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=internal_threads) as executor:
-        for track_index, file in enumerate(audio_files):
+        for track_index, audio_track in enumerate(audio_tracks):
             for pref_index, (transformation, codec, ch_str) in enumerate(preferences):
                 future = executor.submit(
-                    encode_single_preference, file, track_index, debug, languages, track_names,
+                    encode_single_preference, audio_track, debug,
                     transformation, codec, ch_str, custom_ffmpeg_options
                 )
                 futures_map[future] = (track_index, pref_index)
@@ -545,28 +538,27 @@ def encode_audio_tracks(internal_threads, debug, audio_files, languages, track_n
                     raise
 
     if not results_map:
-        return (), (), (), ()
+        return []
 
     if debug:
         print()
 
     # Reconstruct results in the correct order
-    # For each track in the order of audio_files, and each preference in the order given by preferences
+    # For each track in the order of audio_tracks, and each preference in the order given by preferences
     ordered_results = []
-    for track_index in range(len(audio_files)):
+    for track_index in range(len(audio_tracks)):
         for pref_index in range(len(preferences)):
             if (track_index, pref_index) in results_map:
                 ordered_results.append(results_map[(track_index, pref_index)])
 
     if not ordered_results:
-        return (), (), (), ()
+        return []
 
-    output_audio_files_extensions, output_audio_langs, output_audio_names, all_track_ids = zip(*ordered_results)
-    for audio_file in audio_files:
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
+    for audio_track in audio_tracks:
+        if os.path.exists(audio_track.path):
+            os.remove(audio_track.path)
 
-    return output_audio_files_extensions, output_audio_langs, output_audio_names, all_track_ids
+    return ordered_results
 
 
 def get_wanted_audio_tracks(debug, file_info, pref_audio_langs, remove_commentary, pref_audio_formats):

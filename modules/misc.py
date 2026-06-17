@@ -18,6 +18,8 @@ import base64
 import requests
 import math
 
+from modules.models import WorkingFile, SubtitleTrack, AudioTrack
+
 # ANSI color codes
 BLUE = '\033[94m'
 RESET = '\033[0m'  # Reset to default terminal color
@@ -987,43 +989,17 @@ def flatten_season_folders(root_dir):
 
 
 def flatten_directories(logger, directory):
-    marker_start = "--.--"
-    marker_end = "__.__"
-    path_separator = "___"
+    """Move every file to the top level of ``directory`` with a plain,
+    collision-safe working name.
 
-    max_filename_length = 255  # Filesystem limit for filename (basename)
-
-    def is_running_under_wsl():
-        try:
-            with open("/proc/version", "r") as f:
-                return "Microsoft" in f.read()
-        except Exception:
-            return False
-
-    def get_effective_max_path():
-        if os.name == 'nt' or is_running_under_wsl():
-            return 260
-        else:
-            return 4096
-
-    max_total_path = get_effective_max_path()
-
-    def build_encoded_path(parts, filename):
-        """Trim encoded path until resulting filename fits limits, reserving suffix space."""
-        encoded_parts = []
-        reserved_suffix_space = 50  # Reserve for _tmp.srt, etc.
-
-        for part in parts:
-            encoded_parts.append(part.replace(os.sep, path_separator))
-
-        while encoded_parts:
-            encoded_path = path_separator.join(encoded_parts)
-            new_name = f"{marker_start}{encoded_path}{marker_end}{filename}"
-            if len(new_name) <= max_filename_length - reserved_suffix_space:
-                return encoded_path
-            encoded_parts.pop()
-
-        return ""
+    The original subfolder path and filename are returned as ``WorkingFile``
+    records so the output folder structure can be rebuilt later without
+    encoding any of that information into the filename itself. Files keep their
+    real name whenever possible; a numeric suffix is only added when a name
+    would otherwise collide at the top level.
+    """
+    working_files = []
+    used_names = set()
 
     for root, dirs, files in os.walk(directory, topdown=False):
         dirs[:] = [d for d in dirs if not d.startswith('.')]
@@ -1032,27 +1008,30 @@ def flatten_directories(logger, directory):
         for name in files:
             source = os.path.join(root, name)
             rel_path = os.path.relpath(root, directory)
+            relative_dir = "" if rel_path == "." else rel_path
             log_debug(logger, f"[DEBUG] File in input folder: '{name}'")
 
-            if rel_path == ".":
-                encoded_path = ""
-            else:
-                parts = rel_path.split(os.sep)
-                encoded_path = build_encoded_path(parts, name)
+            # Pick a unique top-level name without packing the path into it.
+            working_name = name
+            base, ext = os.path.splitext(name)
+            counter = 1
+            while (working_name in used_names
+                   or (os.path.join(directory, working_name) != source
+                       and os.path.exists(os.path.join(directory, working_name)))):
+                working_name = f"{base}_{counter}{ext}"
+                counter += 1
+            used_names.add(working_name)
 
-            new_name = f"{marker_start}{encoded_path}{marker_end}{name}"
-            destination = os.path.join(directory, new_name)
-
-            # Double-check full path doesn't exceed OS path limit
-            if len(destination) > max_total_path:
-                # Emergency fallback: truncate the encoded path more
-                encoded_path = ""
-                new_name = f"{marker_start}{encoded_path}{marker_end}{name}"
-                destination = os.path.join(directory, new_name)
-
+            destination = os.path.join(directory, working_name)
             if source != destination:
                 log_debug(logger, f"[INFO] Moving: {source} → {destination}")
                 shutil.move(source, destination)
+
+            working_files.append(WorkingFile(
+                path=destination,
+                original_name=name,
+                relative_dir=relative_dir,
+            ))
 
         for name in dirs:
             try:
@@ -1060,28 +1039,7 @@ def flatten_directories(logger, directory):
             except OSError:
                 pass  # Directory not empty
 
-
-def unflatten_file(flattened_filename, output_folder):
-    marker_start = "--.--"
-    marker_end = "__.__"
-    path_separator = "___"
-
-    basename = os.path.basename(flattened_filename)
-
-    if not basename.startswith(marker_start) or marker_end not in basename:
-        raise ValueError(f"Filename '{basename}' is not a valid flattened format")
-
-    try:
-        end_idx = basename.index(marker_end)
-        encoded_path = basename[len(marker_start):end_idx]
-        original_name = basename[end_idx + len(marker_end):]
-
-        # Decode the original folder structure
-        rel_path = encoded_path.replace(path_separator, os.sep)
-
-        return rel_path, original_name
-    except Exception as e:
-        raise RuntimeError(f"Failed to unflatten file '{flattened_filename}': {e}")
+    return working_files
 
 
 def format_time(total_seconds):
@@ -1201,23 +1159,18 @@ def update_replacement_lists(logger):
         return None
 
 
-def decompose_subtitle_filename(subtitle_file):
-    base_lang_id_name_forced, _, extension = subtitle_file.rpartition('.')
-    base_id_name_forced, _, language = base_lang_id_name_forced.rpartition('_')
-    base_name_forced, _, track_id = base_id_name_forced.rpartition('_')
-    base_forced, _, name_encoded = base_name_forced.rpartition('_')
-    name_encoded = name_encoded.strip("'") if name_encoded.startswith("'") and name_encoded.endswith(
-        "'") else name_encoded
-    name = base64.b64decode(name_encoded).decode("utf-8")
-    base, _, forced = base_forced.rpartition('_')
-
+def build_subtitle_repack_dict(tracks):
+    """Build the parallel-list metadata dict the repack step consumes from a
+    list of SubtitleTracks. Carries the on-disk paths so the repack no longer
+    has to reconstruct filenames from encoded metadata."""
+    tracks = tracks or []
     return {
-        'base': base,
-        'forced': forced,
-        'name': name,
-        'track_id': track_id,
-        'language': language,
-        'extension': extension
+        'sub_paths': [t.path for t in tracks],
+        'sub_extensions': [t.extension for t in tracks],
+        'sub_langs': [t.language for t in tracks],
+        'sub_ids': [t.track_id for t in tracks],
+        'sub_names': [t.name for t in tracks],
+        'sub_forced': [1 if t.forced else 0 for t in tracks],
     }
 
 
@@ -1892,7 +1845,6 @@ def print_media_info(logger, filenames):
     normalize_filenames = check_config(config, 'general', 'normalize_filenames')
 
     for filename in filenames:
-        a, filename = unflatten_file(filename, '')
         file_info = reformat_filename(filename, True, False, False, logger)
         media_type = file_info["media_type"]
         media_name = file_info["media_name"]

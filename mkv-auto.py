@@ -21,6 +21,19 @@ from modules.media_encoder import *
 mkv_auto_version = 'DEV-2026-05'
 
 
+def remap_origins(origins, old_names, new_names):
+    """Keep the basename -> WorkingFile map in sync when a pipeline stage
+    renames files on disk. Stages return updated names index-aligned with the
+    names they were given, so re-key each entry whose name changed and update
+    its logical name (the new on-disk name is also the new output name, e.g.
+    after clutter removal or a Dolby Vision tag is added)."""
+    for old, new in zip(old_names, new_names):
+        if new and old != new and old in origins:
+            wf = origins.pop(old)
+            wf.original_name = new
+            origins[new] = wf
+
+
 def mkv_auto(args):
     input_dir = check_config(config, 'general', 'input_folder')
     output_dir = check_config(config, 'general', 'output_folder')
@@ -83,6 +96,7 @@ def mkv_auto(args):
     filenames_mkv_only = []
     errored = False
     resolved_targets = {}
+    origins = {}
 
     try:
         if move_files:
@@ -144,14 +158,20 @@ def mkv_auto(args):
         if remove_samples:
             remove_sample_files_and_dirs(temp_dir)
 
-        flatten_directories(logger, temp_dir)
-
+        # Name-based preprocessing runs on the real nested tree (before flattening)
+        # so it operates on the actual filenames, not an encoded working name.
         convert_all_videos_to_mkv(logger, debug, temp_dir, args.silent)
         rename_others_file_to_folder(temp_dir, logger)
 
         fix_episodes_naming(temp_dir)
         remove_ds_store(temp_dir)
         remove_wsl_identifiers(temp_dir)
+
+        # Collapse everything to the top level with plain working names. The
+        # original subfolder path / name for each file is carried in the
+        # returned WorkingFile records instead of being encoded into the name.
+        working_files = flatten_directories(logger, temp_dir)
+        origins = {os.path.basename(wf.path): wf for wf in working_files}
 
         if total_files == 0:
             if not args.silent:
@@ -177,9 +197,6 @@ def mkv_auto(args):
             filenames = [f for f in filenames if not f.startswith('.')]
             filenames_covers = [f for f in filenames if f.lower().endswith(('.png', '.jpg'))
                                 and any(name in f.lower() for name in poster_base_names)]
-
-            relative_dir_path = os.path.relpath(dirpath, temp_dir)
-            all_dirnames = relative_dir_path.split(os.sep)
 
             total_external_subs = []
 
@@ -254,8 +271,8 @@ def mkv_auto(args):
 
                 downloaded_or_external_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, total_external_subs, fillvalue=[])]
                 if downloaded_or_external_subtitle_files:
-                    # Filter the nested lists to only include .srt files
-                    subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in downloaded_or_external_subtitle_files]
+                    # Filter the nested lists to only include .srt tracks
+                    subtitle_files = [[t for t in sublist if t.extension == 'srt'] for sublist in downloaded_or_external_subtitle_files]
                     if any(sub for sub in subtitle_files):
                         resync_sub_process(logger, debug, filenames_mkv_only, dirpath, subtitle_files)
 
@@ -288,8 +305,8 @@ def mkv_auto(args):
                     subtitle_files_to_process = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, subtitle_files_to_process, fillvalue=[])]
 
                     if all_downloaded_subs:
-                        # Filter the nested lists to only include .srt files
-                        subtitle_files = [[f for f in sublist if f.endswith('.srt')] for sublist in all_downloaded_subs]
+                        # Filter the nested lists to only include .srt tracks
+                        subtitle_files = [[t for t in sublist if t.extension == 'srt'] for sublist in all_downloaded_subs]
                         if any(sub for sub in subtitle_files):
                             resync_sub_process(logger, debug, filenames_mkv_only, dirpath, subtitle_files)
 
@@ -303,16 +320,20 @@ def mkv_auto(args):
                     remove_all_subtitles):
                 repack_mkv_tracks_process(logger, debug, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
 
+            pre_clutter = list(filenames_mkv_only)
             filenames_mkv_only = remove_clutter_process(logger, debug, filenames_mkv_only, dirpath)
+            remap_origins(origins, pre_clutter, filenames_mkv_only)
 
             if enable_media_encoder:
-                filenames_mkv_only, resolved_targets = encode_media_files(logger, debug, filenames_mkv_only, dirpath, output_dir)
+                filenames_mkv_only, resolved_targets = encode_media_files(logger, debug, filenames_mkv_only, dirpath, output_dir, origins)
 
             if convert_dolby_vision_to_p8 and not enable_media_encoder:
+                pre_dovi = list(filenames_mkv_only)
                 filenames_mkv_only = convert_dovi_files(logger, debug, filenames_mkv_only, dirpath)
+                remap_origins(origins, pre_dovi, filenames_mkv_only)
 
             all_filenames = filenames_mkv_only + filenames_covers
-            move_files_to_output_process(logger, debug, all_filenames, dirpath, all_dirnames, output_dir, errored,
+            move_files_to_output_process(logger, debug, all_filenames, dirpath, origins, output_dir, errored,
                                          resolved_targets=resolved_targets)
 
             end_time = time.time()
@@ -332,7 +353,7 @@ def mkv_auto(args):
             custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving unprocessed "
                                  f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
             custom_print(logger, traceback.print_tb(e.__traceback__))
-            move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, all_dirnames, output_dir, errored,
+            move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, origins, output_dir, errored,
                                          resolved_targets=resolved_targets)
         else:
             custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured: {e}")

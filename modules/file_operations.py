@@ -313,14 +313,19 @@ def detect_dynamic_range_from_filename(filename):
     }
 
 
-def resolve_output_target(logger, debug, input_file_path, output_folder, folder_structure):
+def resolve_output_target(logger, debug, input_file_path, output_folder, relative_dir, original_name):
     """Compute the destination path and metadata for input_file_path without doing file I/O.
 
     Splits the metadata work out of move_file_to_output() so callers can resolve
     once (incurring a single TVMaze lookup per file) and reuse the result across
     pre-copy and the post-encode move.
+
+    ``relative_dir`` is the file's original subfolder path (relative to the input
+    root) and ``original_name`` is its logical name, both carried in from the
+    pipeline rather than decoded from the filename.
     """
-    original_folders, original_restored_filename = unflatten_file(input_file_path, '')
+    original_folders = relative_dir
+    original_restored_filename = original_name
 
     base, ext = os.path.splitext(original_restored_filename)
     new_folders_str = original_restored_filename
@@ -537,8 +542,8 @@ def move_resolved_to_output(logger, input_file_path, target, copy=False):
     }
 
 
-def move_file_to_output(logger, debug, input_file_path, output_folder, folder_structure, copy=False):
-    target = resolve_output_target(logger, debug, input_file_path, output_folder, folder_structure)
+def move_file_to_output(logger, debug, input_file_path, output_folder, relative_dir, original_name, copy=False):
+    target = resolve_output_target(logger, debug, input_file_path, output_folder, relative_dir, original_name)
     return move_resolved_to_output(logger, input_file_path, target, copy=copy)
 
 
