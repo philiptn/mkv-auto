@@ -48,3 +48,7 @@ pathvalidate==3.3.1
 # For fuzzy matching titles from Movies/TV
 # https://pypi.org/project/thefuzz/
 thefuzz==0.22.1
+
+# For running the regression test suite (tests/)
+# https://pypi.org/project/pytest/
+pytest==9.1.1

@@ -464,13 +464,13 @@ def trim_audio_in_mkv_files_worker(logger, debug, input_file, dirpath):
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
     download_missing_subs = check_config(config, 'subtitles', 'download_missing_subs')
 
-    (wanted_audio_tracks, default_audio_track, needs_processing_audio,
-     pref_audio_formats_found, track_ids_to_be_converted,
-     track_langs_to_be_converted, track_names_to_be_converted) = get_wanted_audio_tracks(
+    wanted_audio = get_wanted_audio_tracks(
         debug, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
+    needs_processing_audio = wanted_audio.needs_processing
 
     if needs_processing_audio:
-        strip_audio_tracks_in_mkv(logger, debug, input_file, wanted_audio_tracks, default_audio_track)
+        strip_audio_tracks_in_mkv(logger, debug, input_file,
+                                  wanted_audio.wanted_track_ids, wanted_audio.default_track_id)
 
     file_info, pretty_file_info = get_mkv_info(debug, input_file, False)
 
@@ -510,8 +510,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
 
     # Calculate number of workers and internal threads
     max_worker_threads = get_worker_thread_count()
-    num_workers = max(1, max_worker_threads)
-    internal_threads = max(1, max_worker_threads // num_workers)
+    num_workers, internal_threads = compute_thread_allocation(total_files, max_worker_threads)
 
     header = "AUDIO"
     description = f"Process audio {print_multi_or_single(len(audio_format_preferences), 'format')}"
@@ -578,20 +577,16 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
     # Get updated file info after mkv tracks reduction
     file_info, pretty_file_info = get_mkv_info(False, input_file, True)
 
-    (wanted_audio_tracks, default_audio_track, needs_processing_audio,
-     pref_audio_formats_found, track_ids_to_be_converted,
-     track_langs_to_be_converted, track_names_to_be_converted) = get_wanted_audio_tracks(
+    wanted_audio = get_wanted_audio_tracks(
         False, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
 
     # Generating audio tracks if preferred codec not found in all audio tracks
-    if needs_processing_audio:
+    if wanted_audio.needs_processing:
         if debug:
             print('')
 
         extracted_audio_tracks = extract_audio_tracks_in_mkv(internal_threads, debug, input_file,
-                                                             track_ids_to_be_converted,
-                                                             track_langs_to_be_converted,
-                                                             track_names_to_be_converted)
+                                                             wanted_audio.tracks_to_convert)
 
         encoded_audio_tracks = encode_audio_tracks(
             internal_threads, debug, extracted_audio_tracks, pref_audio_formats)
@@ -633,8 +628,7 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
 
     # Calculate number of workers and internal threads
     max_worker_threads = get_worker_thread_count()
-    num_workers = max(1, max_worker_threads)
-    internal_threads = max(1, max_worker_threads // num_workers)
+    num_workers, internal_threads = compute_thread_allocation(total_files, max_worker_threads)
 
     if not disable_print:
         # Initialize progress

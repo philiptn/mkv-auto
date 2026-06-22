@@ -18,7 +18,7 @@ import base64
 import requests
 import math
 
-from modules.models import WorkingFile, SubtitleTrack, AudioTrack
+from modules.models import WorkingFile, SubtitleTrack, AudioTrack, AudioTrackCandidate, WantedAudioTracks
 
 # ANSI color codes
 BLUE = '\033[94m'
@@ -2217,6 +2217,23 @@ def get_worker_thread_count():
     if max_workers < 1:
         max_workers = 1
     return max_workers
+
+
+def compute_thread_allocation(total_files, max_worker_threads):
+    """Split the available threads between across-file workers and per-file
+    internal threads.
+
+    With many files (>= available threads) we keep one thread per file, exactly
+    as before. With fewer files than threads (e.g. a single movie) the leftover
+    threads are handed to each file as internal threads so the otherwise-idle
+    cores are used for per-track/per-preference work.
+
+    Returns (num_workers, internal_threads), both >= 1.
+    """
+    max_worker_threads = max(1, max_worker_threads)
+    num_workers = max(1, min(total_files, max_worker_threads))
+    internal_threads = max(1, max_worker_threads // num_workers)
+    return num_workers, internal_threads
 
 
 def get_max_ocr_threads():
