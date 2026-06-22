@@ -401,7 +401,15 @@ def resolve_output_target(logger, debug, input_file_path, output_folder, relativ
                     full_info_found = True
     else:
         if media_type in ['movie', 'movie_hdr', 'movie_dv', 'movie_dv_hdr', 'movie_4k']:
-            pattern = re.compile(r"^" + re.escape(media_name) + r"\s*-\s*(?P<extra>.+)$")
+            # Only treat the trailing text as an extra when it actually contains a
+            # defined extras keyword (behindthescenes/featurette/trailer/...).
+            # A bare dynamic-range/quality suffix like "DV HDR" is NOT an extra,
+            # so it must not strip the title from the filename.
+            pattern = re.compile(
+                r"^" + re.escape(media_name)
+                + r"\s*-\s*(?P<extra>.*\b(?:" + extras_pattern + r")\b.*)$",
+                re.IGNORECASE,
+            )
             movie_extra_match = pattern.match(base)
             if movie_extra_match:
                 restored_filename = movie_extra_match.group("extra") + ext
