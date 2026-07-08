@@ -1,6 +1,7 @@
 import os
 import shutil
 import re
+import uuid
 import rarfile
 import zipfile
 from datetime import datetime
@@ -56,7 +57,7 @@ def extract_archives(logger, input_folder):
 
     for root, archive_file in archives:
         archive_path = os.path.join(root, archive_file)
-        temp_extract_path = os.path.join(root, f".tmp_extract_{uuid4().hex}")
+        temp_extract_path = os.path.join(root, f".tmp_extract_{uuid.uuid4().hex}")
 
         try:
             os.makedirs(temp_extract_path, exist_ok=True)
