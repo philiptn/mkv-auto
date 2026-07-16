@@ -53,7 +53,7 @@ if "%action%"=="1" (
 
 :: Perform selected actions
 if "%runtime%"=="1" (
-    docker pull ghcr.iophiliptn/mkv-auto:latest
+    docker pull ghcr.io/philiptn/mkv-auto:latest
     echo.
     docker run --rm -it -v "%cd%:/mkv-auto/files" ghcr.io/philiptn/mkv-auto:latest --docker %move_flag%
 ) else if "%runtime%"=="2" (
