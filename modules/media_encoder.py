@@ -121,6 +121,91 @@ def get_video_duration(path):
     return float(result.stdout.strip())
 
 
+def _tag_lookup(tags, key):
+    # Matroska statistics tags are per-track and often carry a language suffix
+    # (BPS-eng, NUMBER_OF_BYTES-eng), so match the bare key or any suffixed form.
+    if not tags:
+        return None
+    prefix = key.lower() + "-"
+    for name, value in tags.items():
+        lowered = name.lower()
+        if lowered == key.lower() or lowered.startswith(prefix):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def get_video_stream_bytes(logger, path, duration, total_size):
+    """Size of the source video stream alone, in bytes, or None if undeterminable.
+
+    Savings are reported on a video-only basis: the encoder only re-encodes video,
+    while audio/subtitles/attachments are remuxed through untouched and occupy the
+    same space before and after. Comparing against the whole container would credit
+    the encoder for bytes it never touched.
+    """
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_streams",
+        "-of", "json",
+        path
+    ]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        streams = json.loads(result.stdout).get("streams", [])
+    except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError) as e:
+        log_debug(logger, f"[MEDIA-ENCODER] Video stream size probe failed for {path}: {e}")
+        return None
+
+    video = next((s for s in streams if s.get("codec_type") == "video"), None)
+    if video is None:
+        return None
+
+    def clamp(value, source):
+        size = int(max(0, min(value, total_size)))
+        log_debug(logger, f"[MEDIA-ENCODER] Source video stream size ({source}): "
+                          f"{size} of {total_size} bytes")
+        return size
+
+    # Exact, when mkvmerge wrote its track statistics tags.
+    exact = _tag_lookup(video.get("tags"), "NUMBER_OF_BYTES")
+    if exact:
+        return clamp(exact, "NUMBER_OF_BYTES tag")
+
+    if duration > 0:
+        video_bps = _tag_lookup(video.get("tags"), "BPS")
+        if not video_bps:
+            try:
+                video_bps = int(video.get("bit_rate"))
+            except (TypeError, ValueError):
+                video_bps = None
+        if video_bps:
+            return clamp(video_bps * duration / 8, "video bitrate")
+
+        # Complement: everything the encoder will not touch, subtracted from the file.
+        other_bps = 0
+        for stream in streams:
+            if stream.get("codec_type") == "video":
+                continue
+            bps = _tag_lookup(stream.get("tags"), "BPS")
+            if not bps:
+                try:
+                    bps = int(stream.get("bit_rate"))
+                except (TypeError, ValueError):
+                    bps = None
+            if bps:
+                other_bps += bps
+        if other_bps:
+            return clamp(total_size - (other_bps * duration / 8), "container complement")
+
+    log_debug(logger, f"[MEDIA-ENCODER] Could not determine video stream size for {path}, "
+                      f"falling back to full container size")
+    return None
+
+
 def auto_crop(file):
     try:
         hb_output = subprocess.check_output(
@@ -450,7 +535,9 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
 
     filesize_info = {
         "initial_file_size": 0,
-        "resulting_file_size": 0
+        "resulting_file_size": 0,
+        "initial_video_size": 0,
+        "resulting_video_size": 0
     }
 
     FFMPEG_WEIGHT = 0.99
@@ -701,6 +788,15 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     cmd_ffmpeg.append(temp_video_file)
     duration = get_video_duration(media_file)  # seconds
 
+    # Savings are measured against the video stream alone, since every other track is
+    # remuxed through untouched below. Probed once here, never inside the progress loop.
+    source_video_size = get_video_stream_bytes(
+        logger, media_file, duration, filesize_info["initial_file_size"]
+    )
+    filesize_info["initial_video_size"] = (
+        source_video_size if source_video_size else filesize_info["initial_file_size"]
+    )
+
     log_debug(logger, f"[MEDIA-ENCODER] FFmpeg command: '{' '.join(cmd_ffmpeg)}'")
 
     process = subprocess.Popen(
@@ -746,7 +842,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
                 progress.update_size_estimate(
                     worker_id,
                     projected_video,
-                    filesize_info["initial_file_size"],
+                    filesize_info["initial_video_size"],
                 )
     process.wait()
 
@@ -822,6 +918,16 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         custom_print(logger, f"{RED}[STDERR]{RESET}\n{YELLOW}{e.stderr.strip()}{RESET}")
         raise e
 
+    # Measured before cleanup. On the Dolby Vision path temp_video_file has already
+    # been reassigned to the post-injection stream, so this is the real video payload.
+    filesize_info["resulting_video_size"] = os.path.getsize(temp_video_file)
+
+    # Folded in before finish_worker, which drops this worker's live estimate:
+    # recording afterwards would leave the file counted in neither term for a moment.
+    progress.record_completion(
+        filesize_info["initial_video_size"],
+        filesize_info["resulting_video_size"],
+    )
     progress.finish_worker(worker_id)
 
     # Cleanup
@@ -832,10 +938,6 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
 
     os.rename(temp_file, os.path.join(dirpath, cleaned_filename))
     filesize_info["resulting_file_size"] = os.path.getsize(os.path.join(dirpath, cleaned_filename))
-    progress.record_completion(
-        filesize_info["initial_file_size"],
-        filesize_info["resulting_file_size"],
-    )
 
     # Cleanup temp workspace
     try:
@@ -1074,20 +1176,20 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     logger.debug(f"[UTC {get_timestamp()}] [{header}] {done_description} {CHECK}")
     logger.color(f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} {done_description} {DONE}{CHECK}{RESET}")
 
-    # Calculate total initial and resulting sizes
-    total_initial_size = sum(info["initial_file_size"] for info in filesizes_info if info)
-    total_resulting_size = sum(info["resulting_file_size"] for info in filesizes_info if info)
+    # Reported on a video-only basis: audio, subtitles and attachments are remuxed
+    # through untouched, so counting them would dilute the encoder's actual result.
+    total_initial_size = sum(info["initial_video_size"] for info in filesizes_info if info)
+    total_resulting_size = sum(info["resulting_video_size"] for info in filesizes_info if info)
 
-    savings_percent = 0
     if total_initial_size > 0:
         savings_bytes = total_initial_size - total_resulting_size
         savings_percent = int((savings_bytes / total_initial_size) * 100)
 
-    if savings_percent > 0:
         formatted_initial = format_size(total_initial_size, False)
         formatted_result = format_size(total_resulting_size, False)
+        label = "Total video savings" if savings_percent >= 0 else "Total video increase"
         print()
-        custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} Total savings: "
-                                        f"{savings_percent}% {GREY}|{RESET}{formatted_initial} → {formatted_result}{GREY}|{RESET}")
+        custom_print_no_newline(logger, f"{GREY}[ENCODER]{RESET} {label}: "
+                                        f"{abs(savings_percent)}% {GREY}|{RESET}{formatted_initial} → {formatted_result}{GREY}|{RESET}")
 
     return updated_filenames, resolved_targets
