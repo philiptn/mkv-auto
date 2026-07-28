@@ -8,12 +8,23 @@ import time
 import uuid
 import math
 import json
+import threading
 from typing import List, Union
 from queue import Queue
 import concurrent.futures
 
 from modules.misc import *
 from modules.file_operations import resolve_output_target, move_resolved_to_output
+from modules.encode_estimator import (
+    EncodeEstimator,
+    MAX_SAMPLES_PER_FILE,
+    SAMPLE_MAX_WALL,
+    SAMPLE_MIN_SECONDS,
+    SAMPLE_MIN_SOURCE,
+    SAMPLE_OFFSETS,
+    SAMPLE_VIDEO_SECONDS,
+    SCHED_POLL_INTERVAL,
+)
 
 
 def encode_with_worker_id(
@@ -23,7 +34,9 @@ def encode_with_worker_id(
     dirpath,
     per_file_cpu,
     progress,
-    worker_id_pool
+    worker_id_pool,
+    estimator=None,
+    file_index=None
 ):
     worker_id = worker_id_pool.get()
     try:
@@ -34,7 +47,9 @@ def encode_with_worker_id(
             dirpath,
             per_file_cpu,
             progress,
-            worker_id
+            worker_id,
+            estimator=estimator,
+            file_index=file_index
         )
     finally:
         worker_id_pool.put(worker_id)
@@ -524,7 +539,47 @@ def upgrade_filename_to_dv_hdr(basename):
     return basename
 
 
-def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, progress: ProgressState, worker_id):
+# Map user-friendly codec names to ffmpeg encoder names. Immutable lookup —
+# unlike the encoder option lists below, which are mutated per call and must
+# stay function-local.
+FFMPEG_CODEC_NAMES = {
+    'h264': 'libx264',
+    'h265': 'libx265',
+    'hevc': 'libx265',
+    'vp9': 'libvpx-vp9',
+    'av1': 'libsvtav1'
+}
+
+
+def video_thread_count(codec, orig_width, cpu_usage_percentage):
+    """ffmpeg -threads value for a file, from its codec and CPU allowance.
+
+    Also used to price sample encodes, so a sample and the real encode of the
+    same file are measured under the same thread budget.
+    """
+    num_cores = os.cpu_count()
+    if codec.lower() == "libx265":
+        if orig_width >= 3840:
+            divisor = 4.3
+        else:
+            divisor = 3.3
+    else:
+        divisor = 0.8
+    number_of_threads = max(1, int(num_cores * (cpu_usage_percentage / 100) // divisor))
+    # Limit to 16 threads for x264, as recommended here:
+    # https://obsproject.com/forum/threads/can-you-please-explain-x264-option-threads.76917/
+    if codec.lower() == "libx264":
+        number_of_threads = min(16, number_of_threads)
+    return number_of_threads
+
+
+def resolve_encode_settings(logger, input_file, dirpath, max_cpu_usage,
+                            dims=None, skip_auto_crop=False):
+    """Everything needed to build an ffmpeg video-encode command for a file.
+
+    Shared by the real encode and by the sampler, so a timed sample runs with
+    byte-identical encoder settings and its measurement means something.
+    """
     crop_values = check_config(config, 'media-encoder', 'crop_values')
     limit_resolution = check_config(config, 'media-encoder', 'limit_resolution')
     output_codec = check_config(config, 'media-encoder', 'output_codec')
@@ -533,27 +588,9 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     tune = check_config(config, 'media-encoder', 'tune')
     custom_params = check_config(config, 'media-encoder', 'custom_params')
 
-    filesize_info = {
-        "initial_file_size": 0,
-        "resulting_file_size": 0,
-        "initial_video_size": 0,
-        "resulting_video_size": 0
-    }
-
-    FFMPEG_WEIGHT = 0.99
-    MKVMERGE_WEIGHT = 0.01
-
     quality_crf = resolve_quality_crf(input_quality_crf, [input_file], dirpath)
 
     media_file = os.path.join(dirpath, input_file)
-    filesize_info["initial_file_size"] = os.path.getsize(media_file)
-
-    base_name = os.path.splitext(os.path.basename(input_file))[0]
-    safe_base = re.sub(r'[^a-zA-Z0-9._-]', '_', base_name)
-    job_id = uuid.uuid4().hex[:8]
-
-    temp_dir = os.path.join(dirpath, f"_tmp_{job_id}")
-    os.makedirs(temp_dir, exist_ok=True)
 
     perform_auto_crop = False
     left = right = top = bottom = 0
@@ -573,16 +610,9 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         custom_width = limit_resolution
         resizing = True
 
-    # Map user-friendly codec names to ffmpeg encoder names
-    codec_map = {
-        'h264': 'libx264',
-        'h265': 'libx265',
-        'hevc': 'libx265',
-        'vp9': 'libvpx-vp9',
-        'av1': 'libsvtav1'
-    }
-
-    # Define encoder-specific options
+    # Define encoder-specific options. Built fresh on every call because the
+    # blocks below mutate these lists and strings in place; a module-level
+    # literal would accumulate those suffixes across files in a batch.
     encoder_options = {
         'libx264': {
             # -bf 4: Use up to 4 consecutive B-frames, increasing compression efficiency
@@ -609,7 +639,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
 
     # Map to variables
     quality = quality_crf
-    codec = codec_map[output_codec]
+    codec = FFMPEG_CODEC_NAMES[output_codec]
     tune_option = tune
     encoder_speed = encoding_speed
     cpu_usage_percentage = float(max_cpu_usage)
@@ -653,24 +683,20 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
                 break
 
     # Get original dimensions
-    orig_width, orig_height = get_video_dimensions(media_file)
-
-    # CPU threads calculation
-    num_cores = os.cpu_count()
-    if codec.lower() == "libx265":
-        if orig_width >= 3840:
-            divisor = 4.3
-        else:
-            divisor = 3.3
+    if dims:
+        orig_width, orig_height = dims
     else:
-        divisor = 0.8
-    number_of_threads = max(1, int(num_cores * (cpu_usage_percentage / 100) // divisor))
-    # Limit to 16 threads for x264, as recommended here:
-    # https://obsproject.com/forum/threads/can-you-please-explain-x264-option-threads.76917/
-    if codec.lower() == "libx264":
-        number_of_threads = min(16, number_of_threads)
+        orig_width, orig_height = get_video_dimensions(media_file)
+
+    number_of_threads = video_thread_count(codec, orig_width, cpu_usage_percentage)
     log_debug(logger, f"File '{input_file}' will use {number_of_threads} threads with {codec}. CRF value {quality}, encoder speed {encoder_speed}, tune '{tune}'. "
                       f"CPU usage alloc {cpu_usage_percentage}%")
+
+    # The sampler skips the HandBrakeCLI scan: paying it per file would cost
+    # more than the sample itself, and the estimator's calibration factor
+    # absorbs the resulting (systematic) pixel-count bias.
+    if cropping and perform_auto_crop and skip_auto_crop:
+        cropping = False
 
     if cropping:
         if perform_auto_crop:
@@ -689,6 +715,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         output_width = cropped_width
         output_height = cropped_height
 
+    crop_filter = None
     filter_chain = []
     if cropping:
         # Crop filter
@@ -698,6 +725,126 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         scale_filter = f"scale=w={output_width}:h={output_height}"
         filter_chain.append(scale_filter)
 
+    return {
+        'media_file': media_file,
+        'codec': codec,
+        'output_codec': output_codec,
+        'quality': quality,
+        'encoder_speed': encoder_speed,
+        'tune_option': tune_option,
+        'user_custom_ffmpeg': user_custom_ffmpeg,
+        'encoder_options': encoder_options[codec],
+        'number_of_threads': number_of_threads,
+        'orig_width': orig_width,
+        'orig_height': orig_height,
+        'cropping': cropping,
+        'crop_filter': crop_filter,
+        'filter_chain': filter_chain,
+    }
+
+
+def build_video_filter_chain(settings):
+    """Comma-joined -vf argument, or None when no filters apply."""
+    return ",".join(settings['filter_chain']) if settings['filter_chain'] else None
+
+
+def build_ffmpeg_cmd(settings, out_target, filter_str,
+                     dovi_raw_hevc=False, sample=None):
+    """The full ffmpeg argv for a video-only encode.
+
+    sample=(offset_seconds, length_seconds) turns this into a timed probe:
+    `-ss` goes before `-i` for a cheap keyframe seek, `-t` bounds the work, and
+    the output is discarded through the null muxer. With sample=None the argv
+    is identical to what the encoder has always produced.
+    """
+    codec = settings['codec']
+
+    cmd_ffmpeg = ['ffmpeg', '-y', '-progress', 'pipe:1', '-nostats']
+    if sample:
+        cmd_ffmpeg.extend(['-ss', f"{sample[0]:.3f}"])
+    cmd_ffmpeg.extend(['-i', settings['media_file']])
+    if sample:
+        cmd_ffmpeg.extend(['-t', f"{sample[1]:.3f}"])
+
+    if filter_str:
+        cmd_ffmpeg.extend(['-vf', filter_str])
+
+    cmd_ffmpeg.extend([
+        '-map', 'v:0',  # Map only video
+        '-c:v', codec,
+        '-crf', settings['quality'],
+        '-threads', str(settings['number_of_threads']),  # Limit CPU usage
+    ])
+
+    if dovi_raw_hevc and codec.lower() == "libx265":
+        cmd_ffmpeg.extend([
+            '-an',
+            '-sn',
+            '-dn',
+            '-f', 'hevc'
+        ])
+
+    # Apply the encoder speed/preset depending on the codec
+    if codec in ['libx264', 'libx265']:
+        # Use '-preset'
+        cmd_ffmpeg.extend(['-preset', settings['encoder_speed']])
+    elif codec == 'libvpx-vp9':
+        # For VP9, use '-cpu-used'
+        cmd_ffmpeg.extend(['-cpu-used', settings['encoder_speed']])
+    elif codec == 'libsvtav1':
+        # For AV1, use '-preset'
+        cmd_ffmpeg.extend(['-preset', settings['encoder_speed']])
+
+    # Add pix_fmt if specified for the codec
+    if settings['encoder_options']['pix_fmt']:
+        cmd_ffmpeg.extend(['-pix_fmt', settings['encoder_options']['pix_fmt']])
+
+    # Add encoder-specific options
+    cmd_ffmpeg.extend(settings['encoder_options']['options'])
+
+    # Add tune option if provided
+    if settings['tune_option'] and codec != "libvpx-vp9":
+        cmd_ffmpeg.extend(['-tune', settings['tune_option']])
+
+    # Add user-custom parameters if provided
+    if settings['user_custom_ffmpeg'].strip():
+        # A simple split() handles space-delimited arguments
+        cmd_ffmpeg.extend(settings['user_custom_ffmpeg'].split())
+
+    if sample:
+        cmd_ffmpeg.extend(['-f', 'null', '-'])
+    else:
+        cmd_ffmpeg.append(out_target)
+
+    return cmd_ffmpeg
+
+
+def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage,
+                             progress: ProgressState, worker_id,
+                             estimator=None, file_index=None):
+    filesize_info = {
+        "initial_file_size": 0,
+        "resulting_file_size": 0,
+        "initial_video_size": 0,
+        "resulting_video_size": 0
+    }
+
+    FFMPEG_WEIGHT = 0.99
+    MKVMERGE_WEIGHT = 0.01
+
+    settings = resolve_encode_settings(logger, input_file, dirpath, max_cpu_usage)
+    codec = settings['codec']
+    media_file = settings['media_file']
+
+    filesize_info["initial_file_size"] = os.path.getsize(media_file)
+
+    base_name = os.path.splitext(os.path.basename(input_file))[0]
+    safe_base = re.sub(r'[^a-zA-Z0-9._-]', '_', base_name)
+    job_id = uuid.uuid4().hex[:8]
+
+    temp_dir = os.path.join(dirpath, f"_tmp_{job_id}")
+    os.makedirs(temp_dir, exist_ok=True)
+
     # ---- Dolby Vision detection ----
     is_dovi = False
     if codec.lower() == "libx265":
@@ -705,7 +852,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
 
     rpu_file = None
     crop_rpu = False
-    if cropping and crop_filter != "crop=w=iw-0-0:h=ih-0-0:x=0:y=0":
+    if settings['cropping'] and settings['crop_filter'] != "crop=w=iw-0-0:h=ih-0-0:x=0:y=0":
         crop_rpu = True
 
     if is_dovi and codec.lower() == "libx265":
@@ -730,7 +877,7 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
 
 
     # Build filter string
-    filter_str = ",".join(filter_chain) if filter_chain else None
+    filter_str = build_video_filter_chain(settings)
 
     if is_dovi and codec.lower() == "libx265":
         temp_video_file = os.path.join(temp_dir, "video.hevc")
@@ -738,54 +885,9 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         temp_video_file = os.path.join(temp_dir, f"video_{safe_base}.mkv")
 
     temp_file = os.path.join(temp_dir, "output.mkv")
-    cmd_ffmpeg = ['ffmpeg', '-y', '-progress', 'pipe:1', '-nostats', '-i', media_file]
+    cmd_ffmpeg = build_ffmpeg_cmd(settings, temp_video_file, filter_str,
+                                  dovi_raw_hevc=is_dovi)
 
-    if filter_str:
-        cmd_ffmpeg.extend(['-vf', filter_str])
-
-    cmd_ffmpeg.extend([
-        '-map', 'v:0',  # Map only video
-        '-c:v', codec,
-        '-crf', quality,
-        '-threads', str(number_of_threads),  # Limit CPU usage
-    ])
-    
-    if is_dovi and codec.lower() == "libx265":
-        cmd_ffmpeg.extend([
-            '-an',
-            '-sn',
-            '-dn',
-            '-f', 'hevc'
-        ])
-
-    # Apply the encoder speed/preset depending on the codec
-    if codec in ['libx264', 'libx265']:
-        # Use '-preset'
-        cmd_ffmpeg.extend(['-preset', encoder_speed])
-    elif codec == 'libvpx-vp9':
-        # For VP9, use '-cpu-used'
-        cmd_ffmpeg.extend(['-cpu-used', encoder_speed])
-    elif codec == 'libsvtav1':
-        # For AV1, use '-preset'
-        cmd_ffmpeg.extend(['-preset', encoder_speed])
-
-    # Add pix_fmt if specified for the codec
-    if encoder_options[codec]['pix_fmt']:
-        cmd_ffmpeg.extend(['-pix_fmt', encoder_options[codec]['pix_fmt']])
-
-    # Add encoder-specific options
-    cmd_ffmpeg.extend(encoder_options[codec]['options'])
-
-    # Add tune option if provided
-    if tune_option and codec != "libvpx-vp9":
-        cmd_ffmpeg.extend(['-tune', tune_option])
-
-    # Add user-custom parameters if provided
-    if user_custom_ffmpeg.strip():
-        # A simple split() handles space-delimited arguments
-        cmd_ffmpeg.extend(user_custom_ffmpeg.split())
-
-    cmd_ffmpeg.append(temp_video_file)
     duration = get_video_duration(media_file)  # seconds
 
     # Savings are measured against the video stream alone, since every other track is
@@ -807,6 +909,8 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     )
 
     progress.start_worker(worker_id)
+    if estimator is not None:
+        estimator.note_start(file_index)
 
     stdout_lines = []
     stderr_lines = []
@@ -832,18 +936,8 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
                 worker_id,
                 fraction * FFMPEG_WEIGHT
             )
-            progress.update_encoded_duration(worker_id, out_time)
-
-            # Live savings estimate: project the encoded video's final size from
-            # how much has been written so far. Skip the noisy early fraction.
-            if fraction > 0.02 and os.path.exists(temp_video_file):
-                cur = os.path.getsize(temp_video_file)
-                projected_video = cur / fraction
-                progress.update_size_estimate(
-                    worker_id,
-                    projected_video,
-                    filesize_info["initial_video_size"],
-                )
+            if estimator is not None:
+                estimator.note_progress(file_index, fraction * FFMPEG_WEIGHT)
     process.wait()
 
     if process.returncode != 0:
@@ -922,13 +1016,11 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
     # been reassigned to the post-injection stream, so this is the real video payload.
     filesize_info["resulting_video_size"] = os.path.getsize(temp_video_file)
 
-    # Folded in before finish_worker, which drops this worker's live estimate:
-    # recording afterwards would leave the file counted in neither term for a moment.
-    progress.record_completion(
-        filesize_info["initial_video_size"],
-        filesize_info["resulting_video_size"],
-    )
     progress.finish_worker(worker_id)
+    # Recorded after the remux, so the measured cost includes the mkvmerge tail
+    # that a sample cannot capture — the calibration factor learns that gap.
+    if estimator is not None:
+        estimator.note_complete(file_index)
 
     # Cleanup
     os.remove(temp_video_file)
@@ -946,6 +1038,231 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage, 
         log_debug(logger, f"[DOVI] Temp cleanup failed: {e}")
 
     return cleaned_filename, filesize_info
+
+
+class SamplerGate:
+    """Handshake between the encode scheduler and the sampler thread.
+
+    The sampler never breaks 4K exclusivity: it waits for any 4K encode to
+    clear before starting a sample, and an admitted 4K encode kills a sample
+    already in flight. The reverse is deliberately not true — a 4K encode never
+    waits on the sampler.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._four_k = False
+        self._in_flight = 0
+        self._cap = 1
+        self._proc = None
+
+    def _kill_proc_locked(self):
+        proc = self._proc
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+    def set_four_k_inflight(self, flag):
+        flag = bool(flag)
+        with self._lock:
+            was_set = self._four_k
+            self._four_k = flag
+            # Only on the transition: a running sample is cut short so the 4K
+            # encode gets the machine. Its partial measurement is still valid.
+            if flag and not was_set:
+                self._kill_proc_locked()
+
+    def set_load(self, in_flight, cap):
+        with self._lock:
+            self._in_flight = in_flight
+            self._cap = cap
+
+    def has_idle_slot(self):
+        with self._lock:
+            return not self._four_k and self._in_flight < self._cap
+
+    def four_k_in_flight(self):
+        with self._lock:
+            return self._four_k
+
+    def stopping(self):
+        return self._stop.is_set()
+
+    def wait_until_no_4k(self):
+        """Block until no 4K encode is in flight. False if we are stopping.
+
+        No timeout: while a 4K file runs it holds the machine exclusively, so
+        the sampler's reserved slot costs nothing during the wait.
+        """
+        while not self._stop.is_set():
+            if not self.four_k_in_flight():
+                return True
+            self._stop.wait(SCHED_POLL_INTERVAL)
+        return False
+
+    def register_proc(self, proc):
+        with self._lock:
+            self._proc = proc
+
+    def clear_proc(self):
+        with self._lock:
+            self._proc = None
+
+    def stop(self):
+        self._stop.set()
+        with self._lock:
+            self._kill_proc_locked()
+
+
+def sample_file_cost(logger, input_file, dirpath, cpu_share, gate,
+                     duration, width, height, offset_fraction):
+    """Time a short real encode of one file.
+
+    Returns (wall_seconds, video_seconds_encoded), or None if the file cannot
+    be sampled usefully. Never raises — a sampling failure must not disturb the
+    batch, it only leaves that file priced from the pool instead.
+    """
+    if not duration or duration < SAMPLE_MIN_SOURCE:
+        return None
+
+    proc = None
+    watchdog = None
+    try:
+        settings = resolve_encode_settings(
+            logger, input_file, dirpath, cpu_share,
+            dims=(width, height) if width and height else None,
+            skip_auto_crop=True,
+        )
+        filter_str = build_video_filter_chain(settings)
+
+        length = min(SAMPLE_VIDEO_SECONDS, max(SAMPLE_MIN_SECONDS, duration * 0.5))
+        offset = max(0.0, min(duration * offset_fraction, duration - length))
+
+        cmd = build_ffmpeg_cmd(settings, None, filter_str, sample=(offset, length))
+        log_debug(logger, f"[ENCODER] Sample command: '{' '.join(cmd)}'")
+
+        started = time.time()
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True
+        )
+        gate.register_proc(proc)
+
+        # A wall-clock guard rather than a check inside the read loop: if the
+        # encoder stalls, no more progress lines arrive to check on.
+        watchdog = threading.Timer(SAMPLE_MAX_WALL, proc.kill)
+        watchdog.daemon = True
+        watchdog.start()
+
+        out_time = 0.0
+        for line in proc.stdout:
+            if not line.startswith("out_time_ms="):
+                continue
+            value = line.split("=", 1)[1].strip()
+            if value == "N/A":
+                continue
+            try:
+                out_time = int(value) / 1_000_000
+            except ValueError:
+                continue
+        proc.wait()
+        wall = time.time() - started
+
+        # Deliberately not gated on the return code: a sample killed by the
+        # watchdog or by an incoming 4K encode is still a valid measurement of
+        # however much it did manage to encode.
+        if out_time < SAMPLE_MIN_SECONDS or wall <= 0:
+            return None
+        return wall, out_time
+
+    except Exception as e:
+        log_debug(logger, f"[ENCODER] Sampling '{input_file}' failed: {e}")
+        return None
+    finally:
+        if watchdog is not None:
+            watchdog.cancel()
+        gate.clear_proc()
+
+
+def run_sampler(logger, estimator, gate, jobs, dirpath, cpu_for,
+                first_pass_only=False, report_status=False):
+    """Sampler thread body: a fast pass over every file, then refinement.
+
+    Pass 1 holds the reserved encode slot and gives every file a measurement as
+    quickly as possible. Pass 2 is strictly opportunistic — it only samples
+    when an encode slot is genuinely idle, so refinement never delays encoding.
+
+    first_pass_only/report_status are for the one-slot batch, where sampling
+    runs to completion up front instead of alongside encoding.
+    """
+    attempted = [0]
+
+    def take(meta, offset_fraction):
+        path = os.path.join(dirpath, meta['name'])
+        # The encode that owns this file removes it on completion; between the
+        # pending check and here it may already be gone.
+        if not os.path.exists(path):
+            estimator.mark_unsampleable(meta['index'])
+            return
+        result = sample_file_cost(
+            logger, meta['name'], dirpath, cpu_for(meta), gate,
+            meta['duration'], meta['width'], meta['height'], offset_fraction,
+        )
+        if result:
+            estimator.record_sample(meta['index'], result[0], result[1])
+        else:
+            estimator.mark_unsampleable(meta['index'])
+        if report_status:
+            attempted[0] += 1
+            estimator.set_status_text(f"Estimating ({attempted[0]}/{len(jobs)})")
+
+    def await_idle_slot(index):
+        while not gate.has_idle_slot():
+            if gate.stopping() or not estimator.wants_sample(index):
+                return False
+            time.sleep(SCHED_POLL_INTERVAL)
+        return True
+
+    try:
+        # Pass 1 — one measurement per file. Files already encoding or done are
+        # skipped: their real progress is better evidence than any sample, so
+        # the reserved slot naturally works the tail of the queue.
+        for meta in jobs:
+            if gate.stopping():
+                return
+            if not estimator.wants_sample(meta['index']):
+                continue
+            if not gate.wait_until_no_4k():
+                return
+            take(meta, SAMPLE_OFFSETS[0])
+    finally:
+        # Releases the reserved slot back to encoding even if pass 1 aborted.
+        estimator.set_sampling(False)
+        if report_status:
+            estimator.set_status_text(None)
+
+    if first_pass_only:
+        return
+
+    # Pass 2 — extra offsets on files that have still not started, to catch
+    # scenes the first window missed.
+    for offset_fraction in SAMPLE_OFFSETS[1:MAX_SAMPLES_PER_FILE]:
+        for meta in jobs:
+            if gate.stopping():
+                return
+            if not estimator.wants_sample(meta['index']):
+                continue
+            if not await_idle_slot(meta['index']):
+                continue
+            if not gate.wait_until_no_4k():
+                return
+            if estimator.wants_sample(meta['index']):
+                take(meta, offset_fraction)
 
 
 def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=None):
@@ -1042,7 +1359,7 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
             resolved_targets[resolve_futures[fut]] = fut.result()
 
     copy_workers = max(1, min(get_worker_thread_count(), total_files))
-    copy_description = f"Pre-copying {print_multi_or_single(total_files, 'file')} to destination folder"
+    copy_description = f"Copying {print_multi_or_single(total_files, 'file')}"
     copy_done = [0]
 
     def _copy_line():
@@ -1075,38 +1392,6 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     for wid in range(upper_bound):
         worker_id_pool.put(wid)
 
-    file_meta = []
-    total_duration = 0
-    for idx, f in enumerate(input_files):
-        full = os.path.join(dirpath, f)
-        try:
-            w, _ = get_video_dimensions(full)
-        except:
-            w = None
-        try:
-            total_duration += get_video_duration(full)
-        except:
-            pass
-        file_meta.append({
-            'index': idx,
-            'name': f,
-            'is_4k': (w or 0) >= 3840,
-        })
-
-    progress.total_duration = total_duration
-    progress.encoded_duration = 0.0
-
-    SPINNER = ContinuousSpinner(interval=0.15)
-    SPINNER.set_line_func(make_progress_line(progress, header, description, start_time))
-    SPINNER.start()
-
-    def can_submit(candidate, in_flight_metas):
-        if candidate['is_4k']:
-            return len(in_flight_metas) == 0
-        if any(m['is_4k'] for m in in_flight_metas):
-            return False
-        return len(in_flight_metas) < codec_cap
-
     def per_file_cpu_for(meta):
         if meta['is_4k']:
             return float(max_cpu_usage)
@@ -1114,11 +1399,89 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
             return float(max_cpu_usage) / min(4, max_worker_threads)
         return float(max_cpu_usage) / max_worker_threads
 
+    ffmpeg_codec = FFMPEG_CODEC_NAMES.get(codec, codec)
+
+    file_meta = []
+    for idx, f in enumerate(input_files):
+        full = os.path.join(dirpath, f)
+        try:
+            w, h = get_video_dimensions(full)
+        except Exception:
+            w = h = None
+        try:
+            duration = get_video_duration(full)
+        except Exception:
+            duration = None
+        meta = {
+            'index': idx,
+            'name': f,
+            'width': w,
+            'height': h,
+            'duration': duration if duration and duration > 0 else None,
+            'is_4k': (w or 0) >= 3840,
+        }
+        # The thread count the real encode will use, so sampled and predicted
+        # costs are expressed in the same units.
+        meta['threads'] = video_thread_count(ffmpeg_codec, w or 0, per_file_cpu_for(meta))
+        file_meta.append(meta)
+
+    estimator = EncodeEstimator(file_meta, codec_cap)
+    gate = SamplerGate()
+    sampler_thread = None
+
+    # A sampler only pays for itself when it has a spare slot to run in and
+    # files it can sample before they start encoding.
+    all_4k = bool(file_meta) and all(m['is_4k'] for m in file_meta)
+    sample_first = total_files >= 2 and codec_cap <= 1
+    sample_alongside = total_files >= 2 and codec_cap > 1 and not all_4k
+    # A single file, or an all-4K batch, gets no sampler: 4K runs exclusively so
+    # there is never a spare slot, and a lone file reaches a trustworthy
+    # self-measured ETA within seconds of starting. Both fall back to the
+    # estimator's observation-only path.
+
+    SPINNER = ContinuousSpinner(interval=0.15)
+    SPINNER.set_line_func(
+        make_progress_line(progress, header, description, start_time, estimator)
+    )
+    SPINNER.start()
+
+    def effective_cap():
+        return max(1, codec_cap - (1 if estimator.sampling_active() else 0))
+
+    def can_submit(candidate, in_flight_metas):
+        if candidate['is_4k']:
+            return len(in_flight_metas) == 0
+        if any(m['is_4k'] for m in in_flight_metas):
+            return False
+        return len(in_flight_metas) < effective_cap()
+
     pending = list(file_meta)
     in_flight = {}
 
+    def sync_gate():
+        cap = effective_cap()
+        gate.set_load(len(in_flight), cap)
+        gate.set_four_k_inflight(any(m['is_4k'] for m in in_flight.values()))
+        estimator.set_slots(cap)
+
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=upper_bound)
     try:
+        if sample_first:
+            # Only one encode slot exists, so there is no spare worker to
+            # sample on: pay for the estimate up front, then encode.
+            sync_gate()
+            run_sampler(logger, estimator, gate, file_meta, dirpath,
+                        per_file_cpu_for, first_pass_only=True, report_status=True)
+        elif sample_alongside:
+            estimator.set_sampling(True)
+            sync_gate()
+            sampler_thread = threading.Thread(
+                target=run_sampler,
+                args=(logger, estimator, gate, file_meta, dirpath, per_file_cpu_for),
+                daemon=True,
+            )
+            sampler_thread.start()
+
         while pending or in_flight:
             progress_made = True
             while progress_made and pending:
@@ -1134,17 +1497,24 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
                             per_file_cpu_for(meta),
                             progress,
                             worker_id_pool,
+                            estimator,
+                            meta['index'],
                         )
                         in_flight[fut] = meta
                         pending.pop(i)
                         progress_made = True
+                        sync_gate()
                         break
 
             if not in_flight:
                 break
 
+            # Timed rather than open-ended: when the sampler finishes it hands
+            # its slot back, and without a timeout that extra capacity would go
+            # unused until some encode happened to finish.
             done, _ = concurrent.futures.wait(
                 in_flight.keys(),
+                timeout=SCHED_POLL_INTERVAL,
                 return_when=concurrent.futures.FIRST_COMPLETED,
             )
             for fut in done:
@@ -1160,12 +1530,21 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
                     traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                     print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                     raise
+            sync_gate()
     finally:
+        # Before shutdown(wait=True), not after: on the failure path that wait
+        # can last for the remaining encodes, and a live sampler would burn a
+        # core throughout and outlive a Ctrl-C.
+        gate.stop()
+        if sampler_thread is not None:
+            sampler_thread.join(timeout=30)
         executor.shutdown(wait=True)
+
+    log_debug(logger, f"[ENCODER] ETA estimator: {estimator.debug_line()}")
 
     end_time = time.time()
     processing_time = end_time - start_time
-    done_description = f"Encoding time: {format_time_short(int(processing_time))}"
+    done_description = f"Encoding time: {format_duration_short(int(processing_time))}"
 
     SPINNER.stop(
         f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "

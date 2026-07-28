@@ -4,8 +4,7 @@ from datetime import datetime, timezone
 from backports import configparser
 import re
 import subprocess
-from collections import defaultdict, deque
-from statistics import median
+from collections import defaultdict
 import traceback
 import shutil
 import logging
@@ -49,17 +48,9 @@ class ProgressState:
     def __init__(self, total_files, num_workers):
         self.total_files = total_files
         self.completed_files = 0
-        self.total_duration = 0.0
-        self.encoded_duration = 0.0
-        self.best_eta_seconds = None
-        self.active_workers = set()
-        self.worker_durations = {}
         self.worker_start_times = {}
         self.worker_best_eta = {}
         self.worker_progress = {}
-        self.worker_size_est = {}
-        self.completed_initial = 0
-        self.completed_resulting = 0
         self._lock = threading.Lock()
 
     def start_worker(self, worker_id):
@@ -67,7 +58,6 @@ class ProgressState:
             self.worker_progress[worker_id] = 0.0
             self.worker_start_times[worker_id] = time.time()
             self.worker_best_eta[worker_id] = None
-            self.worker_durations[worker_id] = 0.0
 
     def update_worker_progress(self, worker_id, fraction):
         with self._lock:
@@ -83,8 +73,6 @@ class ProgressState:
             self.worker_progress.pop(worker_id, None)
             self.worker_start_times.pop(worker_id, None)
             self.worker_best_eta.pop(worker_id, None)
-            self.worker_durations.pop(worker_id, None)
-            self.worker_size_est.pop(worker_id, None)
             self.completed_files += 1
 
     def snapshot(self):
@@ -94,46 +82,34 @@ class ProgressState:
                 self.total_files,
                 dict(self.worker_progress)
             )
-    def update_encoded_duration(self, worker_id, current_seconds):
-        with self._lock:
-            prev = self.worker_durations.get(worker_id, 0.0)
-            delta = current_seconds - prev
-            if delta > 0:
-                self.encoded_duration += delta
-                self.worker_durations[worker_id] = current_seconds
 
-    def update_size_estimate(self, worker_id, est_resulting, original):
-        with self._lock:
-            self.worker_size_est[worker_id] = (est_resulting, original)
+    def worker_eta(self, worker_id, progress_value):
+        """Remaining seconds for the file in this slot, or None if unknowable.
 
-    def record_completion(self, initial, resulting):
+        The elapsed/ratchet arithmetic lives inside the lock because the caller
+        is the spinner's render thread, running concurrently with the encode
+        threads that call finish_worker(). Reading the start time and writing
+        the ratcheted best outside the lock could otherwise resurrect a key
+        that finish_worker() has already popped, leaving an entry no later
+        finish_worker() call will ever clean up.
+        """
         with self._lock:
-            self.completed_initial += initial
-            self.completed_resulting += resulting
-
-    def savings_snapshot(self):
-        with self._lock:
-            total_init = self.completed_initial + sum(
-                orig for _, orig in self.worker_size_est.values()
-            )
-            total_res = self.completed_resulting + sum(
-                est for est, _ in self.worker_size_est.values()
-            )
-            if total_init <= 0:
+            if progress_value <= 0.01:
                 return None
-            return (total_init - total_res) / total_init * 100
-    def get_smoothed_eta(self, new_eta):
-        with self._lock:
-            if new_eta <= 0:
-                return new_eta
 
-            if self.best_eta_seconds is None:
-                self.best_eta_seconds = new_eta
-            else:
-                # Only allow ETA to decrease
-                self.best_eta_seconds = min(self.best_eta_seconds, new_eta)
+            start = self.worker_start_times.get(worker_id)
+            if not start:
+                return None
 
-            return self.best_eta_seconds
+            elapsed = time.time() - start
+            remaining = (elapsed / progress_value) - elapsed
+
+            best = self.worker_best_eta.get(worker_id)
+            if best is None or remaining < best:
+                self.worker_best_eta[worker_id] = remaining
+                best = remaining
+
+            return best
 
 
 _ANSI_ESCAPE_RE = re.compile(r'\033\[[0-9;?]*[a-zA-Z]')
@@ -287,24 +263,41 @@ def format_eta_single(seconds: float) -> str:
     return f"{seconds}s"
 
 
+def format_duration_short(seconds: float) -> str:
+    """Coarse duration in a single unit word: "2hr", "46min", "39sec".
+
+    The largest unit that fits, and nothing below it: an hour or more reads as
+    a whole hour count, and only a remainder under an hour drops to minutes.
+    Truncated rather than rounded, so "2hr" means at least two hours.
+
+    Same tiering as format_eta_single(), which stays for the terse per-worker
+    chips where a one-letter suffix has to fit alongside a percentage.
+    """
+    if seconds is None:
+        return ""
+
+    seconds = int(max(0, seconds))
+
+    days = seconds // 86400
+    if days >= 1:
+        return f"{days}day" if days == 1 else f"{days}days"
+
+    hours = seconds // 3600
+    if hours >= 1:
+        return f"{hours}hr"
+
+    minutes = seconds // 60
+    if minutes >= 1:
+        return f"{minutes}min"
+
+    return f"{seconds}sec"
+
+
 def get_worker_eta(progress, worker_id, progress_value):
-    if progress_value <= 0.01:
+    remaining = progress.worker_eta(worker_id, progress_value)
+    if remaining is None:
         return f"∞{GREY}┃{RESET}"
-
-    start = progress.worker_start_times.get(worker_id)
-    if not start:
-        return f"∞{GREY}┃{RESET}"
-
-    elapsed = time.time() - start
-    total_estimated = elapsed / progress_value
-    remaining = total_estimated - elapsed
-
-    best = progress.worker_best_eta.get(worker_id)
-    if best is None or remaining < best:
-        progress.worker_best_eta[worker_id] = remaining
-        best = remaining
-
-    return f"{format_eta_single(best)}{BLUE}┃{RESET}"
+    return f"{format_eta_single(remaining)}{BLUE}┃{RESET}"
 
 
 def render_worker_status(progress, worker_id, progress_value):
@@ -319,53 +312,24 @@ def render_worker_status_simple(progress, worker_id, progress_value):
     return f"{pct:.0f}% "
 
 
-def make_progress_line(progress, header, description, start_time):
-    # Smoothing state for the live savings estimate. The raw aggregate bounces
-    # as the encoder hits scenes of varying complexity, so we sample it at most
-    # once per second, keep a median over a rolling window (robust to spikes),
-    # and ease the displayed value toward that median asymmetrically: drop
-    # quickly toward lower readings (precedence to the lowest/conservative
-    # savings) but rise slowly, only when a sustained higher median warrants it.
-    SAMPLE_INTERVAL = 1.0   # seconds between raw samples
-    WINDOW = 20             # samples kept (~20s) for the median
-    DOWN_ALPHA = 0.25       # easing toward a lower median (responsive)
-    UP_ALPHA = 0.05         # easing toward a higher median (slow)
-    savings_samples = deque(maxlen=WINDOW)
-    savings_state = {"displayed": None, "last_sample": 0.0}
-
+def make_progress_line(progress, header, description, start_time, estimator=None):
     def line():
         done, total, workers = progress.snapshot()
 
-        freq = get_cpu_freq_cached()
         temp = get_cpu_temp_cached()
-        parts = []
-        if freq:
-            parts.append(format_cpu_freq(freq))
-        if temp:
-            parts.append(f"{temp:.0f}°C")
-        cpu_str = ("CPU " + " ".join(parts) + " ") if parts else ""
+        cpu_str = f"CPU {temp:.0f}°C " if temp else ""
 
-        raw = progress.savings_snapshot()
-        savings_str = ""
-        if raw is not None:
-            now = time.time()
-            if now - savings_state["last_sample"] >= SAMPLE_INTERVAL:
-                savings_samples.append(raw)
-                savings_state["last_sample"] = now
-
-            med = median(savings_samples) if savings_samples else raw
-            displayed = savings_state["displayed"]
-            if displayed is None:
-                displayed = med
-            elif med < displayed:
-                displayed += (med - displayed) * DOWN_ALPHA
-            elif med > displayed:
-                displayed += (med - displayed) * UP_ALPHA
-            savings_state["displayed"] = displayed
-            if displayed >= 0:
-                savings_str = f"~{displayed:.0f}% SAVED "
+        # Absent until the estimator has something real to say — no placeholder
+        # while the first sample is still running.
+        eta_str = ""
+        if estimator is not None:
+            eta = estimator.display_eta()
+            if eta is not None:
+                eta_str = f"{format_duration_short(eta)} "
             else:
-                savings_str = f"~{-displayed:.0f}% BIGGER "
+                status = estimator.status_text()
+                if status:
+                    eta_str = f"{status} "
 
         workers_str = "".join(
             render_worker_status(progress, wid, workers.get(wid, 0.0))
@@ -375,7 +339,7 @@ def make_progress_line(progress, header, description, start_time):
         return (
             f"[{header}]{RESET} "
             + cpu_str
-            + savings_str
+            + eta_str
             + workers_str
             + f"({done}/{total}) "
         )
@@ -451,40 +415,6 @@ def get_cpu_temp_cached(interval=4.0):
         _last_cpu_temp = None
 
     return _last_cpu_temp
-
-
-_last_cpu_freq = None
-_last_cpu_freq_time = 0
-
-def get_cpu_freq_cached(interval=4.0):
-    global _last_cpu_freq, _last_cpu_freq_time
-
-    now = time.time()
-    if now - _last_cpu_freq_time < interval:
-        return _last_cpu_freq
-
-    _last_cpu_freq_time = now
-
-    try:
-        # Report the fastest core rather than the average across cores.
-        per_core = psutil.cpu_freq(percpu=True)
-        vals = [f.current for f in per_core if f and f.current] if per_core else []
-        if vals:
-            _last_cpu_freq = max(vals)
-        else:
-            # Fall back to the aggregate reading if per-core is unavailable.
-            agg = psutil.cpu_freq()
-            _last_cpu_freq = agg.current if agg and agg.current else None
-    except Exception:
-        _last_cpu_freq = None
-
-    return _last_cpu_freq
-
-
-def format_cpu_freq(mhz):
-    if mhz >= 1000:
-        return f"{mhz / 1000:.1f}GHz"   # one decimal in GHz
-    return f"{mhz:.0f}MHz"              # MHz when below 1 GHz
 
 
 def get_tv_show_metadata_cached(logger, debug, media_name, sep):
@@ -1067,33 +997,6 @@ def format_time(total_seconds):
         return parts[0]
     else:
         return ", ".join(parts[:-1]) + " and " + parts[-1]
-
-
-def format_time_short(total_seconds):
-    """Return a formatted string for the given duration in seconds."""
-    days, remainder = divmod(total_seconds, 86400)
-    hours, remainder = divmod(remainder, 3600)
-    minutes, seconds = divmod(remainder, 60)
-
-    units = [
-        ("day", days, "d"),
-        ("hour", hours, "h"),
-        ("minute", minutes, "m"),
-        ("second", seconds, "s"),
-    ]
-
-    non_zero = [(name, value, short) for name, value, short in units if value]
-    if len(non_zero) == 1:
-        name, value, _ = non_zero[0]
-        plural = "" if value == 1 else "s"
-        return f"{value} {name}{plural}"
-
-    parts = [f"{value}{short}" for _, value, short in non_zero]
-
-    if not parts:
-        return "0 seconds"
-
-    return " ".join(parts)
 
 
 def get_config(section, option, default_config):
