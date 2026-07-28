@@ -1544,7 +1544,7 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
 
     end_time = time.time()
     processing_time = end_time - start_time
-    done_description = f"Encoding time: {format_duration_short(int(processing_time))}"
+    done_description = f"Encoding time: {format_time(int(processing_time), conjunction=False)}"
 
     SPINNER.stop(
         f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "

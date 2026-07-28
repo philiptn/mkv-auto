@@ -242,15 +242,20 @@ class ContinuousSpinner:
 SPINNER = None
 
 
-def format_eta_single(seconds: float) -> str:
-    if seconds <= 0:
-        return "0s"
+def format_duration_short(seconds: float) -> str:
+    """Coarse duration in a single letter-suffixed unit: "2h", "46m", "39s".
 
-    seconds = int(seconds)
+    For the live status line — both the batch estimate and the per-worker
+    chips. The largest unit that fits and nothing below it, truncated rather
+    than rounded, so "2h" means at least two hours. Hours are the ceiling and
+    accumulate past 24 ("50h") instead of rolling into days: a day count is too
+    coarse to watch a batch by. The finished-batch summary uses format_time()
+    instead, which is free to be granular because it renders once.
+    """
+    if seconds is None:
+        return ""
 
-    days = seconds // 86400
-    if days >= 1:
-        return f"{days}d"
+    seconds = int(max(0, seconds))
 
     hours = seconds // 3600
     if hours >= 1:
@@ -263,41 +268,11 @@ def format_eta_single(seconds: float) -> str:
     return f"{seconds}s"
 
 
-def format_duration_short(seconds: float) -> str:
-    """Coarse duration in a single unit word: "2hr", "46min", "39sec".
-
-    The largest unit that fits, and nothing below it: an hour or more reads as
-    a whole hour count, and only a remainder under an hour drops to minutes.
-    Truncated rather than rounded, so "2hr" means at least two hours.
-
-    Same tiering as format_eta_single(), which stays for the terse per-worker
-    chips where a one-letter suffix has to fit alongside a percentage.
-    """
-    if seconds is None:
-        return ""
-
-    seconds = int(max(0, seconds))
-
-    days = seconds // 86400
-    if days >= 1:
-        return f"{days}day" if days == 1 else f"{days}days"
-
-    hours = seconds // 3600
-    if hours >= 1:
-        return f"{hours}hr"
-
-    minutes = seconds // 60
-    if minutes >= 1:
-        return f"{minutes}min"
-
-    return f"{seconds}sec"
-
-
 def get_worker_eta(progress, worker_id, progress_value):
     remaining = progress.worker_eta(worker_id, progress_value)
     if remaining is None:
         return f"∞{GREY}┃{RESET}"
-    return f"{format_eta_single(remaining)}{BLUE}┃{RESET}"
+    return f"{format_duration_short(remaining)}{BLUE}┃{RESET}"
 
 
 def render_worker_status(progress, worker_id, progress_value):
@@ -972,8 +947,12 @@ def flatten_directories(logger, directory):
     return working_files
 
 
-def format_time(total_seconds):
-    """Return a formatted string for the given duration in seconds."""
+def format_time(total_seconds, conjunction=True):
+    """Return a formatted string for the given duration in seconds.
+
+    conjunction=False joins every part with a comma instead of trailing "and",
+    for callers that want a list rather than a sentence.
+    """
     days, remainder = divmod(total_seconds, 86400)
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
@@ -995,8 +974,9 @@ def format_time(total_seconds):
     # Handle natural language joining
     if len(parts) == 1:
         return parts[0]
-    else:
+    if conjunction:
         return ", ".join(parts[:-1]) + " and " + parts[-1]
+    return ", ".join(parts)
 
 
 def get_config(section, option, default_config):
