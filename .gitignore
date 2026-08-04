@@ -164,3 +164,4 @@ subliminal.toml
 # qbittorrent-automation
 drive-mappings.txt
 automation.log
+.livecopy-state/

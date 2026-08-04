@@ -48,7 +48,7 @@ def convert_all_videos_to_mkv(logger, debug, input_folder, silent):
     video_files = []
     for root, dirs, files in os.walk(input_folder):
         for file in files:
-            if file.lower().endswith(('.mp4', '.avi', '.m4v', '.webm', '.ts', '.mov', '.wmv', '.flv')):
+            if file.lower().endswith(CONVERTIBLE_VIDEO_EXTENSIONS):
                 video_files.append(os.path.join(root, file))
 
     total_files = len(video_files)
@@ -729,26 +729,6 @@ def classify_dolby_vision(file_path):
         return "convert"
 
     return "skip"
-
-
-def upgrade_dv_to_dv_hdr_filename(filename):
-    name, ext = os.path.splitext(filename)
-
-    # Match separator + DV and capture separator
-    dv_pattern = re.compile(r'(?i)(?P<sep>[.\- _])dv(?=$|[.\- _])')
-    hdr_pattern = re.compile(r'(?i)(?:^|[.\- _])hdr(?=$|[.\- _])')
-
-    has_dv = dv_pattern.search(name)
-    has_hdr = hdr_pattern.search(name)
-
-    if has_dv and not has_hdr:
-        def repl(match):
-            sep = match.group('sep')
-            return f"{sep}DV{sep}HDR"
-
-        name = dv_pattern.sub(repl, name, count=1)
-
-    return name + ext
 
 
 def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,

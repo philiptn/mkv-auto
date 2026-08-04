@@ -5,6 +5,8 @@ warnings.filterwarnings(
 )
 
 import configparser
+import contextlib
+import json
 import sys
 import traceback
 import argparse
@@ -17,6 +19,7 @@ from modules.audio import *
 from modules.misc import *
 from modules.logger import *
 from modules.media_encoder import *
+from modules.preview import *
 
 mkv_auto_version = 'DEV-2026-06'
 
@@ -365,6 +368,48 @@ def mkv_auto(args):
     exit(0)
 
 
+def resolve_path_command(args):
+    """Print the output path MKV-Auto would produce for one input file, then exit.
+
+    Read-only: no processing, no file I/O, and no log files (setup_logger() would
+    create three). Stdout carries exactly one line so callers can parse it, and
+    every diagnostic from the resolution path - check_config() warnings, debug
+    prints - is redirected to stderr. Failure means a nonzero exit and an empty
+    stdout, never a partial answer.
+    """
+    logger = setup_quiet_logger()
+
+    output_dir = check_config(config, 'general', 'output_folder')
+    if args.docker:
+        output_dir = 'files/output'
+    if args.output_dir:
+        output_dir = args.output_dir
+
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            target = preview_output_target(logger, bool(args.debug),
+                                           args.resolve_path, output_dir)
+    except Exception as e:
+        print(f"[ERROR] Failed to resolve '{args.resolve_path}': {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
+
+    if args.as_json:
+        payload = dict(target)
+        payload['input_path'] = args.resolve_path
+        payload['output_root'] = output_dir
+        # Lets callers judge how much to trust 'full_info_found': only the
+        # 'full' modes do a metadata lookup that can fail.
+        payload['normalize_filenames'] = check_config(
+            config, 'general', 'normalize_filenames')
+        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    else:
+        sys.stdout.write((target['relative_path'] if args.relative
+                          else target['output_path']) + "\n")
+    sys.stdout.flush()
+    sys.exit(0)
+
+
 def main():
     # Create the main parser
     parser = argparse.ArgumentParser(description="A tool that aims to remove unnecessary clutter "
@@ -389,9 +434,19 @@ def main():
                         help="disables debug pause if enabled (default: False)")
     parser.add_argument("--log_file", dest="log_file", type=str, required=False, default='mkv-auto.log',
                         help="log file location (default: './mkv-auto.log')")
+    parser.add_argument("--resolve-path", dest="resolve_path", type=str, required=False,
+                        help="print the output path that would be produced for an input file "
+                             "(path relative to the input folder), then exit. Read-only: no "
+                             "processing, no file I/O, no log files")
+    parser.add_argument("--relative", action="store_true", default=False, required=False,
+                        help="with --resolve-path: print the path relative to the output folder")
+    parser.add_argument("--json", dest="as_json", action="store_true", default=False, required=False,
+                        help="with --resolve-path: print the full resolution result as JSON")
 
     parser.set_defaults(func=mkv_auto)
     args = parser.parse_args()
+    if args.resolve_path is not None:
+        args.func = resolve_path_command
 
     # Call the function associated with the active sub-parser
     args.func(args)

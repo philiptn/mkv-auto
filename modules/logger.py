@@ -66,6 +66,28 @@ def setup_logger(log_file):
     return _global_logger
 
 
+def setup_quiet_logger(name="mkv-auto.quiet"):
+    """Return a logger that satisfies the print/log helpers in modules.misc
+    without creating any files or emitting anything.
+
+    setup_logger() attaches Logger.color as a side effect, and custom_print()/
+    print_no_timestamp() call it. One-shot read-only commands never call
+    setup_logger() (they must not create the three log files), so the no-op
+    color method has to be installed here instead.
+    """
+    if not hasattr(logging.Logger, "color"):
+        def color(self, message, *args, **kwargs):
+            pass
+        logging.Logger.color = color
+
+    # Not "logger" - that name belongs to setup_logger()'s file-backed logger.
+    logger = logging.getLogger(name)
+    logger.handlers = [logging.NullHandler()]
+    logger.propagate = False
+    logger.setLevel(logging.CRITICAL)
+    return logger
+
+
 def get_custom_logger():
     if _global_logger is None:
         raise ValueError("Logger is not set up. Please call setup_logger(log_file) first.")

@@ -1,10 +1,13 @@
 import os
 import time
 import shutil
+import signal
 import requests
 import re
 import logging
 import json
+
+from livecopy import LiveCopyManager, QueueResolver
 
 
 # === Setup logging ===
@@ -27,22 +30,69 @@ logging.basicConfig(
 
 log = logging.getLogger()
 
+def parse_folder_map(name, description):
+    """Parse a JSON tag -> folder env variable, expanding $VARIABLE in the values.
+
+    docker-compose cannot read these maps to build its volume mounts, so the
+    folders have to be named there too. Expanding variables here means a path is
+    written once, as an env variable compose can also use, instead of being
+    repeated and drifting out of sync.
+    """
+    try:
+        parsed = json.loads(os.getenv(name, "{}"))
+        if not isinstance(parsed, dict):
+            raise ValueError(f"{name} must be a JSON object mapping tags to {description}.")
+    except Exception as e:
+        log.error(f"❌ Failed to parse {name} env variable: {e}")
+        return {}
+
+    expanded = {}
+    for tag, folder in parsed.items():
+        folder = os.path.expandvars(str(folder))
+        if '$' in folder:
+            # expandvars leaves unknown names untouched, which would otherwise
+            # become a literal directory called '$MKV_AUTO_OUTPUT_FOLDER'.
+            log.error(f"❌ {name}['{tag}'] refers to an undefined variable: {folder}")
+            continue
+        expanded[tag] = folder
+    return expanded
+
+
 # === Environment variables ===
 QBITTORRENT_URL = os.getenv('QBITTORRENT_URL', '').rstrip('/')
 QBITTORRENT_USERNAME = os.getenv('QBITTORRENT_USERNAME')
 QBITTORRENT_PASSWORD = os.getenv('QBITTORRENT_PASSWORD')
-try:
-    TARGETS = json.loads(os.getenv("TARGETS", "{}"))
-    if not isinstance(TARGETS, dict):
-        raise ValueError("TARGETS must be a JSON object mapping tags to destination folders.")
-except Exception as e:
-    log.error(f"❌ Failed to parse TARGETS env variable: {e}")
-    TARGETS = {}
+TARGETS = parse_folder_map("TARGETS", "destination folders")
 
 TARGET_TAGS = list(TARGETS.keys())
-DONE_TAG = os.getenv('DONE_TAG', '✅')
+DONE_TAG = os.getenv('DONE_TAG', '✔')
+FAILED_TAG = os.getenv('FAILED_TAG', '✘')
 MAPPINGS_FILE = os.getenv('MAPPINGS_FILE')
 TRANSLATE_WINDOWS_PATHS = os.getenv('TRANSLATE_WINDOWS_PATHS', 'false').lower() == 'true'
+
+# === Sequential live copy ===
+LIVE_COPY = os.getenv('LIVE_COPY', 'false').lower() == 'true'
+LIVE_COPY_SET_SEQUENTIAL = os.getenv('LIVE_COPY_SET_SEQUENTIAL', 'true').lower() == 'true'
+LIVE_COPY_OUTPUTS = parse_folder_map("LIVE_COPY_OUTPUTS", "output folders")
+
+LIVE_COPY_RESOLVE_DIR = os.getenv('LIVE_COPY_RESOLVE_DIR') or ''
+LIVE_COPY_RESOLVE_TIMEOUT = float(os.getenv('LIVE_COPY_RESOLVE_TIMEOUT', '120'))
+LIVE_COPY_INTERVAL = float(os.getenv('LIVE_COPY_INTERVAL', '10'))
+LIVE_COPY_MAX_WORKERS = int(os.getenv('LIVE_COPY_MAX_WORKERS', '4'))
+LIVE_COPY_MIN_SIZE_MB = int(os.getenv('LIVE_COPY_MIN_SIZE_MB', '200'))
+LIVE_COPY_EXTENSIONS = tuple(
+    e.strip().lower() for e in os.getenv(
+        'LIVE_COPY_EXTENSIONS',
+        '.mkv,.mp4,.avi,.m4v,.ts,.mov,.wmv,.flv,.webm').split(',') if e.strip())
+LIVE_COPY_CHUNK_MB = int(os.getenv('LIVE_COPY_CHUNK_MB', '8'))
+LIVE_COPY_STALL_TIMEOUT = float(os.getenv('LIVE_COPY_STALL_TIMEOUT', '1800'))
+LIVE_COPY_STATE_DIR = os.getenv(
+    'LIVE_COPY_STATE_DIR', os.path.join(os.getcwd(), '.livecopy-state'))
+
+# The queue MKV-Auto's resolve worker watches. It lives inside the target's
+# input folder by default, which both services already share, and is hidden from
+# the MKV-Auto pipeline because it starts with a dot.
+RESOLVE_QUEUE_DIRNAME = '.mkv-auto-resolve'
 
 session = requests.Session()
 
@@ -305,16 +355,73 @@ def mark_torrent_failed(torrent):
         response = qbittorrent_request(
             "post",
             "/api/v2/torrents/addTags",
-            data={"hashes": torrent['hash'], "tags": "✘"}
+            data={"hashes": torrent['hash'], "tags": FAILED_TAG}
         )
 
         if response.status_code == 200:
-            log.info(f"✅ Added tag '✘' to torrent {torrent['hash']}\n")
+            log.info(f"✅ Added tag '{FAILED_TAG}' to torrent {torrent['hash']}\n")
         else:
-            log.error(f"❌ Failed to add tag '✘' to torrent {torrent['hash']}: {response.status_code} - {response.text}")
+            log.error(f"❌ Failed to add tag '{FAILED_TAG}' to torrent {torrent['hash']}: {response.status_code} - {response.text}")
 
     except Exception as e:
         log.error(f"❌ Exception while setting tags for torrent {torrent['hash']}: {e}")
+
+
+def resolve_queue_dir(tag):
+    """Folder where MKV-Auto's resolve worker answers lookups for this tag."""
+    if LIVE_COPY_RESOLVE_DIR:
+        return LIVE_COPY_RESOLVE_DIR
+    return os.path.join(TARGETS[tag], RESOLVE_QUEUE_DIRNAME)
+
+
+def build_live_copy_manager():
+    """Validate the live copy configuration and build the manager, or None."""
+    if not LIVE_COPY:
+        return None
+
+    if not LIVE_COPY_OUTPUTS:
+        log.error("❌ LIVE_COPY is enabled but LIVE_COPY_OUTPUTS is empty. Disabling live copy.")
+        return None
+
+    unknown = [tag for tag in LIVE_COPY_OUTPUTS if tag not in TARGETS]
+    if unknown:
+        log.warning(f"⚠️ LIVE_COPY_OUTPUTS tags not present in TARGETS, ignoring: {unknown}")
+
+    # A live copy landing in an input folder would be picked up as new media and
+    # reprocessed forever.
+    overlap = set(LIVE_COPY_OUTPUTS.values()) & set(TARGETS.values())
+    if overlap:
+        log.error(f"❌ LIVE_COPY_OUTPUTS must not point at a TARGETS input folder: {overlap}. "
+                  f"Disabling live copy.")
+        return None
+
+    outputs = {}
+    for tag, folder in LIVE_COPY_OUTPUTS.items():
+        if tag not in TARGETS:
+            continue
+        try:
+            os.makedirs(folder, exist_ok=True)
+            os.makedirs(resolve_queue_dir(tag), exist_ok=True)
+        except OSError as e:
+            log.error(f"❌ Live copy for tag '{tag}' disabled, cannot use '{folder}': {e}")
+            continue
+        outputs[tag] = folder
+
+    if not outputs:
+        return None
+
+    resolver = QueueResolver(resolve_queue_dir, LIVE_COPY_RESOLVE_TIMEOUT, log)
+    return LiveCopyManager(
+        qbittorrent_request, outputs, resolver, log, LIVE_COPY_STATE_DIR,
+        interval=LIVE_COPY_INTERVAL,
+        max_workers=LIVE_COPY_MAX_WORKERS,
+        min_size=LIVE_COPY_MIN_SIZE_MB * 1024 ** 2,
+        extensions=LIVE_COPY_EXTENSIONS,
+        chunk_size=LIVE_COPY_CHUNK_MB * 1024 ** 2,
+        stall_timeout=LIVE_COPY_STALL_TIMEOUT,
+        set_sequential=LIVE_COPY_SET_SEQUENTIAL,
+        translate=translate_path,
+    )
 
 
 def main():
@@ -324,16 +431,33 @@ def main():
     log.info(f"👤 QBITTORRENT_USERNAME = {QBITTORRENT_USERNAME}")
     log.info(f"🎯 TARGETS = {json.dumps(TARGETS, indent=2)}")
     log.info(f"🏷️ DONE_TAG = {DONE_TAG}")
+    log.info(f"🏷️ FAILED_TAG = {FAILED_TAG}")
     log.info(f"🗺️ MAPPINGS_FILE = {MAPPINGS_FILE}")
-    log.info(f"🧩 TRANSLATE_WINDOWS_PATHS = {TRANSLATE_WINDOWS_PATHS}\n")
+    log.info(f"🧩 TRANSLATE_WINDOWS_PATHS = {TRANSLATE_WINDOWS_PATHS}")
+    log.info(f"📡 LIVE_COPY = {LIVE_COPY}")
+    if LIVE_COPY:
+        log.info(f"📡 LIVE_COPY_OUTPUTS = {json.dumps(LIVE_COPY_OUTPUTS, indent=2)}")
+        log.info(f"📡 LIVE_COPY_SET_SEQUENTIAL = {LIVE_COPY_SET_SEQUENTIAL}")
+        log.info(f"📡 LIVE_COPY_MIN_SIZE_MB = {LIVE_COPY_MIN_SIZE_MB}")
+    log.info("")
 
     login()
+
+    manager = build_live_copy_manager()
+    if manager:
+        for received in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(received, lambda *_: (manager.shutdown(), os._exit(0)))
 
     while True:
         try:
             mappings = {}
             if TRANSLATE_WINDOWS_PATHS:
                 mappings = load_path_mappings(MAPPINGS_FILE)
+
+            # Before get_completed_torrents(), which sleeps 30s whenever it finds
+            # anything and would otherwise starve the live copier.
+            if manager:
+                manager.tick(mappings)
 
             torrents = get_completed_torrents()
 

@@ -9,16 +9,39 @@ services:
       - QBITTORRENT_URL=${QBITTORRENT_URL}
       - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME}
       - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
-      - TARGET_TAGS=${TARGET_TAGS}
+      # Passed through so $VARIABLES inside TARGETS and LIVE_COPY_OUTPUTS expand
+      - MKV_AUTO_INPUT_FOLDER=${MKV_AUTO_INPUT_FOLDER}
+      - MKV_AUTO_OUTPUT_FOLDER=${MKV_AUTO_OUTPUT_FOLDER}
+      - TARGETS=${TARGETS}
       - DONE_TAG=${DONE_TAG}
+      - FAILED_TAG=${FAILED_TAG}
       - TRANSLATE_WINDOWS_PATHS=${TRANSLATE_WINDOWS_PATHS}
-      - DESTINATION_FOLDER=${MKV_AUTO_INPUT_FOLDER}
       - MAPPINGS_FILE=/service/configs/drive-mappings.txt
       - LOG_FILE=automation.log
+      # Sequential live copy (see .env_example)
+      - LIVE_COPY=${LIVE_COPY}
+      - LIVE_COPY_SET_SEQUENTIAL=${LIVE_COPY_SET_SEQUENTIAL}
+      - LIVE_COPY_OUTPUTS=${LIVE_COPY_OUTPUTS}
+      - LIVE_COPY_RESOLVE_DIR=${LIVE_COPY_RESOLVE_DIR}
+      - LIVE_COPY_RESOLVE_TIMEOUT=${LIVE_COPY_RESOLVE_TIMEOUT}
+      - LIVE_COPY_INTERVAL=${LIVE_COPY_INTERVAL}
+      - LIVE_COPY_MAX_WORKERS=${LIVE_COPY_MAX_WORKERS}
+      - LIVE_COPY_MIN_SIZE_MB=${LIVE_COPY_MIN_SIZE_MB}
+      - LIVE_COPY_EXTENSIONS=${LIVE_COPY_EXTENSIONS}
+      - LIVE_COPY_CHUNK_MB=${LIVE_COPY_CHUNK_MB}
+      - LIVE_COPY_STALL_TIMEOUT=${LIVE_COPY_STALL_TIMEOUT}
     volumes:
+      # Every folder named in TARGETS must be mounted 1:1. If you added extra
+      # instances there, add a line for each of them here too.
       - ${MKV_AUTO_INPUT_FOLDER}:${MKV_AUTO_INPUT_FOLDER}
+      # MKV-Auto OUTPUT folder, written by the live copy. Only needed when
+      # LIVE_COPY=true. Must be the same uid (1000) as the MKV-Auto service, so
+      # its processed output can overwrite the live copy afterwards.
+      - ${MKV_AUTO_OUTPUT_FOLDER}:${MKV_AUTO_OUTPUT_FOLDER}
       # Volume mounts current dir (qbittorrent-automation) to container '/service' folder
       - .:/service
       # Add any SMB shares or paths here like this to allow
       # the service to find and copy files (read-only with ':ro'). HAS to be 1:1.
+      # NOTE: live copy needs read access to in-progress files, so if you set
+      # "Keep incomplete torrents in" in qBittorrent, mount that folder too.
       # - /media/share/torrents:/media/share/torrents:ro

@@ -6,8 +6,8 @@ RUN useradd -m -u 1000 service
 # Set working directory
 WORKDIR /service
 
-# Copy Python script only (no config)
-COPY qbittorrent-automation.py /service/
+# Copy Python scripts only (no config)
+COPY qbittorrent-automation.py livecopy.py /service/
 
 # Install dependencies
 RUN pip install --no-cache-dir requests

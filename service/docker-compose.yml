@@ -7,6 +7,9 @@ services:
     environment:
       - UID=1000
       - GID=1000
+      # Answers output-path lookups for the qBittorrent live-copy integration
+      - RESOLVE_WORKER=${RESOLVE_WORKER:-false}
+      - RESOLVE_QUEUE_DIR=${RESOLVE_QUEUE_DIR:-/mkv-auto/files/input/.mkv-auto-resolve}
     volumes:
       - ${INPUT_FOLDER}:/mkv-auto/files/input
       - ${OUTPUT_FOLDER}:/mkv-auto/files/output

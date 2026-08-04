@@ -5,15 +5,25 @@ log_file="/mkv-auto/logs/mkv-auto.log"
 touch "$log_file"
 chmod 666 "$log_file"
 
+# Answers output-path lookups from the shared queue folder (used by the
+# qBittorrent live-copy integration). Runs alongside the poll loop below, which
+# blocks for the whole duration of a processing run.
+if [ "${RESOLVE_WORKER,,}" = "true" ]; then
+    . /pre/venv/bin/activate
+    python3 -u /mkv-auto/resolve-worker.py &
+fi
+
 while true; do
     if [ -f /mkv-auto/config/user.ini ]; then
-        cp /mkv-auto/config/user.ini /mkv-auto/user.ini
+        cp /mkv-auto/config/user.ini /mkv-auto/.user.ini.tmp && mv /mkv-auto/.user.ini.tmp /mkv-auto/user.ini
     fi
     if [ -f /mkv-auto/config/subliminal.toml ]; then
-        cp /mkv-auto/config/subliminal.toml /mkv-auto/subliminal.toml
+        cp /mkv-auto/config/subliminal.toml /mkv-auto/.subliminal.toml.tmp && mv /mkv-auto/.subliminal.toml.tmp /mkv-auto/subliminal.toml
     fi
 
-    if ! pgrep -f 'python3 -u mkv-auto.py' > /dev/null; then
+    # Matches only this loop's own run - a --resolve-path subprocess started by
+    # the resolve worker must neither block nor be blocked by it.
+    if ! pgrep -f 'mkv-auto\.py --service' > /dev/null; then
         if [ "$(ls /mkv-auto/files/input | wc -l)" -gt 0 ]; then
             cd /mkv-auto
             . /pre/venv/bin/activate

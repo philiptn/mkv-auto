@@ -14,8 +14,12 @@ fi
 if [ "$IS_LINUX" = true ]; then
     chown -R "$USER_ID:$GROUP_ID" /mkv-auto
 
-    # Run as non-root user
-    exec gosu "$USER_ID:$GROUP_ID" bash -c ". /pre/venv/bin/activate && python3 -u mkv-auto.py --log_file $log_file $*"
+    # Run as non-root user. "$@" rather than $* so arguments containing spaces
+    # survive; the absolute script path keeps this out of the service loop's
+    # pgrep pattern.
+    exec gosu "$USER_ID:$GROUP_ID" bash -c \
+        '. /pre/venv/bin/activate && exec python3 -u /mkv-auto/mkv-auto.py --log_file "$1" "${@:2}"' \
+        bash "$log_file" "$@"
 else
     # Windows Docker or fallback
     . /pre/venv/bin/activate

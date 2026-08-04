@@ -171,6 +171,7 @@ COPY utilities /mkv-auto/utilities
 COPY defaults.ini /mkv-auto/
 COPY subliminal_defaults.toml /mkv-auto/
 COPY mkv-auto.py /mkv-auto/
+COPY resolve-worker.py /mkv-auto/
 COPY entrypoint.sh /mkv-auto/
 COPY service-entrypoint.sh /mkv-auto/
 COPY service-entrypoint-inner.sh /mkv-auto/

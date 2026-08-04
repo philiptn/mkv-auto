@@ -118,6 +118,18 @@ def count_files(directory):
 
 def remove_empty_dirs(path):
     for root, dirs, files in os.walk(path, topdown=False):
+        # Leave dot-directories alone, like every other walk over the input
+        # folder. They are transport, not media, and deleting one mid-flight
+        # breaks whoever is writing it: the qBittorrent integration stages a
+        # copy in '.<name>' before publishing it with an atomic rename, and the
+        # resolve worker's request queue lives in '.mkv-auto-resolve'.
+        # Filtering `dirs` in place would do nothing here - os.walk ignores that
+        # when topdown is False - so the check is on `root` and covers nesting.
+        relative = os.path.relpath(root, path)
+        if relative != os.curdir and any(
+                part.startswith('.') for part in relative.split(os.sep)):
+            continue
+
         # Check if the directory is now empty
         if not os.listdir(root):
             try:
@@ -290,6 +302,32 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
         "available_space_gib": available_space,
         "skipped_files": skipped_files_counter[0]
     }
+
+
+# Video containers convert_all_videos_to_mkv() remuxes into .mkv. Kept here
+# rather than in modules.mkv so modules.preview can share it without dragging in
+# the subtitle toolchain - a new extension must not silently desync the preview.
+CONVERTIBLE_VIDEO_EXTENSIONS = ('.mp4', '.avi', '.m4v', '.webm', '.ts', '.mov', '.wmv', '.flv')
+
+
+def upgrade_dv_to_dv_hdr_filename(filename):
+    name, ext = os.path.splitext(filename)
+
+    # Match separator + DV and capture separator
+    dv_pattern = re.compile(r'(?i)(?P<sep>[.\- _])dv(?=$|[.\- _])')
+    hdr_pattern = re.compile(r'(?i)(?:^|[.\- _])hdr(?=$|[.\- _])')
+
+    has_dv = dv_pattern.search(name)
+    has_hdr = hdr_pattern.search(name)
+
+    if has_dv and not has_hdr:
+        def repl(match):
+            sep = match.group('sep')
+            return f"{sep}DV{sep}HDR"
+
+        name = dv_pattern.sub(repl, name, count=1)
+
+    return name + ext
 
 
 def detect_dynamic_range_from_filename(filename):
@@ -676,31 +714,43 @@ def remove_sample_files_and_dirs(root_dir):
                 os.remove(os.path.join(dirpath, filename))
 
 
+def fix_episode_naming_name(file_name):
+    """Return the '.Season.1.Episode.2.' -> '.S01E02.' rewrite of file_name.
+
+    Pure; the on-disk pass (fix_episodes_naming) and the path preview
+    (modules.preview) share it so the two can never disagree.
+    """
+    if not (file_name.endswith(".mkv") or file_name.endswith(".srt")):
+        return file_name
+
+    parts = os.path.splitext(file_name)[0].split(".")
+    extension = os.path.splitext(file_name)[1]
+    season_index = next((i for i, part in enumerate(parts) if part.lower() == 'season'), None)
+    episode_index = next((i for i, part in enumerate(parts) if part.lower() == 'episode'), None)
+
+    if season_index is None or episode_index is None:
+        return file_name
+
+    # Preserve all parts of the original name before "season" and after "episode"
+    show_name = '.'.join(parts[:season_index])
+    post_episode = '.'.join(parts[episode_index+2:]) if episode_index + 2 < len(parts) else ""
+
+    # Determine the case for 'S' and 'E'
+    se_case = 'S' if parts[season_index][0].isupper() else 's'
+    ee_case = 'E' if parts[episode_index][0].isupper() else 'e'
+
+    # Generate new file name, preserving case of "season" and "episode"
+    new_name = f"{show_name}.{se_case}{int(parts[season_index+1]):02}{ee_case}{int(parts[episode_index+1]):02}"
+    new_name += f".{post_episode}" if post_episode else ""
+    new_name += extension
+    return new_name
+
+
 def fix_episodes_naming(directory):
     for dirpath, _, filenames in os.walk(directory):
         for file_name in filenames:
-            if file_name.endswith(".mkv") or file_name.endswith(".srt"):
-                parts = os.path.splitext(file_name)[0].split(".")
-                extension = os.path.splitext(file_name)[1]
-                season_index = next((i for i, part in enumerate(parts) if part.lower() == 'season'), None)
-                episode_index = next((i for i, part in enumerate(parts) if part.lower() == 'episode'), None)
-
-                if season_index is not None and episode_index is not None:
-                    # Preserve all parts of the original name before "season" and after "episode"
-                    show_name = '.'.join(parts[:season_index])
-                    post_episode = '.'.join(parts[episode_index+2:]) if episode_index + 2 < len(parts) else ""
-
-                    # Determine the case for 'S' and 'E'
-                    se_case = 'S' if parts[season_index][0].isupper() else 's'
-                    ee_case = 'E' if parts[episode_index][0].isupper() else 'e'
-
-                    # Generate new file name, preserving case of "season" and "episode"
-                    new_name = f"{show_name}.{se_case}{int(parts[season_index+1]):02}{ee_case}{int(parts[episode_index+1]):02}"
-                    new_name += f".{post_episode}" if post_episode else ""
-                    new_name += extension
-                else:
-                    new_name = file_name
-
+            new_name = fix_episode_naming_name(file_name)
+            if new_name != file_name:
                 shutil.move(os.path.join(dirpath, file_name), os.path.join(dirpath, new_name))
 
 
