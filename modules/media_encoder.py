@@ -938,6 +938,17 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage,
             )
             if estimator is not None:
                 estimator.note_progress(file_index, fraction * FFMPEG_WEIGHT)
+
+            # Live size estimate: project the encoded video's final size from
+            # how much has been written so far. Skip the noisy early fraction.
+            if fraction > 0.02 and os.path.exists(temp_video_file):
+                cur = os.path.getsize(temp_video_file)
+                projected_video = cur / fraction
+                progress.update_size_estimate(
+                    worker_id,
+                    projected_video,
+                    filesize_info["initial_video_size"],
+                )
     process.wait()
 
     if process.returncode != 0:
@@ -1016,6 +1027,12 @@ def encode_single_video_file(logger, debug, input_file, dirpath, max_cpu_usage,
     # been reassigned to the post-injection stream, so this is the real video payload.
     filesize_info["resulting_video_size"] = os.path.getsize(temp_video_file)
 
+    # Folded in before finish_worker, which drops this worker's live estimate:
+    # recording afterwards would leave the file counted in neither term for a moment.
+    progress.record_completion(
+        filesize_info["initial_video_size"],
+        filesize_info["resulting_video_size"],
+    )
     progress.finish_worker(worker_id)
     # Recorded after the remux, so the measured cost includes the mkvmerge tail
     # that a sample cannot capture — the calibration factor learns that gap.
@@ -1544,7 +1561,10 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
 
     end_time = time.time()
     processing_time = end_time - start_time
-    done_description = f"Encoding time: {format_time(int(processing_time), conjunction=False)}"
+    done_description = (
+        f"Encoding time: "
+        f"{format_time(int(processing_time), conjunction=False, include_seconds=False)}"
+    )
 
     SPINNER.stop(
         f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "

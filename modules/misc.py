@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from backports import configparser
 import re
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, deque
+from statistics import median
 import traceback
 import shutil
 import logging
@@ -51,6 +52,11 @@ class ProgressState:
         self.worker_start_times = {}
         self.worker_best_eta = {}
         self.worker_progress = {}
+        # Live video-size bookkeeping, feeding savings_snapshot(). Split between
+        # files still encoding (projected) and files already done (measured).
+        self.worker_size_est = {}
+        self.completed_initial = 0
+        self.completed_resulting = 0
         self._lock = threading.Lock()
 
     def start_worker(self, worker_id):
@@ -73,6 +79,7 @@ class ProgressState:
             self.worker_progress.pop(worker_id, None)
             self.worker_start_times.pop(worker_id, None)
             self.worker_best_eta.pop(worker_id, None)
+            self.worker_size_est.pop(worker_id, None)
             self.completed_files += 1
 
     def snapshot(self):
@@ -82,6 +89,35 @@ class ProgressState:
                 self.total_files,
                 dict(self.worker_progress)
             )
+
+    def update_size_estimate(self, worker_id, est_resulting, original):
+        """Projected final video size for the file in this slot, against its source."""
+        with self._lock:
+            self.worker_size_est[worker_id] = (est_resulting, original)
+
+    def record_completion(self, initial, resulting):
+        """Fold a finished file's measured video sizes into the batch totals."""
+        with self._lock:
+            self.completed_initial += initial
+            self.completed_resulting += resulting
+
+    def savings_snapshot(self):
+        """Batch-wide percent saved so far, negative when the output is growing.
+
+        Pools finished files (measured) with the in-flight ones (projected), so
+        a single bad file cannot dominate the reading once others have landed.
+        None until at least one file has contributed a source size.
+        """
+        with self._lock:
+            total_init = self.completed_initial + sum(
+                orig for _, orig in self.worker_size_est.values()
+            )
+            total_res = self.completed_resulting + sum(
+                est for est, _ in self.worker_size_est.values()
+            )
+            if total_init <= 0:
+                return None
+            return (total_init - total_res) / total_init * 100
 
     def worker_eta(self, worker_id, progress_value):
         """Remaining seconds for the file in this slot, or None if unknowable.
@@ -250,7 +286,7 @@ def format_duration_short(seconds: float) -> str:
     than rounded, so "2h" means at least two hours. Hours are the ceiling and
     accumulate past 24 ("50h") instead of rolling into days: a day count is too
     coarse to watch a batch by. The finished-batch summary uses format_time()
-    instead, which is free to be granular because it renders once.
+    instead, which spells the units out but still stops at minutes.
     """
     if seconds is None:
         return ""
@@ -266,6 +302,63 @@ def format_duration_short(seconds: float) -> str:
         return f"{minutes}m"
 
     return f"{seconds}s"
+
+
+class OversizeWarning:
+    """Live "~N% BIGGER" chip, or "" while the encode is shrinking the video.
+
+    Only the bad news is rendered: saving space is the expected outcome and
+    needs no running commentary, while an encode that comes out larger than its
+    source is worth interrupting the user about before the batch ends.
+
+    The raw aggregate bounces as the encoder hits scenes of varying complexity,
+    so readings are sampled at most once a second, reduced to a median over a
+    rolling window (robust to spikes), and eased asymmetrically toward that
+    median: quickly toward lower savings, slowly back up. Under a bigger-only
+    display that reads as "warn promptly, retract reluctantly".
+    """
+
+    SAMPLE_INTERVAL = 1.0   # seconds between raw samples
+    WINDOW = 20             # samples kept (~20s) for the median
+    DOWN_ALPHA = 0.25       # easing toward a lower median (responsive)
+    UP_ALPHA = 0.05         # easing toward a higher median (slow)
+    # Asymmetric bounds, so a file parked around the threshold does not blink
+    # the chip on and off from one render to the next.
+    SHOW_AT = -5.0          # percent saved at or below which the chip appears
+    HIDE_AT = -4.0          # ...and above which it goes away again
+
+    def __init__(self):
+        self._samples = deque(maxlen=self.WINDOW)
+        self._displayed = None
+        self._last_sample = 0.0
+        self._active = False
+
+    def update(self, raw, now=None):
+        """Feed the latest percent-saved reading, get the chip to render."""
+        if raw is None:
+            return ""
+
+        now = time.time() if now is None else now
+        if now - self._last_sample >= self.SAMPLE_INTERVAL:
+            self._samples.append(raw)
+            self._last_sample = now
+
+        med = median(self._samples) if self._samples else raw
+        if self._displayed is None:
+            self._displayed = med
+        elif med < self._displayed:
+            self._displayed += (med - self._displayed) * self.DOWN_ALPHA
+        elif med > self._displayed:
+            self._displayed += (med - self._displayed) * self.UP_ALPHA
+
+        if self._active:
+            self._active = self._displayed <= self.HIDE_AT
+        else:
+            self._active = self._displayed <= self.SHOW_AT
+
+        if not self._active:
+            return ""
+        return f"~{-self._displayed:.0f}% BIGGER "
 
 
 def get_worker_eta(progress, worker_id, progress_value):
@@ -288,6 +381,8 @@ def render_worker_status_simple(progress, worker_id, progress_value):
 
 
 def make_progress_line(progress, header, description, start_time, estimator=None):
+    oversize = OversizeWarning()
+
     def line():
         done, total, workers = progress.snapshot()
 
@@ -306,6 +401,8 @@ def make_progress_line(progress, header, description, start_time, estimator=None
                 if status:
                     eta_str = f"{status} "
 
+        oversize_str = oversize.update(progress.savings_snapshot())
+
         workers_str = "".join(
             render_worker_status(progress, wid, workers.get(wid, 0.0))
             for wid in sorted(workers.keys())
@@ -315,6 +412,7 @@ def make_progress_line(progress, header, description, start_time, estimator=None
             f"[{header}]{RESET} "
             + cpu_str
             + eta_str
+            + oversize_str
             + workers_str
             + f"({done}/{total}) "
         )
@@ -947,12 +1045,21 @@ def flatten_directories(logger, directory):
     return working_files
 
 
-def format_time(total_seconds, conjunction=True):
+def format_time(total_seconds, conjunction=True, include_seconds=True):
     """Return a formatted string for the given duration in seconds.
 
     conjunction=False joins every part with a comma instead of trailing "and",
     for callers that want a list rather than a sentence.
+
+    include_seconds=False rounds to the nearest minute and drops the seconds
+    part, for summaries where second-level precision is just noise. Durations
+    under a minute keep their seconds regardless: "0 minutes" says nothing.
     """
+    if not include_seconds and total_seconds >= 60:
+        # Round before decomposing so a carry rolls up through the units:
+        # 3599 becomes "1 hour", not "60 minutes".
+        total_seconds = round(total_seconds / 60) * 60
+
     days, remainder = divmod(total_seconds, 86400)
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
@@ -968,7 +1075,7 @@ def format_time(total_seconds, conjunction=True):
     if minutes:
         parts.append(f"{minutes} minute" if minutes == 1 else f"{minutes} minutes")
 
-    if seconds or not parts:
+    if (seconds and include_seconds) or not parts:
         parts.append(f"{seconds} second" if seconds == 1 else f"{seconds} seconds")
 
     # Handle natural language joining

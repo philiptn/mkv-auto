@@ -19,7 +19,7 @@ from modules.encode_estimator import (
     ETA_CALIB_CLAMP,
     EncodeEstimator,
 )
-from modules.misc import format_duration_short, format_time
+from modules.misc import OversizeWarning, format_duration_short, format_time
 
 HD = (1920, 1080)
 UHD = (3840, 2160)
@@ -382,3 +382,87 @@ def test_format_time_join_styles(seconds, with_and, with_commas):
     assert format_time(seconds) == with_and
     assert format_time(seconds, conjunction=True) == with_and
     assert format_time(seconds, conjunction=False) == with_commas
+
+
+@pytest.mark.parametrize("seconds,expected", [
+    (0, "0 seconds"),
+    (19, "19 seconds"),
+    (59, "59 seconds"),          # under a minute keeps seconds: "0 minutes" says nothing
+    (61, "1 minute"),
+    (3599, "1 hour"),            # rounding carries up through the units
+    (6619, "1 hour, 50 minutes"),
+    (6645, "1 hour, 51 minutes"),
+    (144133, "1 day, 16 hours, 2 minutes"),
+])
+def test_format_time_without_seconds(seconds, expected):
+    # The encoder summary drops seconds; second-level precision on an hours-long
+    # encode is noise.
+    assert format_time(seconds, conjunction=False, include_seconds=False) == expected
+
+
+def test_format_time_flags_compose():
+    assert format_time(6619, include_seconds=False) == "1 hour and 50 minutes"
+
+
+# ----------------------------------------------------------------------
+# OversizeWarning — the live "this encode is growing" chip
+#
+# update() is driven with an explicit `now` so the once-a-second sampling gate
+# is deterministic; each tick below is one second and one render.
+# ----------------------------------------------------------------------
+
+def feed(warning, raw, ticks, start=1000.0):
+    """Render `ticks` successive seconds at a steady reading; return the last chip."""
+    out = ""
+    for i in range(ticks):
+        out = warning.update(raw, now=start + i)
+    return out
+
+
+def test_shrinking_encode_shows_nothing():
+    # The expected outcome, and the whole point of the chip: it stays silent.
+    w = OversizeWarning()
+    assert feed(w, 35.0, 30) == ""
+
+
+def test_sustained_growth_warns():
+    w = OversizeWarning()
+    assert feed(w, -8.0, 30) == "~8% BIGGER "
+
+
+def test_growth_below_the_threshold_stays_silent():
+    # 3% over is within the noise an encoder wanders through; not worth a chip.
+    w = OversizeWarning()
+    assert feed(w, -3.0, 30) == ""
+
+
+def test_warning_holds_through_the_hysteresis_band():
+    w = OversizeWarning()
+    assert feed(w, -8.0, 30) != ""
+    # Recovering to 4.5% over is above the show threshold but not yet clear of
+    # the hide threshold, so the chip must not blink off.
+    assert feed(w, -4.5, 60, start=2000.0).endswith("BIGGER ")
+
+
+def test_warning_clears_once_growth_recedes():
+    w = OversizeWarning()
+    assert feed(w, -8.0, 30) != ""
+    assert feed(w, -2.0, 60, start=2000.0) == ""
+
+
+def test_no_reading_renders_nothing_and_keeps_state():
+    w = OversizeWarning()
+    assert feed(w, -8.0, 30) != ""
+    assert w.update(None) == ""
+    # The gap left no mark: the next real reading picks up where it left off.
+    assert w.update(-8.0, now=1100.0) == "~8% BIGGER "
+
+
+def test_a_burst_of_renders_within_one_second_samples_once():
+    # The spinner redraws far faster than once a second; a spike arriving in
+    # that window must not be able to stuff the median window with itself.
+    w = OversizeWarning()
+    feed(w, -8.0, 30)
+    for _ in range(100):
+        chip = w.update(50.0, now=1029.0)
+    assert chip.endswith("BIGGER ")
