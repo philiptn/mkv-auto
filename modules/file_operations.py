@@ -370,6 +370,10 @@ def resolve_output_target(logger, debug, input_file_path, output_folder, relativ
     new_folders_str = original_restored_filename
     full_info = {}
     full_info_found = False
+    # Whether a TVMaze lookup was actually attempted. full_info_found alone
+    # cannot tell "the lookup failed" from "no lookup was needed" - movies and
+    # unrecognised files never look anything up, so they always report False.
+    metadata_lookup_attempted = False
     is_extra = False
     extra_is_hdr = False
     extra_is_4k = False
@@ -426,6 +430,7 @@ def resolve_output_target(logger, debug, input_file_path, output_folder, relativ
             restored_filename = restored_filename.strip('4K - ')
         if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
             if normalize_filenames.lower() in ('full', 'full-jf'):
+                metadata_lookup_attempted = True
                 full_info = get_tv_episode_metadata(logger, debug, f"{media_name}{sep}S01E01")
                 if full_info:
                     additional_info = ''
@@ -474,6 +479,7 @@ def resolve_output_target(logger, debug, input_file_path, output_folder, relativ
                 show_name_format = media_name
                 if normalize_filenames.lower() in ('full', 'full-jf', 'simple', 'simple-jf'):
                     if normalize_filenames.lower() in ('full', 'full-jf'):
+                        metadata_lookup_attempted = True
                         full_info = get_tv_episode_metadata(logger, debug, f"{media_name}{sep}S{formatted_season}{episode_list}")
                         # If no match, try to get show name only using S01E01
                         if not full_info or not full_info.get('episode_title'):
@@ -561,12 +567,19 @@ def resolve_output_target(logger, debug, input_file_path, output_folder, relativ
 
     output_path = os.path.join(output_folder, new_folders, restored_filename)
 
+    # With the original structure kept, the destination is just the input path -
+    # no lookup can change it, so a failed one does not make the answer unsafe.
+    if keep_original_file_structure == 'true':
+        metadata_lookup_attempted = False
+
     return {
         "output_folder": new_folders,
         "restored_filename": restored_filename,
         "output_path": output_path,
         "media_name": media_name,
+        "media_type": media_type,
         "full_info_found": full_info_found,
+        "metadata_lookup_attempted": metadata_lookup_attempted,
         "is_extra": is_extra,
     }
 

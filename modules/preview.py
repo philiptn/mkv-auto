@@ -120,4 +120,15 @@ def preview_output_target(logger, debug, relative_path, output_folder):
     target['previewed_name'] = name
     target['relative_path'] = os.path.join(
         target['output_folder'], target['restored_filename'])
+
+    # One unambiguous answer to "could the real run land somewhere else?".
+    # full_info_found on its own cannot say: it is only ever set by the TV show
+    # branches, so a movie - which looks nothing up - always reports False.
+    if not target['metadata_lookup_attempted']:
+        target['metadata_lookup'] = 'not-required'
+    elif target['full_info_found']:
+        target['metadata_lookup'] = 'ok'
+    else:
+        target['metadata_lookup'] = 'failed'
+
     return target

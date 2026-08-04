@@ -397,10 +397,11 @@ class LiveCopyManager:
             self._skip(key, seconds=self._interval * 3)
             return None
 
-        # Under NORMALIZE_FILENAMES=full a failed TVMaze lookup means the real
-        # run may well settle on a different name, which would leave the live
-        # copy behind as a duplicate.
-        if answer.get('full_info_found') is False and _is_full_mode(answer):
+        # A TV episode whose TVMaze lookup failed may well be named differently
+        # by the real run, which would leave the live copy behind as a duplicate.
+        # Only 'failed' means that: movies and unrecognised files never look
+        # anything up and report 'not-required'.
+        if answer.get('metadata_lookup') == 'failed':
             self._log.warning(
                 f"⚠️ Skipping live copy of '{basename}': MKV-Auto could not look "
                 f"up its metadata, so the final name is not yet certain")
@@ -652,15 +653,6 @@ class LiveCopyManager:
                 self._stop_jobs(torrent_hash, delete=False, reason="no longer downloading")
             else:
                 self._stop_jobs(torrent_hash, delete=True, reason="torrent removed")
-
-
-def _is_full_mode(answer):
-    """Whether the answer came from a NORMALIZE_FILENAMES=full resolution.
-
-    Only 'full'/'full-jf' populate episode titles, so full_info_found is the
-    meaningful signal there; in the other modes it is always False.
-    """
-    return answer.get('normalize_filenames', '').lower() in ('full', 'full-jf')
 
 
 def _read_json(path):

@@ -211,6 +211,51 @@ def test_empty_or_directory_paths_are_rejected(bad):
         _preview(bad)
 
 
+# --- metadata_lookup: is the predicted name trustworthy? ----------------------
+#
+# The live copier writes a still-downloading file to the predicted path, so it
+# must know when a real run could settle on a different name. full_info_found
+# cannot answer that on its own: only the TV branches ever set it, so a movie -
+# which looks nothing up - always reports False and would be skipped forever.
+
+def test_media_that_looks_nothing_up_is_not_required(monkeypatch):
+    """Movies take their name from the filename; no lookup is involved."""
+    fo.config["general"]["normalize_filenames"] = "full"
+    assert _preview("Some.Movie.2019.2160p.mkv")["metadata_lookup"] == "not-required"
+    assert _preview("Random unrecognisable thing.mkv")["metadata_lookup"] == "not-required"
+
+
+def test_simple_mode_never_looks_anything_up():
+    fo.config["general"]["normalize_filenames"] = "simple"
+    assert _preview("Some.Show.S01E02.1080p.mkv")["metadata_lookup"] == "not-required"
+
+
+def test_keeping_the_original_structure_makes_the_lookup_irrelevant(monkeypatch):
+    """The destination is the input path, so a failed lookup cannot move it."""
+    fo.config["general"]["normalize_filenames"] = "full"
+    fo.config["general"]["keep_original_file_structure"] = "true"
+    monkeypatch.setattr(fo, "get_tv_episode_metadata", lambda *a, **k: {})
+    result = _preview("Pack/Some.Show.S01E02.1080p.mkv")
+    assert result["metadata_lookup"] == "not-required"
+
+
+def test_a_failed_episode_lookup_is_reported_as_failed(monkeypatch):
+    fo.config["general"]["normalize_filenames"] = "full"
+    monkeypatch.setattr(fo, "get_tv_episode_metadata", lambda *a, **k: {})
+    result = _preview("Some.Show.S01E02.1080p.mkv")
+    assert result["metadata_lookup"] == "failed"
+    assert result["full_info_found"] is False
+
+
+def test_a_successful_episode_lookup_is_reported_as_ok(monkeypatch):
+    fo.config["general"]["normalize_filenames"] = "full"
+    monkeypatch.setattr(fo, "get_tv_episode_metadata", lambda *a, **k: {
+        "show_name": "Some Show", "show_year": "2019", "episode_title": "Pilot"})
+    result = _preview("Some.Show.S01E02.1080p.mkv")
+    assert result["metadata_lookup"] == "ok"
+    assert result["restored_filename"] == "Some Show (2019) - S01E02 - Pilot.mkv"
+
+
 # --- the transport folder must survive a processing run -----------------------
 
 def test_remove_empty_dirs_leaves_dot_directories_alone(tmp_path):
