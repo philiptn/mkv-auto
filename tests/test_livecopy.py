@@ -190,6 +190,60 @@ def test_torrent_relative_names_split_on_both_separators(name, expected):
     assert split_torrent_relative(name) == expected
 
 
+@pytest.mark.parametrize("path,expected", [
+    # A Windows qBittorrent sends backslashes, which os.path.dirname on Linux
+    # does not split on at all.
+    (r"Z:\torrents\Pack", r"Z:\torrents"),
+    (r"\\server\share\Pack", r"\\server\share"),
+    ("/media/share/torrents/Pack", "/media/share/torrents"),
+    ("Pack", None),
+    ("", None),
+])
+def test_parent_path_handles_both_separators(path, expected):
+    assert livecopy.parent_path(path) == expected
+
+
+def test_windows_content_path_yields_a_usable_root():
+    """Regression: dirname() left the content_path root empty, so the fallback
+    silently produced candidates rooted at the current directory."""
+    manager = livecopy.LiveCopyManager.__new__(livecopy.LiveCopyManager)
+    manager._translated = {}
+    manager._translate = lambda path, mappings: path.replace("\\", "/")
+
+    candidates = manager._source_candidates(
+        {"save_path": r"Z:\torrents", "content_path": r"Z:\torrents\Pack"},
+        {"name": r"Pack\ep.mkv"}, {})
+
+    assert candidates
+    assert all(c.startswith("Z:/torrents/") for c in candidates), candidates
+
+
+def test_translation_is_cached_across_ticks():
+    """tick() re-derives every job's sources each pass; without a cache that
+    repeats the work and spams a 'Translated ...' line every interval."""
+    manager = livecopy.LiveCopyManager.__new__(livecopy.LiveCopyManager)
+    manager._translated = {}
+    seen = []
+
+    def translate(path, mappings):
+        seen.append(path)
+        return path
+
+    manager._translate = translate
+    torrent = {"save_path": "/dl", "download_path": "/incomplete",
+               "content_path": "/dl/Pack"}
+    entry = {"name": "Pack/ep.mkv"}
+
+    for _ in range(5):
+        manager._source_candidates(torrent, entry, {})
+    # Three roots, but content_path's parent is save_path, so two distinct ones.
+    assert sorted(seen) == ["/dl", "/incomplete"]
+
+    # A changed mapping table must not be served from the cache.
+    manager._source_candidates(torrent, entry, {"a": "b"})
+    assert sorted(seen) == ["/dl", "/dl", "/incomplete", "/incomplete"]
+
+
 EXTENSIONS = ('.mkv', '.mp4')
 BIG = 500 * 1024 ** 2
 

@@ -113,6 +113,17 @@ def split_torrent_relative(name):
     return [part for part in re.split(r'[\\/]', name) if part not in ('', '.')]
 
 
+def parent_path(path):
+    """dirname() that also understands Windows separators.
+
+    qBittorrent reports paths as its own host sees them, so a Windows client
+    sends 'Z:\\torrents\\Pack' - which os.path.dirname on Linux does not split
+    at all, returning ''. Returns None when there is no parent to take.
+    """
+    index = max(path.rfind('/'), path.rfind('\\'))
+    return path[:index] if index > 0 else None
+
+
 def is_live_copyable(basename, min_size, size, extensions):
     """Whether a torrent file is eligible for live copy.
 
@@ -257,6 +268,7 @@ class LiveCopyManager:
         self._executor = ThreadPoolExecutor(max_workers=max_workers,
                                             thread_name_prefix='livecopy')
         self._jobs = {}
+        self._translated = {}
         self._skip_until = {}
         self._next_tick = 0.0
         self._shutting_down = threading.Event()
@@ -441,6 +453,23 @@ class LiveCopyManager:
 
     # -- source location -------------------------------------------------------
 
+    def _translate_root(self, root, mappings):
+        """Translate a root path, remembering the answer.
+
+        tick() re-derives every job's source paths on every pass, so without a
+        cache this repeats the same work - and the same "Translated ..." log
+        line - for every file, every interval. Returns None when no mapping
+        applies. Keyed on the mapping table too, so editing drive-mappings.txt
+        while running still takes effect.
+        """
+        key = (root, tuple(sorted(mappings.items())))
+        if key not in self._translated:
+            try:
+                self._translated[key] = self._translate(root, mappings)
+            except Exception:
+                self._translated[key] = None
+        return self._translated[key]
+
     def _source_candidates(self, torrent, entry, mappings):
         """On-disk paths to try for an in-progress file, best first."""
         parts = split_torrent_relative(entry['name'])
@@ -453,18 +482,21 @@ class LiveCopyManager:
             if value:
                 roots.append(value)
 
+        # content_path tracks where the data currently is, so it is the best
+        # hint after a move - but it points at the file for a single-file
+        # torrent and at the root folder otherwise.
         content_path = torrent.get('content_path')
         if content_path:
-            roots.append(content_path if len(parts) == 1
-                         else os.path.dirname(content_path))
+            root = content_path if len(parts) == 1 else parent_path(content_path)
+            if root:
+                roots.append(root)
 
         candidates = []
         for root in roots:
-            try:
-                # Translate the root, not the joined path: the mapping table is
-                # prefix-based and the relative part carries no drive letter.
-                translated = self._translate(root, mappings)
-            except Exception:
+            # Translate the root, not the joined path: the mapping table is
+            # prefix-based and the relative part carries no drive letter.
+            translated = self._translate_root(root, mappings)
+            if translated is None:
                 continue
             path = os.path.join(translated, *parts)
             # ".!qB" first while incomplete - that is the live copy's whole point.
