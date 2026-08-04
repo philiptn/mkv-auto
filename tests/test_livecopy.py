@@ -426,35 +426,84 @@ def _load_automation(monkeypatch, env):
     return module
 
 
-def test_folder_maps_expand_variables(monkeypatch):
+def test_each_tag_carries_its_own_input_and_output(monkeypatch):
+    """Several MKV-Auto instances, each live copying to its own output folder."""
     module = _load_automation(monkeypatch, {
-        "MKV_AUTO_INPUT_FOLDER": "/srv/mkv/input",
-        "MKV_AUTO_OUTPUT_FOLDER": "/srv/mkv/output",
-        "TARGETS": '{"mkv-auto": "$MKV_AUTO_INPUT_FOLDER"}',
-        "LIVE_COPY_OUTPUTS": '{"mkv-auto": "${MKV_AUTO_OUTPUT_FOLDER}"}',
+        "TARGETS": '{"mkv-auto": {"input": "/srv/mkv/input",'
+                   '              "output": "/srv/mkv/output/"},'
+                   ' "H.265":    {"input": "/srv/enc/input",'
+                   '              "output": "/srv/enc/output"}}',
     })
-    assert module.TARGETS == {"mkv-auto": "/srv/mkv/input"}
-    assert module.LIVE_COPY_OUTPUTS == {"mkv-auto": "/srv/mkv/output"}
+    assert module.TARGETS == {
+        "mkv-auto": {"input": "/srv/mkv/input", "output": "/srv/mkv/output"},
+        "H.265": {"input": "/srv/enc/input", "output": "/srv/enc/output"},
+    }
     assert module.resolve_queue_dir("mkv-auto") == "/srv/mkv/input/.mkv-auto-resolve"
+    assert module.resolve_queue_dir("H.265") == "/srv/enc/input/.mkv-auto-resolve"
 
 
-def test_folder_maps_still_accept_literal_paths(monkeypatch):
-    """Existing deployments write the paths out in full."""
+def test_a_bare_string_is_still_accepted_as_the_input_folder(monkeypatch):
+    """The original format, which existing deployments have in their .env."""
     module = _load_automation(monkeypatch, {
         "TARGETS": '{"mkv-auto": "/plain/input", "H.265": "/other/input"}',
     })
-    assert module.TARGETS == {"mkv-auto": "/plain/input", "H.265": "/other/input"}
+    assert module.TARGETS == {
+        "mkv-auto": {"input": "/plain/input", "output": None},
+        "H.265": {"input": "/other/input", "output": None},
+    }
 
 
-def test_undefined_variables_are_dropped_not_used_literally(monkeypatch):
-    """expandvars leaves unknown names alone, which would otherwise create a
-    directory named '$MKV_AUTO_OUTPUT_FOLDER'."""
+def test_output_is_optional_per_tag(monkeypatch):
+    """Live copy is opt-in per instance: no output folder, no live copy."""
     module = _load_automation(monkeypatch, {
-        "TARGETS": '{"good": "/plain/input", "bad": "$NOT_SET_ANYWHERE"}',
+        "TARGETS": '{"live": {"input": "/a/input", "output": "/a/output"},'
+                   ' "plain": {"input": "/b/input"}}',
     })
-    assert module.TARGETS == {"good": "/plain/input"}
+    assert module.TARGETS["live"]["output"] == "/a/output"
+    assert module.TARGETS["plain"]["output"] is None
 
 
-def test_malformed_folder_maps_do_not_crash_startup(monkeypatch):
-    module = _load_automation(monkeypatch, {"TARGETS": "not json at all"})
-    assert module.TARGETS == {}
+def test_an_output_that_is_also_an_input_is_refused(monkeypatch):
+    """It would be picked up as new media and reprocessed forever."""
+    module = _load_automation(monkeypatch, {
+        "TARGETS": '{"mkv-auto": {"input": "/same", "output": "/same"}}',
+    })
+    assert module.TARGETS["mkv-auto"]["output"] is None
+
+
+def test_an_output_matching_another_tags_input_is_refused(monkeypatch, tmp_path):
+    """Same loop, one instance removed - only caught once all tags are known."""
+    module = _load_automation(monkeypatch, {
+        "LIVE_COPY": "true",
+        "TARGETS": '{"a": {"input": "/in/a", "output": "/in/b"},'
+                   ' "b": {"input": "/in/b"}}',
+    })
+    assert module.build_live_copy_manager() is None
+
+
+def test_a_tag_without_an_input_folder_is_dropped(monkeypatch):
+    module = _load_automation(monkeypatch, {
+        "TARGETS": '{"good": "/plain/input", "bad": {"output": "/only/output"}}',
+    })
+    assert list(module.TARGETS) == ["good"]
+
+
+def test_malformed_targets_do_not_crash_startup(monkeypatch):
+    assert _load_automation(monkeypatch, {"TARGETS": "not json at all"}).TARGETS == {}
+    assert _load_automation(monkeypatch, {"TARGETS": '{"tag": 42}'}).TARGETS == {}
+
+
+def test_live_copy_covers_every_tag_that_defines_an_output(monkeypatch, tmp_path):
+    module = _load_automation(monkeypatch, {
+        "LIVE_COPY": "true",
+        "TARGETS": f'{{"a": {{"input": "{tmp_path}/a/in", "output": "{tmp_path}/a/out"}},'
+                   f' "b": {{"input": "{tmp_path}/b/in", "output": "{tmp_path}/b/out"}},'
+                   f' "c": {{"input": "{tmp_path}/c/in"}}}}',
+        "LIVE_COPY_STATE_DIR": str(tmp_path / "state"),
+    })
+    manager = module.build_live_copy_manager()
+    try:
+        assert sorted(manager._outputs) == ["a", "b"]
+        assert manager._outputs["b"] == f"{tmp_path}/b/out"
+    finally:
+        manager.shutdown()

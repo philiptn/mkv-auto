@@ -30,39 +30,63 @@ logging.basicConfig(
 
 log = logging.getLogger()
 
-def parse_folder_map(name, description):
-    """Parse a JSON tag -> folder env variable, expanding $VARIABLE in the values.
+TARGET_KEYS = ('input', 'output')
 
-    docker-compose cannot read these maps to build its volume mounts, so the
-    folders have to be named there too. Expanding variables here means a path is
-    written once, as an env variable compose can also use, instead of being
-    repeated and drifting out of sync.
+
+def parse_targets():
+    """Parse TARGETS into {tag: {'input': folder, 'output': folder or None}}.
+
+    TARGETS is the only place folders are configured. Each tag describes one
+    MKV-Auto instance, and there can be as many as you like:
+
+        {"mkv-auto": {"input": "/srv/mkv/input", "output": "/srv/mkv/output"}}
+
+    'output' is what enables live copy for that tag, so every instance live
+    copies to its own output folder. A bare string is accepted as shorthand for
+    {"input": <string>}, which is the original format.
     """
     try:
-        parsed = json.loads(os.getenv(name, "{}"))
+        parsed = json.loads(os.getenv("TARGETS", "{}"))
         if not isinstance(parsed, dict):
-            raise ValueError(f"{name} must be a JSON object mapping tags to {description}.")
+            raise ValueError("TARGETS must be a JSON object mapping tags to folders.")
     except Exception as e:
-        log.error(f"❌ Failed to parse {name} env variable: {e}")
+        log.error(f"❌ Failed to parse TARGETS env variable: {e}")
         return {}
 
-    expanded = {}
-    for tag, folder in parsed.items():
-        folder = os.path.expandvars(str(folder))
-        if '$' in folder:
-            # expandvars leaves unknown names untouched, which would otherwise
-            # become a literal directory called '$MKV_AUTO_OUTPUT_FOLDER'.
-            log.error(f"❌ {name}['{tag}'] refers to an undefined variable: {folder}")
+    targets = {}
+    for tag, spec in parsed.items():
+        if isinstance(spec, str):
+            spec = {'input': spec}
+        if not isinstance(spec, dict):
+            log.error(f"❌ TARGETS['{tag}'] must be a folder path or an object, skipping.")
             continue
-        expanded[tag] = folder
-    return expanded
+
+        unknown = [key for key in spec if key not in TARGET_KEYS]
+        if unknown:
+            log.warning(f"⚠️ Ignoring unknown key(s) in TARGETS['{tag}']: {unknown}")
+
+        entry = {key: (str(spec[key]).rstrip('/') or None) if spec.get(key) else None
+                 for key in TARGET_KEYS}
+
+        if not entry['input']:
+            log.error(f"❌ TARGETS['{tag}'] has no usable 'input' folder, skipping.")
+            continue
+
+        if entry['input'] == entry['output']:
+            log.error(f"❌ TARGETS['{tag}'] uses the same folder for input and output. "
+                      f"A live copy landing in the input folder would be reprocessed "
+                      f"forever - ignoring its output folder.")
+            entry['output'] = None
+
+        targets[tag] = entry
+    return targets
 
 
 # === Environment variables ===
 QBITTORRENT_URL = os.getenv('QBITTORRENT_URL', '').rstrip('/')
 QBITTORRENT_USERNAME = os.getenv('QBITTORRENT_USERNAME')
 QBITTORRENT_PASSWORD = os.getenv('QBITTORRENT_PASSWORD')
-TARGETS = parse_folder_map("TARGETS", "destination folders")
+TARGETS = parse_targets()
 
 TARGET_TAGS = list(TARGETS.keys())
 DONE_TAG = os.getenv('DONE_TAG', '✔')
@@ -73,7 +97,6 @@ TRANSLATE_WINDOWS_PATHS = os.getenv('TRANSLATE_WINDOWS_PATHS', 'false').lower() 
 # === Sequential live copy ===
 LIVE_COPY = os.getenv('LIVE_COPY', 'false').lower() == 'true'
 LIVE_COPY_SET_SEQUENTIAL = os.getenv('LIVE_COPY_SET_SEQUENTIAL', 'true').lower() == 'true'
-LIVE_COPY_OUTPUTS = parse_folder_map("LIVE_COPY_OUTPUTS", "output folders")
 
 LIVE_COPY_RESOLVE_DIR = os.getenv('LIVE_COPY_RESOLVE_DIR') or ''
 LIVE_COPY_RESOLVE_TIMEOUT = float(os.getenv('LIVE_COPY_RESOLVE_TIMEOUT', '120'))
@@ -234,7 +257,7 @@ def copy_torrent_content(torrent, mappings):
             log.warning(f"⚠️ No matching tag in TARGETS for torrent '{torrent['name']}', skipping.")
             return -1
 
-        destination_folder = TARGETS[matched_tag]
+        destination_folder = TARGETS[matched_tag]['input']
         final_destination = os.path.join(destination_folder, torrent['name'])
 
         base = os.path.basename(final_destination)
@@ -371,7 +394,7 @@ def resolve_queue_dir(tag):
     """Folder where MKV-Auto's resolve worker answers lookups for this tag."""
     if LIVE_COPY_RESOLVE_DIR:
         return LIVE_COPY_RESOLVE_DIR
-    return os.path.join(TARGETS[tag], RESOLVE_QUEUE_DIRNAME)
+    return os.path.join(TARGETS[tag]['input'], RESOLVE_QUEUE_DIRNAME)
 
 
 def build_live_copy_manager():
@@ -379,25 +402,21 @@ def build_live_copy_manager():
     if not LIVE_COPY:
         return None
 
-    if not LIVE_COPY_OUTPUTS:
-        log.error("❌ LIVE_COPY is enabled but LIVE_COPY_OUTPUTS is empty. Disabling live copy.")
+    configured = {tag: entry['output'] for tag, entry in TARGETS.items()
+                  if entry['output']}
+    if not configured:
+        log.error("❌ LIVE_COPY is enabled but no TARGETS entry has an 'output' folder. "
+                  "Disabling live copy.")
         return None
 
-    unknown = [tag for tag in LIVE_COPY_OUTPUTS if tag not in TARGETS]
-    if unknown:
-        log.warning(f"⚠️ LIVE_COPY_OUTPUTS tags not present in TARGETS, ignoring: {unknown}")
-
-    # A live copy landing in an input folder would be picked up as new media and
-    # reprocessed forever.
-    overlap = set(LIVE_COPY_OUTPUTS.values()) & set(TARGETS.values())
-    if overlap:
-        log.error(f"❌ LIVE_COPY_OUTPUTS must not point at a TARGETS input folder: {overlap}. "
-                  f"Disabling live copy.")
-        return None
-
+    # A live copy landing in any input folder would be picked up as new media and
+    # reprocessed forever - including another tag's input folder.
+    inputs = {entry['input'] for entry in TARGETS.values()}
     outputs = {}
-    for tag, folder in LIVE_COPY_OUTPUTS.items():
-        if tag not in TARGETS:
+    for tag, folder in configured.items():
+        if folder in inputs:
+            log.error(f"❌ Live copy for tag '{tag}' disabled: its output folder "
+                      f"'{folder}' is also a TARGETS input folder.")
             continue
         try:
             os.makedirs(folder, exist_ok=True)
@@ -409,6 +428,9 @@ def build_live_copy_manager():
 
     if not outputs:
         return None
+
+    log.info(f"📡 Live copying {len(outputs)} of {len(TARGETS)} tag(s): "
+             f"{', '.join(sorted(outputs))}")
 
     resolver = QueueResolver(resolve_queue_dir, LIVE_COPY_RESOLVE_TIMEOUT, log)
     return LiveCopyManager(
@@ -436,7 +458,6 @@ def main():
     log.info(f"🧩 TRANSLATE_WINDOWS_PATHS = {TRANSLATE_WINDOWS_PATHS}")
     log.info(f"📡 LIVE_COPY = {LIVE_COPY}")
     if LIVE_COPY:
-        log.info(f"📡 LIVE_COPY_OUTPUTS = {json.dumps(LIVE_COPY_OUTPUTS, indent=2)}")
         log.info(f"📡 LIVE_COPY_SET_SEQUENTIAL = {LIVE_COPY_SET_SEQUENTIAL}")
         log.info(f"📡 LIVE_COPY_MIN_SIZE_MB = {LIVE_COPY_MIN_SIZE_MB}")
     log.info("")

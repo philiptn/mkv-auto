@@ -140,50 +140,23 @@ The live copy is a placeholder. When the torrent finishes, the normal flow still
 To enable it:
 
 1. In the **MKV-Auto service** `.env`, set `RESOLVE_WORKER=true` and recreate the container. This starts a small worker that answers "where would this file end up?" questions.
-2. In the **qbittorrent-automation** `.env`, set `LIVE_COPY=true` and fill in `LIVE_COPY_OUTPUTS` — the same tags as `TARGETS`, mapped to that instance's **output** folder.
-3. Add the output folder as a 1:1 volume mount in `docker-compose.yml` (`${MKV_AUTO_OUTPUT_FOLDER}:${MKV_AUTO_OUTPUT_FOLDER}`).
-
-   Folder paths are needed both by the tag maps and by the volume mounts, and Docker Compose cannot read the JSON maps to generate mounts. To avoid writing a path twice, `$VARIABLES` are expanded inside `TARGETS` and `LIVE_COPY_OUTPUTS`, so each folder is defined once:
+2. In the **qbittorrent-automation** `.env`, set `LIVE_COPY=true` and give each tag in `TARGETS` an `output` folder. `TARGETS` is the only place folders are configured, and every tag that has an `output` gets live copied — so any number of MKV-Auto instances, each with its own input and output, work side by side:
 
    ````bash
-   MKV_AUTO_INPUT_FOLDER=/home/philip/mkv-auto-service/input
-   MKV_AUTO_OUTPUT_FOLDER=/home/philip/mkv-auto-service/output
-
-   TARGETS='{"mkv-auto": "$MKV_AUTO_INPUT_FOLDER"}'
-   LIVE_COPY_OUTPUTS='{"mkv-auto": "$MKV_AUTO_OUTPUT_FOLDER"}'
+   TARGETS='{"mkv-auto": {"input": "/home/philip/mkv-auto-service/input", "output": "/home/philip/mkv-auto-service/output"}, "H.265": {"input": "/home/philip/mkv-auto-encoder/input", "output": "/home/philip/mkv-auto-encoder/output"}, "eos": {"input": "/home/philip/mkv-auto-eos/input"}}'
    ````
 
-   Full paths still work if you prefer them, which is what extra MKV-Auto instances need — just remember to add a matching 1:1 mount for each.
+   `output` is optional — the `eos` tag above is processed normally, it just isn't live copied. A bare string (`{"mkv-auto": "/path/to/input"}`) is still accepted and means input only.
+
+3. Mount each instance folder 1:1 in `docker-compose.yml`. One line covers that instance's input, its output and its resolve queue:
+
+   ````yaml
+   - /home/philip/mkv-auto-service:/home/philip/mkv-auto-service
+   - /home/philip/mkv-auto-encoder:/home/philip/mkv-auto-encoder
+   ````
+
+   Compose cannot read `TARGETS`, so these have to be listed. If your instances share a parent folder you can mount that once instead.
 4. If you have set "Keep incomplete torrents in" in qBittorrent, mount that folder too — the live copy reads the in-progress file from there.
-
-No network port and no Docker socket are involved. The two services exchange requests through a hidden `.mkv-auto-resolve` folder inside the input folder they already share, so this works whether they run on the same machine or not. If the MKV-Auto service is unreachable the lookup simply times out, live copy is skipped, and the normal completed-torrent flow is unaffected.
-
-Because the destination comes from MKV-Auto itself, it always matches what a real run produces. A few things are deliberately excluded from live copy, because their final name cannot be known before the file is on disk:
-
-- **Extras and samples** (`-featurette`, `-trailer`, `*-sample`, ...) — MKV-Auto renames or deletes these based on the other files in the folder.
-- **Files under `LIVE_COPY_MIN_SIZE_MB`** (200 MB by default) and anything not in `LIVE_COPY_EXTENSIONS`.
-- **Anything whose metadata lookup failed** while `NORMALIZE_FILENAMES` is `full`, since the final name is not yet certain.
-
-One caveat: Dolby Vision is detected from the video stream during a real run, but only from the filename beforehand. A DV file whose name does not say so may end up live copied to a slightly different name than the processed output, leaving both in the library.
-
-If qBittorrent rechecks a torrent and re-downloads pieces that were already copied, the live copy is briefly wrong. It gets overwritten by the processed version when the torrent completes, so the final file is unaffected.
-
-If the two services are on different hosts and lookups feel slow, mount the shared folder with a lower `actimeo` — NFS can otherwise cache the absence of the response file for up to a minute.
-
-### Ask MKV-Auto where a file would end up
-
-`--resolve-path` prints the output path MKV-Auto would produce for an input file and exits. It does no processing, touches no files and writes no logs, so it is safe to call at any time:
-
-````bash
-python3 mkv-auto.py --resolve-path "Show.Name.S01E01.1080p.WEB.mkv" --relative
-# TV Shows/Show Name (2019)/Season 1/Show Name (2019) - S01E01 - Pilot.mkv
-
-# Or against a running service container, which uses that service's user.ini:
-docker exec mkv-auto-service python3 /mkv-auto/mkv-auto.py \
-    --resolve-path "Show.Name.S01E01.1080p.WEB.mkv" --relative
-````
-
-Add `--json` for the full result (folder, filename, media name, whether the metadata lookup succeeded). Without `--relative` the path is absolute, based on `--output_folder` or the configured output folder. The answer depends on `user.ini`, so run it against the same config as the instance you are asking about.
 
 ### Process files automatically on import (Service + Sonarr/Radarr integration)
 
