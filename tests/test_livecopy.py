@@ -493,6 +493,51 @@ def test_malformed_targets_do_not_crash_startup(monkeypatch):
     assert _load_automation(monkeypatch, {"TARGETS": '{"tag": 42}'}).TARGETS == {}
 
 
+# --- login ---------------------------------------------------------------------
+
+class _LoginResponse:
+    def __init__(self, status_code, text=""):
+        self.status_code = status_code
+        self.text = text
+        self.ok = 200 <= status_code < 300
+
+
+def _login_with(monkeypatch, response):
+    module = _load_automation(monkeypatch, {"TARGETS": '{"t": "/in"}'})
+    monkeypatch.setattr(module.session, "post", lambda *a, **k: response)
+    return module
+
+
+def test_login_accepts_204_from_qbittorrent_5_2(monkeypatch):
+    """5.2.0 answers a successful login with 204 No Content, not 200 'Ok.'."""
+    module = _login_with(monkeypatch, _LoginResponse(204))
+    module.login()
+
+
+def test_login_accepts_200_ok_from_older_qbittorrent(monkeypatch):
+    module = _login_with(monkeypatch, _LoginResponse(200, "Ok."))
+    module.login()
+
+
+def test_login_rejects_bad_credentials(monkeypatch):
+    """Wrong credentials are still 200, with the body 'Fails.'."""
+    module = _login_with(monkeypatch, _LoginResponse(200, "Fails."))
+    with pytest.raises(Exception, match="Fails."):
+        module.login()
+
+
+def test_login_reports_being_banned(monkeypatch):
+    module = _login_with(monkeypatch, _LoginResponse(403))
+    with pytest.raises(Exception, match="Banned"):
+        module.login()
+
+
+def test_login_rejects_other_errors(monkeypatch):
+    module = _login_with(monkeypatch, _LoginResponse(500, "boom"))
+    with pytest.raises(Exception, match="HTTP 500"):
+        module.login()
+
+
 def test_live_copy_covers_every_tag_that_defines_an_output(monkeypatch, tmp_path):
     module = _load_automation(monkeypatch, {
         "LIVE_COPY": "true",

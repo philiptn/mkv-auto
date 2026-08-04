@@ -150,11 +150,19 @@ def login():
             "password": QBITTORRENT_PASSWORD
         }, timeout=10)
 
-        if response.status_code != 200:
+        # qBittorrent 5.2.0 and later answer a successful login with
+        # "204 No Content"; earlier versions answer "200 Ok.". Bad credentials
+        # are still 200, with the body "Fails.".
+        if response.status_code == 204:
+            pass
+        elif response.status_code == 200:
+            if response.text.strip() != "Ok.":
+                raise Exception(f"Rejected by qBittorrent: {response.text.strip()}")
+        elif response.status_code == 403:
+            raise Exception("Banned by qBittorrent after too many failed login "
+                            "attempts. Restart qBittorrent or wait it out.")
+        else:
             raise Exception(f"HTTP {response.status_code} - {response.text}")
-
-        if response.text.strip() != "Ok.":
-            raise Exception(f"Unexpected response: {response.text}")
 
         log.info(f"✅ Successfully logged in to qBittorrent!\n")
 
@@ -332,7 +340,9 @@ def mark_torrent_done(torrent):
                 data={"hashes": torrent['hash'], "tags": ','.join(tags_to_remove)}
             )
 
-            if response.status_code == 200:
+            # .ok rather than == 200: qBittorrent 5.2.0 answers some endpoints
+            # with 204 No Content.
+            if response.ok:
                 log.info(f"✅ Removed {'tag' if len(tags_to_remove) == 1 else 'tags'} '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}")
             else:
                 log.error(f"❌ Failed to remove tags '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}: {response.status_code} - {response.text}")
@@ -346,7 +356,7 @@ def mark_torrent_done(torrent):
             data={"hashes": torrent['hash'], "tags": DONE_TAG}
         )
 
-        if response.status_code == 200:
+        if response.ok:
             log.info(f"✅ Added tag '{DONE_TAG}' to torrent {torrent['hash']}\n")
         else:
             log.error(f"❌ Failed to add tag '{DONE_TAG}' to torrent {torrent['hash']}: {response.status_code} - {response.text}")
@@ -367,7 +377,9 @@ def mark_torrent_failed(torrent):
                 data={"hashes": torrent['hash'], "tags": ','.join(tags_to_remove)}
             )
 
-            if response.status_code == 200:
+            # .ok rather than == 200: qBittorrent 5.2.0 answers some endpoints
+            # with 204 No Content.
+            if response.ok:
                 log.info(f"✅ Removed {'tag' if len(tags_to_remove) == 1 else 'tags'} '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}")
             else:
                 log.error(f"❌ Failed to remove tags '{', '.join(tags_to_remove)}' from torrent {torrent['hash']}: {response.status_code} - {response.text}")
@@ -381,7 +393,7 @@ def mark_torrent_failed(torrent):
             data={"hashes": torrent['hash'], "tags": FAILED_TAG}
         )
 
-        if response.status_code == 200:
+        if response.ok:
             log.info(f"✅ Added tag '{FAILED_TAG}' to torrent {torrent['hash']}\n")
         else:
             log.error(f"❌ Failed to add tag '{FAILED_TAG}' to torrent {torrent['hash']}: {response.status_code} - {response.text}")
