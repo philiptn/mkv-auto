@@ -390,9 +390,13 @@ def make_progress_line(progress, header, description, start_time, estimator=None
         cpu_str = f"CPU {temp:.0f}°C " if temp else ""
 
         # Absent until the estimator has something real to say — no placeholder
-        # while the first sample is still running.
+        # while the first sample is still running. Also absent once the batch
+        # is down to a single in-flight file with nothing pending behind it:
+        # the batch estimate then measures exactly what that worker's own chip
+        # already shows, so rendering both is just the same number twice.
         eta_str = ""
-        if estimator is not None:
+        last_file_in_flight = len(workers) == 1 and done + 1 >= total
+        if estimator is not None and not last_file_in_flight:
             eta = estimator.display_eta()
             if eta is not None:
                 eta_str = f"{format_duration_short(eta)} "
