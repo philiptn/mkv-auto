@@ -1380,7 +1380,8 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     copy_done = [0]
 
     def _copy_line():
-        return f"[ENCODER]{RESET} {copy_description} ({copy_done[0]}/{total_files}) "
+        metrics = system_metrics_chip(disk_paths=(dirpath, output_dir))
+        return f"[ENCODER]{metrics}{RESET} {copy_description} ({copy_done[0]}/{total_files}) "
 
     print()
     copy_spinner = ContinuousSpinner(interval=0.15)

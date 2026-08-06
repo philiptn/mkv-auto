@@ -89,6 +89,8 @@ def mkv_auto(args):
             shutil.rmtree(temp_dir)
         os.mkdir(temp_dir)
 
+    prime_system_metrics(disk_paths=(input_dir, temp_dir))
+
     total_files = count_files(input_dir)
 
     if total_files == 0:
@@ -103,9 +105,11 @@ def mkv_auto(args):
 
     try:
         if move_files:
-            print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file')
+            print_with_progress_files(logger, 0, total_files, header='INFO', description='Moving file',
+                                      disk_paths=(input_dir, temp_dir))
         else:
-            print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file')
+            print_with_progress_files(logger, 0, total_files, header='INFO', description='Copying file',
+                                      disk_paths=(input_dir, temp_dir))
 
         done_info = {'skipped_files': 0}
         total_files_input = 0

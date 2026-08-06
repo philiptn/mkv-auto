@@ -18,6 +18,7 @@ import base64
 import requests
 import math
 
+from modules import sysmetrics
 from modules.models import WorkingFile, SubtitleTrack, AudioTrack, AudioTrackCandidate, WantedAudioTracks
 
 # ANSI color codes
@@ -380,14 +381,53 @@ def render_worker_status_simple(progress, worker_id, progress_value):
     return f"{pct:.0f}% "
 
 
+def system_metrics_chip(show_cpu=False, disk_paths=None):
+    """Live CPU load or disk throughput, bracketed to sit beside the header.
+
+    A stage asks for one or the other — whichever it actually bottlenecks on —
+    so the line stays short and the figure on it is the one worth watching.
+    Rendered as "[↓1.2GB/s]" directly after "[MKVMERGE]" and, like the header,
+    inside the grey stretch that runs from the timestamp to the description —
+    so callers place it before their RESET, not after. It reads as part of the
+    banner rather than as a word in the description. Empty string when there is
+    nothing to show, which keeps the line byte-identical to what it was before
+    this existed.
+    """
+    if not check_config(config, 'general', 'show_system_metrics'):
+        return ""
+
+    if show_cpu:
+        chip = sysmetrics.cpu_chip()
+    elif disk_paths:
+        chip = sysmetrics.disk_chip(disk_paths)
+    else:
+        chip = ""
+
+    return f"[{chip}]" if chip else ""
+
+
+def prime_system_metrics(disk_paths=None):
+    """Start sampling before the first stage that renders a chip.
+
+    The first reading of a device is a baseline with no rate attached, so a
+    stage that only starts sampling when it starts rendering has nothing to
+    show for its first seconds — and the copy into TEMP is the very first thing
+    the run does. Called once at startup, this pays that cost up front.
+    """
+    system_metrics_chip(disk_paths=disk_paths)
+
+
 def make_progress_line(progress, header, description, start_time, estimator=None):
     oversize = OversizeWarning()
 
     def line():
         done, total, workers = progress.snapshot()
 
+        # The encoder's system metric is temperature rather than load: it runs
+        # the CPU flat out by definition, so how hot it is getting is the part
+        # worth watching. Bracketed beside the header like every other stage's.
         temp = get_cpu_temp_cached()
-        cpu_str = f"CPU {temp:.0f}°C " if temp else ""
+        temp_str = f"[CPU {temp:.0f}°C]" if temp else ""
 
         # Absent until the estimator has something real to say — no placeholder
         # while the first sample is still running. Also absent once the batch
@@ -413,8 +453,7 @@ def make_progress_line(progress, header, description, start_time, estimator=None
         )
 
         return (
-            f"[{header}]{RESET} "
-            + cpu_str
+            f"[{header}]{temp_str}{RESET} "
             + eta_str
             + oversize_str
             + workers_str
@@ -423,7 +462,7 @@ def make_progress_line(progress, header, description, start_time, estimator=None
     return line
 
 
-def make_progress_line_no_temp(progress, header, description, start_time):
+def make_progress_line_no_temp(progress, header, description, start_time, disk_paths=None):
     def line():
         done, total, workers = progress.snapshot()
         workers_str = "".join(
@@ -432,7 +471,7 @@ def make_progress_line_no_temp(progress, header, description, start_time):
         )
 
         return (
-            f"[{header}]{RESET} "
+            f"[{header}]{system_metrics_chip(disk_paths=disk_paths)}{RESET} "
             + f"{description} "
             + workers_str
             + f"({done}/{total}) "
@@ -669,7 +708,8 @@ def is_non_empty_file(filepath):
 
 
 # Function to print dynamic progress, only updating the last line
-def print_with_progress(logger, current, total, header, description="Processing"):
+def print_with_progress(logger, current, total, header, description="Processing",
+                        show_cpu=False, disk_paths=None):
     global SPINNER
     if current == 0:
         SPINNER = ContinuousSpinner()
@@ -677,7 +717,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
     def line_func():
         return (
-            f"[{header}]{RESET} "
+            f"[{header}]{system_metrics_chip(show_cpu, disk_paths)}{RESET} "
             f"{description} ({current}/{total}) "
         )
 
@@ -708,7 +748,8 @@ def print_with_progress(logger, current, total, header, description="Processing"
         logger.color(f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} {description} {DONE}{CHECK}{RESET}")
 
 
-def print_with_progress_files(logger, current, total, header, description="Processing"):
+def print_with_progress_files(logger, current, total, header, description="Processing",
+                              show_cpu=False, disk_paths=None):
     current_print = (current + 1) if current < total else current
     global SPINNER
     if current == 0:
@@ -716,7 +757,7 @@ def print_with_progress_files(logger, current, total, header, description="Proce
 
     def line_func():
         return (
-            f"[{header}]{RESET} "
+            f"[{header}]{system_metrics_chip(show_cpu, disk_paths)}{RESET} "
             f"{description} {current_print} of {total} "
         )
 
@@ -2153,6 +2194,7 @@ config = {
         'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults),
         'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true",
         'hide_cursor': get_config('general', 'HIDE_CURSOR', variables_defaults).lower() == "true",
+        'show_system_metrics': get_config('general', 'SHOW_SYSTEM_METRICS', variables_defaults).lower() == "true",
         'keep_original_file_structure': get_config('general', 'KEEP_ORIGINAL_FILE_STRUCTURE', variables_defaults),
         'remove_all_title_names': get_config('general', 'REMOVE_ALL_TITLE_NAMES', variables_defaults).lower() == "true",
         'make_season_folders': get_config('general', 'MAKE_SEASON_FOLDERS', variables_defaults).lower() == "true"

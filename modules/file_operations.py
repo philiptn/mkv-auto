@@ -53,7 +53,7 @@ def extract_archives(logger, input_folder):
     if total == 0:
         return
 
-    print_with_progress(logger, completed, total, header=header, description=description)
+    print_with_progress(logger, completed, total, header=header, description=description, disk_paths=input_folder)
 
     for root, archive_file in archives:
         archive_path = os.path.join(root, archive_file)
@@ -96,7 +96,8 @@ def extract_archives(logger, input_folder):
                             pass
 
             completed += 1
-            print_with_progress(logger, completed, total, header=header, description=description)
+            print_with_progress(logger, completed, total, header=header, description=description,
+                                disk_paths=input_folder)
 
         except Exception as e:
             try:
@@ -206,7 +207,8 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
                     shutil.move(s, d)
                     with file_counter_lock:
                         file_counter[0] += 1
-                        print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file')
+                        print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file',
+                                                  disk_paths=(source_directory, destination_directory))
                 else:
                     skipped_files_counter[0] += 1
 
@@ -283,7 +285,8 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
                     shutil.copy(s, d)
                     with file_counter_lock:
                         file_counter[0] += 1
-                        print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file')
+                        print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file',
+                                                  disk_paths=(source_directory, destination_directory))
                 else:
                     skipped_files_counter[0] += 1
 

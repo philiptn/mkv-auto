@@ -56,7 +56,7 @@ def convert_all_videos_to_mkv(logger, debug, input_folder, silent):
         return
 
     completed_count = 0
-    print_with_progress(logger, completed_count, total_files, header=header, description=description)
+    print_with_progress(logger, completed_count, total_files, header=header, description=description, show_cpu=True)
 
     for i, video_file in enumerate(video_files, start=1):
         if video_file.endswith('.mp4'):
@@ -71,7 +71,7 @@ def convert_all_videos_to_mkv(logger, debug, input_folder, silent):
             output_file = os.path.splitext(video_file)[0] + '.mkv'
             convert_video_to_mkv(debug, video_file, output_file)
         completed_count += 1
-        print_with_progress(logger, completed_count, total_files, header=header, description=description)
+        print_with_progress(logger, completed_count, total_files, header=header, description=description, show_cpu=True)
 
 
 def format_tracks_as_blocks(json_data, line_width=80):
@@ -425,7 +425,7 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
     description = "Filter audio tracks"
 
     # Initialize progress
-    print_with_progress(logger, 0, total_files, header=header, description=description)
+    print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
@@ -433,7 +433,8 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
                    index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            print_with_progress(logger, completed_count, total_files, header=header, description=description)
+            print_with_progress(logger, completed_count, total_files, header=header, description=description,
+                                disk_paths=dirpath)
             try:
                 index = futures[future]
                 needs_processing_audio, needs_processing_subs, missing_subs_langs = future.result()
@@ -527,7 +528,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
 
     if not disable_print:
         # Initialize progress
-        print_with_progress(logger, 0, total_files, header=header, description=description)
+        print_with_progress(logger, 0, total_files, header=header, description=description, show_cpu=True)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -536,7 +537,8 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
-                print_with_progress(logger, completed_count, total_files, header=header, description=description)
+                print_with_progress(logger, completed_count, total_files, header=header, description=description,
+                                    show_cpu=True)
             try:
                 index = futures[future]
                 ready_audio_tracks, ready_subtitle_tracks = future.result()
@@ -632,7 +634,7 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
 
     if not disable_print:
         # Initialize progress
-        print_with_progress(logger, 0, total_files, header=header, description=description)
+        print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -642,7 +644,8 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
-                print_with_progress(logger, completed_count, total_files, header=header, description=description)
+                print_with_progress(logger, completed_count, total_files, header=header, description=description,
+                                    disk_paths=dirpath)
             try:
                 index = futures[future]
                 subtitle_files = future.result()
@@ -993,7 +996,8 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     start_time = time.time()
 
     SPINNER = ContinuousSpinner()
-    SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description, start_time))
+    SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description, start_time,
+                                                     disk_paths=dirpath))
     SPINNER.start()
 
     results = {}
@@ -1690,7 +1694,7 @@ def repack_mkv_tracks_process(logger, debug, input_files, dirpath, audio_tracks_
     description = "Repack tracks into MKV"
 
     # Initialize progress
-    print_with_progress(logger, 0, total_files, header=header, description=description)
+    print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -1699,7 +1703,8 @@ def repack_mkv_tracks_process(logger, debug, input_files, dirpath, audio_tracks_
                             subtitle_tracks_list[index]): index for index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            print_with_progress(logger, completed_count, total_files, header=header, description=description)
+            print_with_progress(logger, completed_count, total_files, header=header, description=description,
+                                disk_paths=dirpath)
             try:
                 result = future.result()
             except Exception as e:
@@ -1950,7 +1955,8 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, origins, o
         description = f"Move {print_multi_or_single(total_files, 'file')} to destination folder"
 
     # Initialize progress
-    print_with_progress(logger, 0, total_files, header=header, description=description)
+    print_with_progress(logger, 0, total_files, header=header, description=description,
+                        disk_paths=(dirpath, output_dir))
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -1958,7 +1964,8 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, origins, o
                                    output_dir, resolved_targets.get(input_file)): index for index, input_file in enumerate(files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            print_with_progress(logger, completed_count, total_files, header=header, description=description)
+            print_with_progress(logger, completed_count, total_files, header=header, description=description,
+                                disk_paths=(dirpath, output_dir))
             try:
                 index = futures[future]
                 new_radarr_path, new_sonarr_path = future.result()
