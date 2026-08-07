@@ -1,6 +1,7 @@
 import subprocess
 import os
 import json
+import tempfile
 import concurrent.futures
 from tqdm import tqdm
 import re
@@ -326,9 +327,20 @@ def get_pan_filter_eos_plus(source_channels, layout):
         return None
 
 
+def is_copy_only_preference(transformation, codec):
+    """True when this preference is a stream copy rather than a real transcode.
+
+    Named so the batch ETA can agree exactly with the branch encode_single_preference
+    actually takes: a copy finishes almost instantly, so pricing it alongside real
+    transcodes would drag the estimator's cost median down.
+    """
+    return (codec == 'ORIG' and transformation is None) or codec == ''
+
+
 def encode_single_preference(audio_track, debug, transformation, codec, ch_str,
                              custom_ffmpeg_options, source_channels=None,
-                             source_layout=None):
+                             source_layout=None, duration=None, job=None,
+                             reporter=None):
     file = audio_track.path
     lang = audio_track.language
     extension = audio_track.extension
@@ -364,7 +376,7 @@ def encode_single_preference(audio_track, debug, transformation, codec, ch_str,
     track_name = audio_track.name.replace(" (Original)", "")
 
     # If original no transformation or empty, just copy
-    if codec == 'ORIG' and transformation is None or codec == '':
+    if is_copy_only_preference(transformation, codec):
         final_out_ext = extension
         # Opaque output path: identity/metadata is carried on the AudioTrack,
         # never encoded into (or parsed from) the filename.
@@ -394,6 +406,11 @@ def encode_single_preference(audio_track, debug, transformation, codec, ch_str,
                     pass
             else:
                 track_name = f"Original ({chosen_layout})"
+
+        # A copy carries no estimator record (see is_copy_only_preference), so
+        # `job` is None here and this only advances the visible counter.
+        if reporter is not None:
+            reporter.finish(job)
         return AudioTrack(path=final_out, track_id=unique_id, language=lang,
                           name=track_name, extension=final_out_ext)
 
@@ -515,21 +532,50 @@ def encode_single_preference(audio_track, debug, transformation, codec, ch_str,
         elif chosen_layout == 'Mono':
             ffmpeg_final_opts += ['-ac', '1']  # Use automatic downmixing
 
-    final_cmd = ["ffmpeg", "-i", file] + ffmpeg_final_opts + custom_ffmpeg_options + [final_out]
+    # -progress writes machine-readable counters to stdout as the encode runs;
+    # -nostats suppresses the human-readable duplicate on stderr. Together they
+    # are what lets the batch ETA see inside a job instead of only at its exit.
+    final_cmd = (["ffmpeg", "-nostats", "-progress", "pipe:1", "-i", file]
+                 + ffmpeg_final_opts + custom_ffmpeg_options + [final_out])
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(final_cmd)}{RESET}")
-    result = subprocess.run(final_cmd, capture_output=True, text=True)
-    if result.returncode != 0:
+
+    if reporter is not None:
+        reporter.start(job)
+
+    # stderr goes to a temp file rather than a pipe: it is only read after the
+    # stdout loop ends, and a pipe left undrained can fill and deadlock ffmpeg
+    # when a failure makes it verbose. A file has no such limit.
+    with tempfile.TemporaryFile(mode='w+', errors='replace') as stderr_file:
+        process = subprocess.Popen(final_cmd, stdout=subprocess.PIPE,
+                                   stderr=stderr_file, text=True)
+        for line in process.stdout:
+            out_time = parse_ffmpeg_out_time(line)
+            if out_time is None or reporter is None:
+                continue
+            if duration and duration > 0:
+                reporter.advance(job, out_time / duration)
+        process.wait()
+
+        returncode = process.returncode
+        stderr_file.seek(0)
+        stderr_text = stderr_file.read()
+
+    if returncode != 0:
         print('')
-        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {result.stderr}")
+        print(f"{GREY}[UTC {get_timestamp()}] {RED}[ERROR]{RESET} {stderr_text}")
         print(f"{RESET}")
-    result.check_returncode()
+        raise subprocess.CalledProcessError(returncode, final_cmd, stderr=stderr_text)
+
+    if reporter is not None:
+        reporter.finish(job)
 
     return AudioTrack(path=final_out, track_id=unique_id, language=lang,
                       name=track_name_final, extension=final_out_ext)
 
 
-def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_string):
+def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_string,
+                        file_index=None, duration=None, reporter=None):
     if not audio_tracks:
         return []
 
@@ -547,10 +593,14 @@ def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_s
             source_channels, source_layout = detect_source_channels_and_layout(
                 debug, audio_track.path)
             for pref_index, (transformation, codec, ch_str) in enumerate(preferences):
+                job = None
+                if reporter is not None:
+                    job = reporter.index_of(file_index, track_index, pref_index)
                 future = executor.submit(
                     encode_single_preference, audio_track, debug,
                     transformation, codec, ch_str, custom_ffmpeg_options,
-                    source_channels, source_layout
+                    source_channels, source_layout,
+                    duration=duration, job=job, reporter=reporter
                 )
                 futures_map[future] = (track_index, pref_index)
 

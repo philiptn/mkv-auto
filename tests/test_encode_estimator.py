@@ -19,7 +19,15 @@ from modules.encode_estimator import (
     ETA_CALIB_CLAMP,
     EncodeEstimator,
 )
-from modules.misc import OversizeWarning, format_duration_short, format_time
+from modules.misc import (
+    RESET,
+    OversizeWarning,
+    ProgressState,
+    format_duration_short,
+    format_time,
+    make_progress_line,
+    remove_color_codes,
+)
 
 HD = (1920, 1080)
 UHD = (3840, 2160)
@@ -466,3 +474,73 @@ def test_a_burst_of_renders_within_one_second_samples_once():
     for _ in range(100):
         chip = w.update(50.0, now=1029.0)
     assert chip.endswith("BIGGER ")
+
+
+# --------------------------------------------------------------------------
+# the encoder progress line
+#
+# get_cpu_temp_cached() reads real hardware, so these patch it out and assert
+# on the colour-stripped line. The batch ETA is a chip inside the grey stretch
+# beside the temperature; the per-worker chips further along keep their own
+# colour and are deliberately not bracketed.
+# --------------------------------------------------------------------------
+
+class _FixedEta:
+    def __init__(self, eta=None):
+        self._eta = eta
+
+    def display_eta(self):
+        return self._eta
+
+
+def render_encoder_line(monkeypatch, estimator, total=8, done=2, temp=62.0):
+    import modules.misc as misc
+    monkeypatch.setattr(misc, "get_cpu_temp_cached", lambda *a, **k: temp)
+    progress = ProgressState(total, 2)
+    for wid in range(2):
+        progress.start_worker(wid)
+    progress.completed_files = done
+    return make_progress_line(progress, "ENCODER", "Encoding", time.time(),
+                              estimator)()
+
+
+def test_batch_eta_is_a_bracketed_chip(monkeypatch):
+    line = render_encoder_line(monkeypatch, _FixedEta(eta=46 * 60))
+    assert remove_color_codes(line).startswith("[ENCODER][CPU 62°C][46m] ")
+
+
+def test_batch_eta_chip_sits_inside_the_grey_stretch(monkeypatch):
+    line = render_encoder_line(monkeypatch, _FixedEta(eta=46 * 60))
+    assert line.index("[46m]") < line.index(RESET)
+
+
+def test_no_chip_before_the_first_estimate(monkeypatch):
+    """Nothing at all while sampling is still working the figure out — no
+    "Estimating..." placeholder taking up room on an already busy line."""
+    line = render_encoder_line(monkeypatch, _FixedEta())
+    assert remove_color_codes(line).startswith("[ENCODER][CPU 62°C] ")
+
+
+def test_no_estimator_renders_no_chip(monkeypatch):
+    line = render_encoder_line(monkeypatch, None)
+    assert remove_color_codes(line).startswith("[ENCODER][CPU 62°C] ")
+
+
+def test_the_last_file_in_flight_drops_the_batch_chip(monkeypatch):
+    """One worker left on the final file: the batch figure would just repeat
+    that worker's own chip."""
+    import modules.misc as misc
+    monkeypatch.setattr(misc, "get_cpu_temp_cached", lambda *a, **k: 62.0)
+    progress = ProgressState(3, 1)
+    progress.start_worker(0)
+    progress.completed_files = 2
+    line = make_progress_line(progress, "ENCODER", "Encoding", time.time(),
+                              _FixedEta(eta=46 * 60))()
+    assert "[46m]" not in line
+
+
+def test_per_worker_chips_are_not_bracketed(monkeypatch):
+    """The per-worker readouts keep the shape they always had."""
+    line = remove_color_codes(render_encoder_line(monkeypatch, _FixedEta(eta=60)))
+    assert line.endswith("(2/8) ")
+    assert "┃0%" in line

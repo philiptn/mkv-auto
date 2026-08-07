@@ -36,6 +36,11 @@ SAMPLE_INTERVAL = 1.0   # seconds between raw samples
 STALE_AFTER = 10.0      # gap after which a delta is discarded, not reported
 EMA_ALPHA = 0.4         # smoothing of the displayed value
 
+# Below this the disk counts as doing nothing worth reporting. Set well under
+# the hundreds of KB/s that subtitle and remux work runs at, so those stages
+# still get a chip; it only has to clear the background noise of an idle disk.
+IDLE_FLOOR = 32 * 1024  # bytes/s
+
 # Resolved device sets, keyed by the path tuple asked for. Resolution walks
 # sysfs and the mount table, so it is done once per stage, not once per render.
 _device_cache = {}
@@ -118,6 +123,13 @@ class _Sampler:
             self._prev = cur
             self._prev_time = now
 
+            if self.should_reanchor(raw):
+                # Report nothing rather than a figure known to be wrong. The
+                # next reading starts from scratch instead of easing out of a
+                # baseline that belongs to a different situation.
+                self._displayed = None
+                return None
+
             if self._displayed is None:
                 self._displayed = raw
             else:
@@ -127,6 +139,15 @@ class _Sampler:
                 )
 
         return self._displayed
+
+    def should_reanchor(self, raw):
+        """True to discard this reading and display nothing for now.
+
+        The EMA is there to smooth jitter within a stage, not to carry a value
+        across a change of situation. A subclass that can tell the two apart
+        says so here.
+        """
+        return False
 
 
 class CpuSampler(_Sampler):
@@ -161,6 +182,29 @@ class DiskSampler(_Sampler):
         super().__init__(clock=clock)
         self._devices = devices
         self._source = source or self._psutil_counters
+        self._idle = True
+
+    def should_reanchor(self, raw):
+        """Show nothing while idle, and drop the window work started inside.
+
+        Sampling runs continuously, so when a stage begins the displayed value
+        is whatever the disk was doing before it - near zero. Easing out of that
+        made a disk running flat out open at a small fraction of its real rate
+        and take about six seconds to admit the truth, which is worse than
+        showing nothing. Two readings are discarded instead:
+
+          * every idle one, since "0B/s" is not information, and
+          * the first active one, whose window straddles the moment work began
+            and so averages in the idle part before it.
+
+        The reading after those is a full window of real work, and it is taken
+        as-is rather than eased. In practice the chip then appears within a
+        second or two of a stage starting - about when its time estimate does.
+        """
+        active = max(raw) >= IDLE_FLOOR
+        straddling = active and self._idle
+        self._idle = not active
+        return straddling or not active
 
     def _psutil_counters(self):
         if self._devices is None:

@@ -362,6 +362,146 @@ class OversizeWarning:
         return f"~{-self._displayed:.0f}% BIGGER "
 
 
+class ByteProgress:
+    """Bytes finished for a byte-bound stage, counting partial writes.
+
+    Counting only whole finished files leaves the estimate blind for as long as
+    the largest file takes - and the copy into TEMP is regularly a single 40GB
+    remux, i.e. the entire stage. Destination files grow as they are written, so
+    a file still in flight contributes whatever is on disk right now.
+
+    ``done_bytes`` is called from the spinner's render thread while the worker
+    threads register and retire units, hence the lock.
+    """
+
+    def __init__(self, total_bytes=0):
+        self._total = max(0, int(total_bytes))
+        self._finished = 0
+        self._in_flight = {}
+        self._lock = threading.Lock()
+
+    def total_bytes(self):
+        with self._lock:
+            return self._total
+
+    def add_total(self, nbytes):
+        """Extend the total for a stage that cannot size its work up front.
+
+        The encoder's post-encode move is one: it delivers encoded files, whose
+        sizes are only known as each encode finishes, and which are nothing like
+        the size of the sources they replaced.
+        """
+        with self._lock:
+            self._total += max(0, int(nbytes))
+
+    def start(self, key, dest_path):
+        """Register a unit that is about to be written to dest_path."""
+        with self._lock:
+            self._in_flight[key] = dest_path
+
+    def finish(self, key, nbytes):
+        with self._lock:
+            self._in_flight.pop(key, None)
+            self._finished += max(0, int(nbytes))
+
+    def done_bytes(self):
+        with self._lock:
+            paths = list(self._in_flight.values())
+            finished = self._finished
+            total = self._total
+
+        partial = 0
+        for path in paths:
+            try:
+                partial += os.path.getsize(path)
+            except OSError:
+                # Not created yet, or already renamed away by its worker.
+                pass
+
+        # A partial read can race a finish() and double-count; the total is the
+        # ceiling either way, and over-reporting would show a falsely short ETA.
+        return min(finished + partial, total) if total else finished
+
+
+class ThroughputEstimator:
+    """Seconds remaining for a byte-bound stage, from observed throughput.
+
+    EncodeEstimator models CPU cost per second of video, which copying, moving
+    and remuxing are none of: they are bytes through a disk, and the only thing
+    worth measuring is how fast the bytes are moving. So this keeps a short
+    history of (time, bytes done) and divides what is left by the rate across
+    it.
+
+    The rate is taken over a window rather than since the start, so the figure
+    tracks the disk it is actually on - a stage that begins on cache speed and
+    settles to spinning-rust speed should not keep quoting the former.
+
+    Easing matches the encoder's: quick to revise down, slow to revise up, since
+    a countdown that jumps upward costs more trust than one converging from
+    below.
+
+    Deliberately unlocked: display_eta() is reached only through the line func a
+    spinner renders, and only that one render thread ever calls it. The shared
+    state the worker threads do touch lives in ByteProgress, which is locked.
+    """
+
+    WINDOW = 20.0        # seconds of history the rate is measured over
+    MIN_SPAN = 2.0       # ...and the minimum span before a rate is trusted
+    MIN_BYTES = 1 << 20  # ...and the minimum movement, so idling reads as unknown
+    ALPHA_DOWN = 0.30
+    ALPHA_UP = 0.10
+    MAX_SECONDS = 30 * 86400
+
+    def __init__(self, total_bytes, done_fn):
+        self._total = max(0, int(total_bytes))
+        self._done_fn = done_fn
+        self._samples = deque()
+        self._displayed = None
+
+    def display_eta(self, now=None):
+        """Smoothed seconds remaining, or None while the rate is unknowable."""
+        if not self._total:
+            return None
+
+        now = time.time() if now is None else now
+        done = min(self._done_fn(), self._total)
+
+        self._samples.append((now, done))
+        while len(self._samples) > 2 and now - self._samples[0][0] > self.WINDOW:
+            self._samples.popleft()
+
+        first_t, first_done = self._samples[0]
+        span = now - first_t
+        moved = done - first_done
+        if span < self.MIN_SPAN or moved < self.MIN_BYTES:
+            return self._displayed
+
+        remaining = self._total - done
+        if remaining <= 0:
+            return 0.0
+
+        raw = min(remaining / (moved / span), self.MAX_SECONDS)
+        if self._displayed is None:
+            self._displayed = raw
+        else:
+            alpha = self.ALPHA_DOWN if raw < self._displayed else self.ALPHA_UP
+            self._displayed += (raw - self._displayed) * alpha
+        return self._displayed
+
+
+def eta_chip(estimator):
+    """The bracketed batch estimate - "[46m]" - or "" until there is one.
+
+    Every stage that shows a time estimate renders it through here, so the chip
+    reads the same everywhere and sits inside the grey banner beside the header
+    and metrics chips. Callers therefore place it before their RESET.
+    """
+    if estimator is None:
+        return ""
+    eta = estimator.display_eta()
+    return f"[{format_duration_short(eta)}]" if eta is not None else ""
+
+
 def get_worker_eta(progress, worker_id, progress_value):
     remaining = progress.worker_eta(worker_id, progress_value)
     if remaining is None:
@@ -429,21 +569,13 @@ def make_progress_line(progress, header, description, start_time, estimator=None
         temp = get_cpu_temp_cached()
         temp_str = f"[CPU {temp:.0f}°C]" if temp else ""
 
-        # Absent until the estimator has something real to say — no placeholder
-        # while the first sample is still running. Also absent once the batch
-        # is down to a single in-flight file with nothing pending behind it:
-        # the batch estimate then measures exactly what that worker's own chip
-        # already shows, so rendering both is just the same number twice.
-        eta_str = ""
+        # Absent once the batch is down to a single in-flight file with nothing
+        # pending behind it: the batch estimate then measures exactly what that
+        # worker's own chip already shows, so rendering both is just the same
+        # number twice. eta_chip() handles the other absence, before there is a
+        # figure at all, and keeps this chip identical to every other stage's.
         last_file_in_flight = len(workers) == 1 and done + 1 >= total
-        if estimator is not None and not last_file_in_flight:
-            eta = estimator.display_eta()
-            if eta is not None:
-                eta_str = f"{format_duration_short(eta)} "
-            else:
-                status = estimator.status_text()
-                if status:
-                    eta_str = f"{status} "
+        chip = "" if last_file_in_flight else eta_chip(estimator)
 
         oversize_str = oversize.update(progress.savings_snapshot())
 
@@ -453,11 +585,31 @@ def make_progress_line(progress, header, description, start_time, estimator=None
         )
 
         return (
-            f"[{header}]{temp_str}{RESET} "
-            + eta_str
+            f"[{header}]{temp_str}{chip}{RESET} "
             + oversize_str
             + workers_str
             + f"({done}/{total}) "
+        )
+    return line
+
+
+def make_batch_eta_line(header, description, estimator, done_fn, total,
+                        show_cpu=False, disk_paths=None):
+    """A whole-batch ETA with no per-worker chips.
+
+    make_progress_line() drops the description and renders one chip per worker,
+    which is the right trade for the video encoder's handful of long jobs but
+    too noisy for a stage whose jobs are many and short. This keeps the ordinary
+    "[HEADER][chip] description (done/total)" shape and splices the batch ETA in
+    right after the header chip, exactly where make_progress_line puts it.
+
+    ``done_fn`` is a callable rather than a number because the counter is
+    advanced from worker threads while the spinner's render thread reads it.
+    """
+    def line():
+        return (
+            f"[{header}]{system_metrics_chip(show_cpu, disk_paths)}{eta_chip(estimator)}{RESET} "
+            + f"{description} ({done_fn()}/{total}) "
         )
     return line
 
@@ -709,7 +861,7 @@ def is_non_empty_file(filepath):
 
 # Function to print dynamic progress, only updating the last line
 def print_with_progress(logger, current, total, header, description="Processing",
-                        show_cpu=False, disk_paths=None):
+                        show_cpu=False, disk_paths=None, estimator=None):
     global SPINNER
     if current == 0:
         SPINNER = ContinuousSpinner()
@@ -717,7 +869,7 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
     def line_func():
         return (
-            f"[{header}]{system_metrics_chip(show_cpu, disk_paths)}{RESET} "
+            f"[{header}]{system_metrics_chip(show_cpu, disk_paths)}{eta_chip(estimator)}{RESET} "
             f"{description} ({current}/{total}) "
         )
 
@@ -749,15 +901,19 @@ def print_with_progress(logger, current, total, header, description="Processing"
 
 
 def print_with_progress_files(logger, current, total, header, description="Processing",
-                              show_cpu=False, disk_paths=None):
+                              show_cpu=False, disk_paths=None, estimator=None):
     current_print = (current + 1) if current < total else current
     global SPINNER
-    if current == 0:
+    # Only claim the line if nothing else holds it. A stage may legitimately
+    # render at 0 twice - once to open the line, once to attach an estimator it
+    # could only build after walking the work - and constructing a second
+    # spinner there would leave two threads writing the same line.
+    if current == 0 and SPINNER is None:
         SPINNER = ContinuousSpinner()
 
     def line_func():
         return (
-            f"[{header}]{system_metrics_chip(show_cpu, disk_paths)}{RESET} "
+            f"[{header}]{system_metrics_chip(show_cpu, disk_paths)}{eta_chip(estimator)}{RESET} "
             f"{description} {current_print} of {total} "
         )
 
@@ -1676,6 +1832,50 @@ def hide_the_cursor():
 
 def show_the_cursor():
     sys.stdout.write("\033[?25h")
+
+
+def parse_ffmpeg_out_time(line):
+    """Seconds elapsed from an ffmpeg ``-progress`` "out_time_ms=" line, or None.
+
+    Split out from the reading loop so it can be unit-tested without ffmpeg.
+    Returns None for every line that carries no usable figure, including the
+    literal "N/A" ffmpeg emits on its first tick before any frame is written.
+    """
+    if not line.startswith("out_time_ms="):
+        return None
+
+    value = line.split("=", 1)[1].strip()
+    if value == "N/A":
+        return None
+
+    try:
+        # ffmpeg reports this key in microseconds despite the _ms name.
+        return int(value) / 1_000_000
+    except ValueError:
+        return None
+
+
+def probe_duration_seconds(path):
+    """Container duration in seconds via ffprobe. Raises if ffprobe fails.
+
+    Lives here rather than in media_encoder so modules that must not import
+    media_encoder can still use it - modules/mkv.py in particular, since
+    media_encoder imports mkv and the reverse would be a cycle.
+    """
+    cmd = [
+        "ffprobe",
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        path
+    ]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    return float(result.stdout.strip())
 
 
 _NATURAL_SORT_RE = re.compile(r'(\d+)')

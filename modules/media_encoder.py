@@ -121,20 +121,7 @@ def get_video_dimensions(filename):
     
 
 def get_video_duration(path):
-    cmd = [
-        "ffprobe",
-        "-v", "error",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        path
-    ]
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=True
-    )
-    return float(result.stdout.strip())
+    return probe_duration_seconds(path)
 
 
 def _tag_lookup(tags, key):
@@ -1241,17 +1228,16 @@ def sample_file_cost(logger, input_file, dirpath, cpu_share, gate,
 
 
 def run_sampler(logger, estimator, gate, jobs, dirpath, cpu_for,
-                first_pass_only=False, report_status=False):
+                first_pass_only=False):
     """Sampler thread body: a fast pass over every file, then refinement.
 
     Pass 1 holds the reserved encode slot and gives every file a measurement as
     quickly as possible. Pass 2 is strictly opportunistic — it only samples
     when an encode slot is genuinely idle, so refinement never delays encoding.
 
-    first_pass_only/report_status are for the one-slot batch, where sampling
-    runs to completion up front instead of alongside encoding.
+    first_pass_only is for the one-slot batch, where sampling runs to completion
+    up front instead of alongside encoding.
     """
-    attempted = [0]
 
     def take(meta, offset_fraction):
         path = os.path.join(dirpath, meta['name'])
@@ -1268,9 +1254,6 @@ def run_sampler(logger, estimator, gate, jobs, dirpath, cpu_for,
             estimator.record_sample(meta['index'], result[0], result[1])
         else:
             estimator.mark_unsampleable(meta['index'])
-        if report_status:
-            attempted[0] += 1
-            estimator.set_status_text(f"Estimating ({attempted[0]}/{len(jobs)})")
 
     def await_idle_slot(index):
         while not gate.has_idle_slot():
@@ -1294,8 +1277,6 @@ def run_sampler(logger, estimator, gate, jobs, dirpath, cpu_for,
     finally:
         # Releases the reserved slot back to encoding even if pass 1 aborted.
         estimator.set_sampling(False)
-        if report_status:
-            estimator.set_status_text(None)
 
     if first_pass_only:
         return
@@ -1428,9 +1409,25 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     copy_description = f"Copying {print_multi_or_single(total_files, 'file')}"
     copy_done = [0]
 
+    # Full-size sources going to the destination: the longest purely byte-bound
+    # wait in the run, and the one most worth an estimate.
+    copy_progress = ByteProgress(total_file_size(dirpath, input_files))
+    copy_estimator = ThroughputEstimator(copy_progress.total_bytes(), copy_progress.done_bytes)
+
     def _copy_line():
         metrics = system_metrics_chip(disk_paths=(dirpath, output_dir))
-        return f"[ENCODER]{metrics}{RESET} {copy_description} ({copy_done[0]}/{total_files}) "
+        return (f"[ENCODER]{metrics}{eta_chip(copy_estimator)}{RESET} "
+                f"{copy_description} ({copy_done[0]}/{total_files}) ")
+
+    def _copy_one(name):
+        source = os.path.join(dirpath, name)
+        target = resolved_targets[name]
+        size = os.path.getsize(source) if os.path.exists(source) else 0
+        copy_progress.start(name, target["output_path"])
+        try:
+            return move_resolved_to_output(logger, source, target, True)
+        finally:
+            copy_progress.finish(name, size)
 
     print()
     copy_spinner = ContinuousSpinner(interval=0.15)
@@ -1438,11 +1435,7 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     copy_spinner.start()
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=copy_workers) as executor:
-            copy_futures = [
-                executor.submit(move_resolved_to_output, logger,
-                                os.path.join(dirpath, f), resolved_targets[f], True)
-                for f in input_files
-            ]
+            copy_futures = [executor.submit(_copy_one, f) for f in input_files]
             for future in concurrent.futures.as_completed(copy_futures):
                 future.result()
                 copy_done[0] += 1
@@ -1536,10 +1529,20 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     mover = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     moves_done = [0]
 
+    # Only the drain at the end is watched, but the tracker has to span the whole
+    # stage: it is fed as each file lands, so by the time the line appears it
+    # already knows the throughput and can quote a figure immediately.
+    #
+    # Sized as it goes rather than up front. What gets moved is the *encoded*
+    # file, which is nothing like the size of the source it replaced, and whose
+    # size is only known once its encode finishes. Every file has been dispatched
+    # by the time the drain line appears, so the total is complete there.
+    move_progress = ByteProgress()
+
     def _move_one(idx, name):
         result = move_files_to_output_process_worker(
             logger, debug, name, dirpath, origins.get(name), output_dir,
-            target_by_index.get(idx))
+            target_by_index.get(idx), move_progress)
         if moved_out is not None:
             moved_out.add(name)
         moves_done[0] += 1
@@ -1549,6 +1552,11 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
         for idx, name in release.ready():
             if name is None:
                 continue
+            # Sized here, on the scheduler thread, rather than inside the job:
+            # the mover runs one at a time, so a job queued behind others would
+            # not have contributed its size yet when the drain line appears.
+            source = os.path.join(dirpath, name)
+            move_progress.add_total(os.path.getsize(source) if os.path.exists(source) else 0)
             move_futures.append(mover.submit(_move_one, idx, name))
 
     def sync_gate():
@@ -1565,7 +1573,7 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
             # sample on: pay for the estimate up front, then encode.
             sync_gate()
             run_sampler(logger, estimator, gate, file_meta, dirpath,
-                        per_file_cpu_for, first_pass_only=True, report_status=True)
+                        per_file_cpu_for, first_pass_only=True)
         elif sample_alongside:
             estimator.set_sampling(True)
             sync_gate()
@@ -1672,9 +1680,13 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
         move_spinner = None
 
         if moves_done[0] < move_total:
+            move_estimator = ThroughputEstimator(move_progress.total_bytes(),
+                                                 move_progress.done_bytes)
+
             def _move_line():
                 metrics = system_metrics_chip(disk_paths=(dirpath, output_dir))
-                return f"[{move_header}]{metrics}{RESET} {move_description} ({moves_done[0]}/{move_total}) "
+                return (f"[{move_header}]{metrics}{eta_chip(move_estimator)}{RESET} "
+                        f"{move_description} ({moves_done[0]}/{move_total}) ")
 
             print()
             move_spinner = ContinuousSpinner(interval=0.15)

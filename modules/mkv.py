@@ -3,6 +3,7 @@ import json
 import tempfile
 import os
 import re
+import threading
 from tqdm import tqdm
 from datetime import datetime
 import shutil
@@ -20,6 +21,7 @@ from modules.audio import *
 from modules.subs import *
 from modules.file_operations import *
 from modules.integrations import *
+from modules.encode_estimator import EncodeEstimator
 
 
 def convert_video_to_mkv(debug, video_file, output_file):
@@ -424,17 +426,26 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
     header = "MKVMERGE"
     description = "Filter audio tracks"
 
+    # A remux costs roughly its input size, so bytes are the unit here too. The
+    # strip writes a "<name>_tmp.mkv" beside the source (see
+    # strip_audio_tracks_in_mkv), which is what makes a file's progress visible
+    # before it finishes - the probing that precedes it is comparatively quick.
+    progress = ByteProgress(total_file_size(dirpath, input_files))
+    estimator = ThroughputEstimator(progress.total_bytes(), progress.done_bytes)
+
     # Initialize progress
-    print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath)
+    print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath,
+                        estimator=estimator)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
-        futures = {executor.submit(trim_audio_in_mkv_files_worker, logger, debug, input_file, dirpath): index for
+        futures = {executor.submit(trim_audio_in_mkv_files_worker, logger, debug, input_file, dirpath,
+                                   progress=progress): index for
                    index, input_file in enumerate(input_files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description,
-                                disk_paths=dirpath)
+                                disk_paths=dirpath, estimator=estimator)
             try:
                 index = futures[future]
                 needs_processing_audio, needs_processing_subs, missing_subs_langs = future.result()
@@ -452,8 +463,9 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
     return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
 
 
-def trim_audio_in_mkv_files_worker(logger, debug, input_file, dirpath):
+def trim_audio_in_mkv_files_worker(logger, debug, input_file, dirpath, progress=None):
     input_file = os.path.join(dirpath, input_file)
+    file_size = os.path.getsize(input_file) if os.path.exists(input_file) else 0
     check_integrity_of_mkv(input_file)
 
     # Get file info using mkvinfo
@@ -470,8 +482,16 @@ def trim_audio_in_mkv_files_worker(logger, debug, input_file, dirpath):
     needs_processing_audio = wanted_audio.needs_processing
 
     if needs_processing_audio:
+        # The remux writes here before replacing the source, so its growth is
+        # this file's visible progress.
+        base, extension = os.path.splitext(input_file)
+        if progress is not None:
+            progress.start(input_file, base + "_tmp" + extension)
         strip_audio_tracks_in_mkv(logger, debug, input_file,
                                   wanted_audio.wanted_track_ids, wanted_audio.default_track_id)
+
+    if progress is not None:
+        progress.finish(input_file, file_size)
 
     file_info, pretty_file_info = get_mkv_info(debug, input_file, False)
 
@@ -490,6 +510,144 @@ def trim_audio_in_mkv_files_worker(logger, debug, input_file, dirpath):
             missing_subs_langs = [main_lang]
 
     return needs_processing_audio, needs_processing_subs, missing_subs_langs
+
+
+# A track whose channel count the container did not report still has to be
+# priced somehow; 5.1 is the common case. Mirrors the estimator's own habit of
+# falling back to a plausible figure rather than to zero.
+AUDIO_DEFAULT_CHANNELS = 6
+
+
+class AudioJobProgress:
+    """Job-indexed bridge from the audio encode threads to the batch ETA and counter.
+
+    encode_single_preference() runs on a nested pool inside each file's worker,
+    so every method here is reached from several threads at once. The counter is
+    read by the spinner's render thread, which is why it is lock-guarded rather
+    than a bare int.
+
+    A ``job`` of None means the preference is a stream copy: it advances the
+    visible counter but is never priced (see is_copy_only_preference).
+    """
+
+    def __init__(self, estimator, job_index_map):
+        self._estimator = estimator
+        self._job_index_map = job_index_map
+        self._lock = threading.Lock()
+        self._done = 0
+
+    def index_of(self, file_index, track_index, pref_index):
+        """Estimator index for this job, or None if it is not priced."""
+        return self._job_index_map.get((file_index, track_index, pref_index))
+
+    def start(self, job):
+        if job is not None and self._estimator is not None:
+            self._estimator.note_start(job)
+
+    def advance(self, job, fraction):
+        if job is not None and self._estimator is not None:
+            self._estimator.note_progress(job, fraction)
+
+    def finish(self, job):
+        if job is not None and self._estimator is not None:
+            self._estimator.note_complete(job)
+        with self._lock:
+            self._done += 1
+
+    def done(self):
+        with self._lock:
+            return self._done
+
+
+def audio_track_channels(file_info, track_id):
+    """Channel count for a source track from the mkvmerge JSON, or None."""
+    for track in file_info.get('tracks', []):
+        if track.get('id') == track_id:
+            return track.get('properties', {}).get('audio_channels')
+    return None
+
+
+def mkv_duration_seconds(file_info, path):
+    """Container duration in seconds: mkvmerge's own figure, else an ffprobe.
+
+    mkvmerge reports this in nanoseconds and omits it for some sources, so the
+    ffprobe is the fallback rather than the primary - it costs another process.
+    """
+    duration_ns = file_info.get('container', {}).get('properties', {}).get('duration')
+    if duration_ns:
+        return duration_ns / 1_000_000_000
+    try:
+        return probe_duration_seconds(path)
+    except Exception:
+        # A missing duration only costs the ETA its normaliser; the stage itself
+        # runs identically, and the estimator prices such a job from wall time.
+        return None
+
+
+def probe_audio_work(input_file, dirpath):
+    """Everything the batch ETA needs about one file, before any encoding.
+
+    Performs exactly the probe generate_audio_tracks_in_mkv_files_worker() used
+    to do itself, so hoisting this costs no extra mkvmerge call - and guarantees
+    the priced job list is the one the worker actually encodes.
+    """
+    input_path = os.path.join(dirpath, input_file)
+    pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
+    pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
+    remove_commentary = check_config(config, 'audio', 'remove_commentary')
+
+    file_info, _ = get_mkv_info(False, input_path, True)
+    wanted_audio = get_wanted_audio_tracks(
+        False, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
+
+    duration = mkv_duration_seconds(file_info, input_path)
+    channels = {c.track_id: audio_track_channels(file_info, c.track_id)
+                for c in wanted_audio.tracks_to_convert}
+    return wanted_audio, duration, channels
+
+
+def build_audio_jobs(input_files, probe_results, preferences):
+    """Split the batch into encode jobs and price the ones that are transcodes.
+
+    Returns (jobs, job_index_map, total_jobs). ``total_jobs`` counts every
+    (track x preference) unit including stream copies - that is what the visible
+    counter tracks - while ``jobs`` holds only the transcodes, since a copy
+    finishes near-instantly and would drag the estimator's cost median down.
+    """
+    jobs = []
+    job_index_map = {}
+    total_jobs = 0
+
+    for file_index, probe in enumerate(probe_results):
+        if probe is None:
+            continue
+        wanted_audio, duration, channels_by_id = probe
+        if not wanted_audio.needs_processing:
+            continue
+
+        for track_index, candidate in enumerate(wanted_audio.tracks_to_convert):
+            channels = channels_by_id.get(candidate.track_id) or AUDIO_DEFAULT_CHANNELS
+            for pref_index, (transformation, codec, ch_str) in enumerate(preferences):
+                total_jobs += 1
+                if is_copy_only_preference(transformation, codec):
+                    continue
+                job_index_map[(file_index, track_index, pref_index)] = len(jobs)
+                jobs.append({
+                    'index': len(jobs),
+                    'name': f"{input_files[file_index]}#{candidate.track_id}:{codec}",
+                    'duration': duration,
+                    # The estimator normalises by 'pixels' = width*height. For
+                    # audio the analogous cost driver is channel count, so a
+                    # 5.1 track is priced ~3x a stereo one of equal length.
+                    'width': channels,
+                    'height': 1,
+                    'is_4k': False,
+                    # ffmpeg's audio encoders are effectively single-threaded;
+                    # the parallelism here is across jobs, not within one.
+                    'threads': 1,
+                })
+
+    return jobs, job_index_map, total_jobs
 
 
 def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need_processing_audio):
@@ -526,44 +684,87 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
             else:
                 custom_print(logger, f"{GREY}[AUDIO]{RESET} {pref}")
 
-    if not disable_print:
-        # Initialize progress
-        print_with_progress(logger, 0, total_files, header=header, description=description, show_cpu=True)
+    # Probe every file before any encoding starts. EncodeEstimator takes a fixed
+    # job list at construction, and the worker's own probe would come too late -
+    # and could disagree with whatever had been priced. This is the same probe
+    # the worker used to run, hoisted and parallelised, so the count is unchanged.
+    probe_results = [None] * total_files
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as prober:
+        probe_futures = {prober.submit(probe_audio_work, input_file, dirpath): index
+                         for index, input_file in enumerate(input_files)}
+        for future in concurrent.futures.as_completed(probe_futures):
+            probe_results[probe_futures[future]] = future.result()
+
+    jobs, job_index_map, total_jobs = build_audio_jobs(input_files, probe_results,
+                                                       audio_format_preferences)
+
+    # No status text is set on the estimator: the line simply carries no ETA
+    # until there is a real one, rather than a placeholder holding the space.
+    estimator = EncodeEstimator(jobs, max_worker_threads) if jobs else None
+    if estimator is not None:
+        estimator.set_slots(max_worker_threads)
+    reporter = AudioJobProgress(estimator, job_index_map) if total_jobs else None
+
+    # A local spinner, not print_with_progress: the counter is advanced from the
+    # encode threads, and print_with_progress mutates a module global on every
+    # call. Here only the spinner's own render thread reads the counter.
+    spinner = None
+    if not disable_print and total_jobs:
+        print()
+        spinner = ContinuousSpinner(interval=0.15)
+        spinner.set_line_func(make_batch_eta_line(header, description, estimator,
+                                                  reporter.done, total_jobs, show_cpu=True))
+        spinner.start()
 
     # Use ThreadPoolExecutor to handle multithreading
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(generate_audio_tracks_in_mkv_files_worker, debug, input_file, dirpath,
-                                   internal_threads): index for index, input_file in enumerate(input_files)}
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = {executor.submit(generate_audio_tracks_in_mkv_files_worker, debug, input_file, dirpath,
+                                       internal_threads, file_index=index,
+                                       wanted_audio=probe_results[index][0],
+                                       duration=probe_results[index][1],
+                                       reporter=reporter): index
+                       for index, input_file in enumerate(input_files)}
 
-        for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            if not disable_print:
-                print_with_progress(logger, completed_count, total_files, header=header, description=description,
-                                    show_cpu=True)
-            try:
-                index = futures[future]
-                ready_audio_tracks, ready_subtitle_tracks = future.result()
-                if ready_audio_tracks is not None:
-                    all_ready_audio_tracks[index] = ready_audio_tracks
-                if ready_subtitle_tracks is not None:
-                    all_ready_subtitle_tracks[index] = ready_subtitle_tracks
-            except Exception as e:
-                # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    index = futures[future]
+                    ready_audio_tracks, ready_subtitle_tracks = future.result()
+                    if ready_audio_tracks is not None:
+                        all_ready_audio_tracks[index] = ready_audio_tracks
+                    if ready_subtitle_tracks is not None:
+                        all_ready_subtitle_tracks[index] = ready_subtitle_tracks
+                except Exception as e:
+                    # Fetch the variables that were passed to the thread
+                    index = futures[future]
+                    input_file = input_files[index]
 
-                # Print the error and traceback
-                custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
-                print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
-                print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
-                print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
-                traceback_str = ''.join(traceback.format_tb(e.__traceback__))
-                print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
-                raise
+                    # Print the error and traceback
+                    custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
+                    print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
+                    print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                    print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
+                    print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
+                    traceback_str = ''.join(traceback.format_tb(e.__traceback__))
+                    print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
+                    raise
+    finally:
+        if spinner is not None:
+            final_line = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
+                          f"{description} {DONE}{CHECK}{RESET}")
+            spinner.stop(final_line)
+            logger.info(f"[UTC {get_timestamp()}] [{header}] {description} {CHECK}")
+            logger.debug(f"[UTC {get_timestamp()}] [{header}] {description} {CHECK}")
+            logger.color(final_line)
+        if estimator is not None:
+            log_debug(logger, f"[AUDIO] ETA estimator: {estimator.debug_line()}")
+
     return all_ready_audio_tracks, all_ready_subtitle_tracks
 
 
-def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, internal_threads):
+def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, internal_threads,
+                                              file_index=None, wanted_audio=None,
+                                              duration=None, reporter=None):
     input_file = os.path.join(dirpath, input_file)
 
     ready_audio_paths = []
@@ -576,11 +777,14 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
     pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
     remove_commentary = check_config(config, 'audio', 'remove_commentary')
 
-    # Get updated file info after mkv tracks reduction
-    file_info, pretty_file_info = get_mkv_info(False, input_file, True)
+    # Normally handed in by the caller's pre-pass, which already ran this exact
+    # probe to price the batch. Repeat it here only when called standalone.
+    if wanted_audio is None:
+        # Get updated file info after mkv tracks reduction
+        file_info, pretty_file_info = get_mkv_info(False, input_file, True)
 
-    wanted_audio = get_wanted_audio_tracks(
-        False, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
+        wanted_audio = get_wanted_audio_tracks(
+            False, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
 
     # Generating audio tracks if preferred codec not found in all audio tracks
     if wanted_audio.needs_processing:
@@ -591,7 +795,8 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
                                                              wanted_audio.tracks_to_convert)
 
         encoded_audio_tracks = encode_audio_tracks(
-            internal_threads, debug, extracted_audio_tracks, pref_audio_formats)
+            internal_threads, debug, extracted_audio_tracks, pref_audio_formats,
+            file_index=file_index, duration=duration, reporter=reporter)
 
         ready_audio_paths = [t.path for t in encoded_audio_tracks]
         ready_audio_extensions = [t.extension for t in encoded_audio_tracks]
@@ -1954,18 +2159,23 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, origins, o
     else:
         description = f"Move {print_multi_or_single(total_files, 'file')} to destination folder"
 
+    # Usually a cross-filesystem move, i.e. a copy: bytes again, and the
+    # destination grows as it is written.
+    progress = ByteProgress(total_file_size(dirpath, files))
+    estimator = ThroughputEstimator(progress.total_bytes(), progress.done_bytes)
+
     # Initialize progress
     print_with_progress(logger, 0, total_files, header=header, description=description,
-                        disk_paths=(dirpath, output_dir))
+                        disk_paths=(dirpath, output_dir), estimator=estimator)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {executor.submit(move_files_to_output_process_worker, logger, debug, input_file, dirpath, origins.get(input_file),
-                                   output_dir, resolved_targets.get(input_file)): index for index, input_file in enumerate(files)}
+                                   output_dir, resolved_targets.get(input_file), progress): index for index, input_file in enumerate(files)}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description,
-                                disk_paths=(dirpath, output_dir))
+                                disk_paths=(dirpath, output_dir), estimator=estimator)
             try:
                 index = futures[future]
                 new_radarr_path, new_sonarr_path = future.result()
@@ -2014,20 +2224,30 @@ def print_arr_summary(logger, results):
 
 
 def move_files_to_output_process_worker(logger, debug, input_file, dirpath, working_file, output_dir,
-                                        resolved_target=None):
+                                        resolved_target=None, progress=None):
     input_file_with_path = os.path.join(dirpath, input_file)
     new_radarr_path = ''
     new_sonarr_path = ''
+    file_size = os.path.getsize(input_file_with_path) if os.path.exists(input_file_with_path) else 0
 
     radarr_api_key = check_config(config, 'integrations', 'radarr_api_key')
     sonarr_api_key = check_config(config, 'integrations', 'sonarr_api_key')
 
-    if resolved_target is not None:
-        output_info = move_resolved_to_output(logger, input_file_with_path, resolved_target)
-    else:
-        relative_dir = working_file.relative_dir if working_file else ""
-        original_name = working_file.original_name if working_file else input_file
-        output_info = move_file_to_output(logger, debug, input_file_with_path, output_dir, relative_dir, original_name)
+    try:
+        if resolved_target is not None:
+            if progress is not None:
+                progress.start(input_file, resolved_target["output_path"])
+            output_info = move_resolved_to_output(logger, input_file_with_path, resolved_target)
+        else:
+            relative_dir = working_file.relative_dir if working_file else ""
+            original_name = working_file.original_name if working_file else input_file
+            # Without a pre-resolved target the destination path is only known
+            # once move_file_to_output() has worked it out, so this file's bytes
+            # land in one step at the end rather than growing visibly.
+            output_info = move_file_to_output(logger, debug, input_file_with_path, output_dir, relative_dir, original_name)
+    finally:
+        if progress is not None:
+            progress.finish(input_file, file_size)
 
     file_info = reformat_filename(output_info["filename"], True, False, False, logger)
     media_type = file_info["media_type"]

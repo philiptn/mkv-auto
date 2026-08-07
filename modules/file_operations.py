@@ -37,6 +37,24 @@ def get_folder_size(folder_path):
     return total_size
 
 
+def total_file_size(base_dir, rel_paths):
+    """Total bytes of the named entries; directories and missing paths count 0.
+
+    Takes an explicit list rather than walking, so the figure is exactly the set
+    of files the caller is about to work through - which is what a byte-based
+    time estimate has to be measured against.
+    """
+    total = 0
+    for rel_path in rel_paths:
+        path = os.path.join(base_dir, rel_path)
+        try:
+            if os.path.isfile(path):
+                total += os.path.getsize(path)
+        except OSError:
+            pass
+    return total
+
+
 def extract_archives(logger, input_folder):
     header = "FILES"
     description = "Extracting archives"
@@ -184,6 +202,18 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
 
     items.sort(key=sort_key)
 
+    # Bytes, not file count, is what this stage's duration tracks: one 40GB
+    # remux and forty small extras are the same "N of M" but nothing like the
+    # same wait. The destination file grows as it is written, so the estimate
+    # does not have to wait for the first whole file to land.
+    progress = ByteProgress(total_file_size(source_directory, items))
+    estimator = ThroughputEstimator(progress.total_bytes(), progress.done_bytes)
+    # Attach it to the line the caller already opened, so a single huge file
+    # shows an estimate while it copies rather than only once it has landed.
+    print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file',
+                              disk_paths=(source_directory, destination_directory),
+                              estimator=estimator)
+
     def move_item(rel_path):
         nonlocal available_space, actual_file_sizes, all_required_space, actual_moved_file_sizes
         s = os.path.join(source_directory, rel_path)
@@ -204,11 +234,16 @@ def move_directory_contents(logger, source_directory, destination_directory, fil
                     available_space -= file_size
                     actual_moved_file_sizes += file_size
                     os.makedirs(os.path.dirname(d), exist_ok=True)
-                    shutil.move(s, d)
+                    progress.start(rel_path, d)
+                    try:
+                        shutil.move(s, d)
+                    finally:
+                        progress.finish(rel_path, file_size)
                     with file_counter_lock:
                         file_counter[0] += 1
                         print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Moving file',
-                                                  disk_paths=(source_directory, destination_directory))
+                                                  disk_paths=(source_directory, destination_directory),
+                                                  estimator=estimator)
                 else:
                     skipped_files_counter[0] += 1
 
@@ -262,6 +297,14 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
 
     items.sort(key=sort_key)
 
+    # See move_directory_contents(): the wait is bytes, not files.
+    progress = ByteProgress(total_file_size(source_directory, items))
+    estimator = ThroughputEstimator(progress.total_bytes(), progress.done_bytes)
+    # See move_directory_contents().
+    print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file',
+                              disk_paths=(source_directory, destination_directory),
+                              estimator=estimator)
+
     def copy_item(rel_path):
         nonlocal available_space, actual_file_sizes, all_required_space, actual_copied_file_sizes
         s = os.path.join(source_directory, rel_path)
@@ -282,11 +325,16 @@ def copy_directory_contents(logger, source_directory, destination_directory, fil
                     available_space -= file_size
                     actual_copied_file_sizes += file_size
                     os.makedirs(os.path.dirname(d), exist_ok=True)
-                    shutil.copy(s, d)
+                    progress.start(rel_path, d)
+                    try:
+                        shutil.copy(s, d)
+                    finally:
+                        progress.finish(rel_path, file_size)
                     with file_counter_lock:
                         file_counter[0] += 1
                         print_with_progress_files(logger, file_counter[0], total_files, 'INFO', 'Copying file',
-                                                  disk_paths=(source_directory, destination_directory))
+                                                  disk_paths=(source_directory, destination_directory),
+                                                  estimator=estimator)
                 else:
                     skipped_files_counter[0] += 1
 

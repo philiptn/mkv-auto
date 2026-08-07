@@ -21,7 +21,7 @@ from modules.logger import *
 from modules.media_encoder import *
 from modules.preview import *
 
-mkv_auto_version = 'DEV-2026-06'
+mkv_auto_version = 'DEV-2026-08'
 
 
 def remap_origins(origins, old_names, new_names):

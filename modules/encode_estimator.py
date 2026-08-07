@@ -57,8 +57,10 @@ class EncodeEstimator:
     Fed from three sides: the sampler thread (record_sample), the encode
     threads (note_start/note_progress/note_complete) and the scheduler
     (set_slots/set_sampling). Read only by the spinner's render thread, via
-    display_eta(). Every method takes the lock for its whole body, and the lock
-    is never held across a subprocess call, a join, or a ProgressState call.
+    display_eta(), which returns None until there is a real figure to show —
+    the line renders nothing at all in the meantime rather than a placeholder.
+    Every method takes the lock for its whole body, and the lock is never held
+    across a subprocess call, a join, or a ProgressState call.
     """
 
     def __init__(self, files, codec_cap):
@@ -71,7 +73,6 @@ class EncodeEstimator:
         self._codec_cap = max(1, int(codec_cap))
         self._slots = self._codec_cap
         self._sampling = False
-        self._status_text = None
         self._calibration = 1.0
         self._displayed = None
 
@@ -149,14 +150,6 @@ class EncodeEstimator:
     def sampling_active(self):
         with self._lock:
             return self._sampling
-
-    def set_status_text(self, text):
-        with self._lock:
-            self._status_text = text
-
-    def status_text(self):
-        with self._lock:
-            return self._status_text
 
     # ------------------------------------------------------------------
     # encode side
