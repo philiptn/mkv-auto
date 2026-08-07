@@ -102,6 +102,9 @@ def mkv_auto(args):
     errored = False
     resolved_targets = {}
     origins = {}
+    # Populated by the encoder as it delivers each finished file, so both the
+    # normal and the error path below can tell what is already at the destination.
+    moved_files = set()
 
     try:
         if move_files:
@@ -201,7 +204,11 @@ def mkv_auto(args):
             Main loop
             """
 
-            filenames = [f for f in filenames if not f.startswith('.')]
+            # os.walk() hands back raw directory order, so sort once here, before
+            # any stage runs. Every later stage builds lists positionally parallel
+            # to filenames_mkv_only, so ordering the source list is what makes the
+            # whole pipeline - encoding included - run in episode order.
+            filenames = sorted((f for f in filenames if not f.startswith('.')), key=natural_sort_key)
             filenames_covers = [f for f in filenames if f.lower().endswith(('.png', '.jpg'))
                                 and any(name in f.lower() for name in poster_base_names)]
 
@@ -332,16 +339,20 @@ def mkv_auto(args):
             remap_origins(origins, pre_clutter, filenames_mkv_only)
 
             if enable_media_encoder:
-                filenames_mkv_only, resolved_targets = encode_media_files(logger, debug, filenames_mkv_only, dirpath, output_dir, origins)
+                filenames_mkv_only, resolved_targets = encode_media_files(logger, debug, filenames_mkv_only, dirpath, output_dir, origins,
+                                                                          moved_out=moved_files)
 
             if convert_dolby_vision_to_p8 and not enable_media_encoder:
                 pre_dovi = list(filenames_mkv_only)
                 filenames_mkv_only = convert_dovi_files(logger, debug, filenames_mkv_only, dirpath)
                 remap_origins(origins, pre_dovi, filenames_mkv_only)
 
-            all_filenames = filenames_mkv_only + filenames_covers
-            move_files_to_output_process(logger, debug, all_filenames, dirpath, origins, output_dir, errored,
-                                         resolved_targets=resolved_targets)
+            # The encoder delivers each file as its own encode finishes, so with
+            # it enabled this stage is usually left with just the cover art.
+            all_filenames = [f for f in filenames_mkv_only + filenames_covers if f not in moved_files]
+            if all_filenames:
+                move_files_to_output_process(logger, debug, all_filenames, dirpath, origins, output_dir, errored,
+                                             resolved_targets=resolved_targets)
 
             end_time = time.time()
             processing_time = end_time - start_time
@@ -356,11 +367,12 @@ def mkv_auto(args):
 
     except Exception as e:
         errored = True
-        if filenames_mkv_only:
+        remaining_files = [f for f in filenames_mkv_only if f not in moved_files]
+        if remaining_files:
             custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured. Moving unprocessed "
-                                 f"{print_multi_or_single(len(filenames_mkv_only), 'file')} to destination folder...\n{e}")
+                                 f"{print_multi_or_single(len(remaining_files), 'file')} to destination folder...\n{e}")
             custom_print(logger, traceback.print_tb(e.__traceback__))
-            move_files_to_output_process(logger, debug, filenames_mkv_only, dirpath, origins, output_dir, errored,
+            move_files_to_output_process(logger, debug, remaining_files, dirpath, origins, output_dir, errored,
                                          resolved_targets=resolved_targets)
         else:
             custom_print(logger, f"{RED}[ERROR]{RESET} An unknown error occured: {e}")

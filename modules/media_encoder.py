@@ -15,6 +15,7 @@ import concurrent.futures
 
 from modules.misc import *
 from modules.file_operations import resolve_output_target, move_resolved_to_output
+from modules.mkv import move_files_to_output_process_worker, print_arr_summary
 from modules.encode_estimator import (
     EncodeEstimator,
     MAX_SAMPLES_PER_FILE,
@@ -496,6 +497,39 @@ CODEC_DISPLAY_NAME_MAP = {
     'libvpx-vp9': 'VP9',
     'libsvtav1': 'AV1',
 }
+
+
+class OrderedRelease:
+    """Hand back items in strictly increasing index order.
+
+    Encodes finish in runtime order, not episode order: a short episode
+    submitted second can easily overtake a long one submitted first. Holding an
+    early finisher back until every lower index has been released is what makes
+    the destination folder see ep1, ep2, ep3 ... in order.
+
+    Pure bookkeeping - no threads, no I/O. The caller owns the concurrency.
+    """
+
+    def __init__(self, start=0):
+        self._pending = {}
+        self._next = start
+
+    def add(self, index, payload):
+        self._pending[index] = payload
+
+    def ready(self):
+        """Yield every payload now unblocked, in index order.
+
+        Yields nothing while the head index is still missing, and never yields
+        the same index twice.
+        """
+        while self._next in self._pending:
+            yield self._pending.pop(self._next)
+            self._next += 1
+
+    def outstanding(self):
+        """Indices held back because an earlier one has not arrived yet."""
+        return sorted(self._pending)
 
 
 def compute_post_encode_filename(input_file, output_codec, is_dovi):
@@ -1282,7 +1316,14 @@ def run_sampler(logger, estimator, gate, jobs, dirpath, cpu_for,
                 take(meta, offset_fraction)
 
 
-def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=None):
+def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=None, moved_out=None):
+    """Encode every file, delivering each to its destination as soon as it is done.
+
+    ``moved_out``, when given, is a set the caller owns: every basename this
+    function delivers is added to it as it lands. A return value cannot serve
+    that purpose, because an encode failure unwinds before the return and the
+    caller's error handler still needs to know what has already been delivered.
+    """
     total_files = len(input_files)
     updated_filenames = [None] * total_files
     filesizes_info = [None] * total_files
@@ -1374,6 +1415,14 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
         }
         for fut in concurrent.futures.as_completed(resolve_futures):
             resolved_targets[resolve_futures[fut]] = fut.result()
+
+    # Keyed by index rather than by post-encode basename. The pre-copy resolves
+    # each target from the name compute_post_encode_filename() predicted, but the
+    # encode recomputes that name itself and can disagree in one case: DV was
+    # detected up front, then RPU extraction failed mid-encode, so the final name
+    # loses its 'DV HDR' upgrade. A name-keyed lookup would miss, resolve a second
+    # destination path, and leave the un-encoded placeholder behind as a duplicate.
+    target_by_index = {idx: resolved_targets[name] for idx, name in enumerate(input_files)}
 
     copy_workers = max(1, min(get_worker_thread_count(), total_files))
     copy_description = f"Copying {print_multi_or_single(total_files, 'file')}"
@@ -1476,6 +1525,32 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     pending = list(file_meta)
     in_flight = {}
 
+    # Encoding is the last stage that touches the media, so a finished file has
+    # no reason to wait on the rest of the batch. One mover thread, fed strictly
+    # in index order, delivers them as they land: submission order is execution
+    # order with a single worker, which is what keeps ep1 ahead of ep2 at the
+    # destination. It also keeps the move - usually a cross-filesystem copy - off
+    # the scheduler thread and caps its disk contention with the live encodes.
+    release = OrderedRelease()
+    move_futures = []
+    mover = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    moves_done = [0]
+
+    def _move_one(idx, name):
+        result = move_files_to_output_process_worker(
+            logger, debug, name, dirpath, origins.get(name), output_dir,
+            target_by_index.get(idx))
+        if moved_out is not None:
+            moved_out.add(name)
+        moves_done[0] += 1
+        return result
+
+    def dispatch_ready_moves():
+        for idx, name in release.ready():
+            if name is None:
+                continue
+            move_futures.append(mover.submit(_move_one, idx, name))
+
     def sync_gate():
         cap = effective_cap()
         gate.set_load(len(in_flight), cap)
@@ -1483,6 +1558,7 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
         estimator.set_slots(cap)
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=upper_bound)
+    encode_failed = True
     try:
         if sample_first:
             # Only one encode slot exists, so there is no spare worker to
@@ -1543,12 +1619,15 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
                         updated_filenames[meta['index']] = updated_filename
                     if filesize_info is not None:
                         filesizes_info[meta['index']] = filesize_info
+                    release.add(meta['index'], (meta['index'], updated_filename))
                 except Exception as e:
                     custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
                     traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                     print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                     raise
+            dispatch_ready_moves()
             sync_gate()
+        encode_failed = False
     finally:
         # Before shutdown(wait=True), not after: on the failure path that wait
         # can last for the remaining encodes, and a live sampler would burn a
@@ -1557,6 +1636,11 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
         if sampler_thread is not None:
             sampler_thread.join(timeout=30)
         executor.shutdown(wait=True)
+        if encode_failed:
+            # Let the moves already in flight finish rather than abandoning a
+            # half-written destination file. Whatever the release buffer is still
+            # holding back stays in TEMP for the caller's error path to move.
+            mover.shutdown(wait=True)
 
     log_debug(logger, f"[ENCODER] ETA estimator: {estimator.debug_line()}")
 
@@ -1575,6 +1659,45 @@ def encode_media_files(logger, debug, input_files, dirpath, output_dir, origins=
     logger.info(f"[UTC {get_timestamp()}] [{header}] {done_description} {CHECK}")
     logger.debug(f"[UTC {get_timestamp()}] [{header}] {done_description} {CHECK}")
     logger.color(f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} {done_description} {DONE}{CHECK}{RESET}")
+
+    # Every file but the last was delivered while the batch was still encoding, so
+    # what is drained here is usually just the tail: the final file's move, which
+    # cannot start until its own encode ends. A local spinner, never the module
+    # global one - and only started after the encode spinner has stopped, so a
+    # single spinner owns the line at any moment.
+    move_total = len(move_futures)
+    if move_total:
+        move_header = "INFO"
+        move_description = f"Move {print_multi_or_single(move_total, 'file')} to destination folder"
+        move_spinner = None
+
+        if moves_done[0] < move_total:
+            def _move_line():
+                metrics = system_metrics_chip(disk_paths=(dirpath, output_dir))
+                return f"[{move_header}]{metrics}{RESET} {move_description} ({moves_done[0]}/{move_total}) "
+
+            print()
+            move_spinner = ContinuousSpinner(interval=0.15)
+            move_spinner.set_line_func(_move_line)
+            move_spinner.start()
+
+        mover.shutdown(wait=True)
+
+        move_final_line = (f"{GREY}[UTC {get_timestamp_short()}] [{move_header}]{RESET} "
+                           f"{move_description} {DONE}{CHECK}{RESET}")
+        if move_spinner is not None:
+            move_spinner.stop(move_final_line)
+        else:
+            print()
+            sys.stdout.write(f"\r{move_final_line}\033[K\r")
+            sys.stdout.flush()
+        logger.info(f"[UTC {get_timestamp()}] [{move_header}] {move_description} {CHECK}")
+        logger.debug(f"[UTC {get_timestamp()}] [{move_header}] {move_description} {CHECK}")
+        logger.color(move_final_line)
+
+        print_arr_summary(logger, (fut.result() for fut in move_futures))
+    else:
+        mover.shutdown(wait=True)
 
     # Reported on a video-only basis: audio, subtitles and attachments are remuxed
     # through untouched, so counting them would dilute the encoder's actual result.

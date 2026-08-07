@@ -1935,7 +1935,7 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, origins, o
     resolved_targets = resolved_targets or {}
     origins = origins or {}
     files = input_files
-    files.sort()
+    files.sort(key=natural_sort_key)
 
     new_radarr_paths = [None] * total_files
     new_sonarr_paths = [None] * total_files
@@ -1980,8 +1980,20 @@ def move_files_to_output_process(logger, debug, input_files, dirpath, origins, o
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
-    new_radarr_paths_len = sum(1 for item in new_radarr_paths if item.strip() != '')
-    new_sonarr_paths_len = sum(1 for item in new_sonarr_paths if item.strip() != '')
+    print_arr_summary(logger, zip(new_radarr_paths, new_sonarr_paths))
+
+
+def print_arr_summary(logger, results):
+    """Print the Radarr/Sonarr tallies for a list of (radarr_path, sonarr_path).
+
+    Shared by the batch move stage and the encoder's incremental mover, which
+    delivers its files one at a time but still reports a single tally at the end.
+    Counts truthy entries, so a slot that never produced a path - because its
+    file errored, or because no API key is configured - is simply not counted.
+    """
+    results = list(results)
+    new_radarr_paths_len = sum(1 for radarr, _ in results if radarr and radarr.strip())
+    new_sonarr_paths_len = sum(1 for _, sonarr in results if sonarr and sonarr.strip())
 
     print_msg = (f"{GREY}[RADARR]{RESET} Updated {new_radarr_paths_len} "
                  f"{print_multi_or_single(new_radarr_paths_len, 'movie folder')} in Radarr.")

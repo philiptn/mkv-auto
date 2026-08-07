@@ -1678,6 +1678,20 @@ def show_the_cursor():
     sys.stdout.write("\033[?25h")
 
 
+_NATURAL_SORT_RE = re.compile(r'(\d+)')
+
+
+def natural_sort_key(name):
+    """Sort key that orders digit runs by value rather than by character.
+
+    Plain lexicographic order puts 'E10' before 'E9', which would encode and
+    deliver a season pack out of episode order whenever a source is not
+    zero-padded. Case is folded so 'ep' and 'EP' group together.
+    """
+    return [int(part) if part.isdigit() else part.lower()
+            for part in _NATURAL_SORT_RE.split(name)]
+
+
 def extract_season_episode(filename):
     # Extract single or multi-episode patterns like S01E01 or S01E01-E02
     match = re.search(r'[sS](\d{2})[eE](\d{2})(?:-[eE]?(\d{2}))?', filename)
