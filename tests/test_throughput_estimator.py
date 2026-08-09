@@ -237,3 +237,67 @@ def test_no_chip_without_an_estimate():
     done = _Bytes()
     assert eta_chip(ThroughputEstimator(1000 * MB, done)) == ""
     assert eta_chip(None) == ""
+
+
+# --- uncompressed_size --------------------------------------------------------
+
+def test_an_archive_is_weighed_by_what_it_expands_to(tmp_path):
+    """Sizing an extraction by bytes on disk would mis-weight it badly: a
+    compressed archive writes far more than it occupies."""
+    import zipfile
+    from modules.file_operations import uncompressed_size
+
+    archive = tmp_path / "a.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as handle:
+        handle.writestr("big.bin", b"0" * 500_000)
+        handle.writestr("sub/small.txt", b"x" * 10)
+
+    assert uncompressed_size(str(archive)) == 500_010
+    assert archive.stat().st_size < 10_000        # the point of the exercise
+
+
+def test_an_unreadable_archive_falls_back_to_its_size_on_disk(tmp_path):
+    """A wrong weighting still lets the stage show an estimate; a zero would
+    leave the whole batch without one."""
+    from modules.file_operations import uncompressed_size
+
+    broken = tmp_path / "broken.zip"
+    broken.write_bytes(b"not really a zip file")
+    assert uncompressed_size(str(broken)) == len(b"not really a zip file")
+
+
+def test_a_missing_archive_weighs_nothing(tmp_path):
+    from modules.file_operations import uncompressed_size
+    assert uncompressed_size(str(tmp_path / "gone.zip")) == 0
+
+
+# --- repack_output_size -------------------------------------------------------
+
+def test_repack_is_weighed_by_source_plus_the_tracks_merged_in(tmp_path):
+    """The mux writes the source plus every track being added, which with
+    several audio preferences is a good deal more than the source alone."""
+    from modules.mkv import repack_output_size
+    from modules.models import MediaFile
+
+    (tmp_path / "ep.mkv").write_bytes(b"m" * 1000)
+    (tmp_path / "a1.eac3").write_bytes(b"a" * 300)
+    (tmp_path / "s1.srt").write_bytes(b"s" * 50)
+
+    item = MediaFile(name="ep.mkv")
+    item.audio_tracks_to_merge = {"audio_paths": [str(tmp_path / "a1.eac3")]}
+    item.subtitle_tracks_to_merge = {"sub_paths": [str(tmp_path / "s1.srt")]}
+
+    assert repack_output_size(item, str(tmp_path)) == 1350
+
+
+def test_repack_size_survives_empty_and_missing_track_lists(tmp_path):
+    from modules.mkv import repack_output_size
+    from modules.models import MediaFile
+
+    (tmp_path / "ep.mkv").write_bytes(b"m" * 1000)
+    item = MediaFile(name="ep.mkv")
+    assert repack_output_size(item, str(tmp_path)) == 1000
+
+    item.audio_tracks_to_merge = {"audio_paths": None}
+    item.subtitle_tracks_to_merge = {"sub_paths": [str(tmp_path / "gone.srt")]}
+    assert repack_output_size(item, str(tmp_path)) == 1000

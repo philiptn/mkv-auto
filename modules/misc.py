@@ -19,7 +19,8 @@ import requests
 import math
 
 from modules import sysmetrics
-from modules.models import WorkingFile, SubtitleTrack, AudioTrack, AudioTrackCandidate, WantedAudioTracks
+from modules.models import (WorkingFile, MediaFile, SubtitleTrack, AudioTrack,
+                            AudioTrackCandidate, WantedAudioTracks)
 
 # ANSI color codes
 BLUE = '\033[94m'
@@ -614,16 +615,24 @@ def make_batch_eta_line(header, description, estimator, done_fn, total,
     return line
 
 
-def make_progress_line_no_temp(progress, header, description, start_time, disk_paths=None):
+def make_progress_line_no_temp(progress, header, description, start_time, disk_paths=None,
+                               estimator=None):
     def line():
         done, total, workers = progress.snapshot()
+
+        # Same rule as make_progress_line: with one file left in flight and
+        # nothing queued behind it, the batch figure is just the worker's own
+        # chip repeated, so drop it.
+        last_file_in_flight = len(workers) == 1 and done + 1 >= total
+        chip = "" if last_file_in_flight else eta_chip(estimator)
+
         workers_str = "".join(
             render_worker_status_simple(progress, wid, workers.get(wid, 0.0))
             for wid in sorted(workers.keys())
         )
 
         return (
-            f"[{header}]{system_metrics_chip(disk_paths=disk_paths)}{RESET} "
+            f"[{header}]{system_metrics_chip(disk_paths=disk_paths)}{chip}{RESET} "
             + f"{description} "
             + workers_str
             + f"({done}/{total}) "

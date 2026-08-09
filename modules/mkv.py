@@ -4,6 +4,7 @@ import tempfile
 import os
 import re
 import threading
+import threading
 from tqdm import tqdm
 from datetime import datetime
 import shutil
@@ -21,6 +22,7 @@ from modules.audio import *
 from modules.subs import *
 from modules.file_operations import *
 from modules.integrations import *
+from modules.encode_estimator import EncodeEstimator
 from modules.encode_estimator import EncodeEstimator
 
 
@@ -416,11 +418,14 @@ def remove_cc_hidden_in_file(debug, filename):
         shutil.move(temp_filename, filename)
 
 
-def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
-    total_files = len(input_files)
-    mkv_files_need_processing_audio = [None] * total_files
-    mkv_files_need_processing_subs = [None] * total_files
-    all_missing_subs_langs = [None] * total_files
+def trim_audio_in_mkv_files(logger, debug, media, dirpath):
+    """Strip unwanted audio tracks and record what each file still needs.
+
+    Results are written onto each MediaFile rather than returned as lists
+    aligned by position.
+    """
+    input_files = [m.name for m in media]
+    total_files = len(media)
     max_worker_threads = get_worker_thread_count()
 
     header = "MKVMERGE"
@@ -439,28 +444,27 @@ def trim_audio_in_mkv_files(logger, debug, input_files, dirpath):
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads) as executor:
-        futures = {executor.submit(trim_audio_in_mkv_files_worker, logger, debug, input_file, dirpath,
-                                   progress=progress): index for
-                   index, input_file in enumerate(input_files)}
+        # Keyed by the record itself, so a result can only ever be filed against
+        # the file it was computed from.
+        futures = {executor.submit(trim_audio_in_mkv_files_worker, logger, debug, item.name, dirpath,
+                                   progress=progress): item for item in media}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description,
                                 disk_paths=dirpath, estimator=estimator)
             try:
-                index = futures[future]
+                item = futures[future]
                 needs_processing_audio, needs_processing_subs, missing_subs_langs = future.result()
                 if needs_processing_audio is not None:
-                    mkv_files_need_processing_audio[index] = needs_processing_audio
+                    item.needs_audio_processing = needs_processing_audio
                 if needs_processing_subs is not None:
-                    mkv_files_need_processing_subs[index] = needs_processing_subs
+                    item.needs_subs_processing = needs_processing_subs
                 if missing_subs_langs is not None:
-                    all_missing_subs_langs[index] = missing_subs_langs
+                    item.missing_subs_langs = missing_subs_langs
             except Exception as e:
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-
-    return mkv_files_need_processing_audio, mkv_files_need_processing_subs, all_missing_subs_langs
 
 
 def trim_audio_in_mkv_files_worker(logger, debug, input_file, dirpath, progress=None):
@@ -650,10 +654,153 @@ def build_audio_jobs(input_files, probe_results, preferences):
     return jobs, job_index_map, total_jobs
 
 
-def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need_processing_audio):
-    total_files = len(input_files)
-    all_ready_audio_tracks = [None] * total_files
-    all_ready_subtitle_tracks = [None] * total_files
+# A track whose channel count the container did not report still has to be
+# priced somehow; 5.1 is the common case. Mirrors the estimator's own habit of
+# falling back to a plausible figure rather than to zero.
+AUDIO_DEFAULT_CHANNELS = 6
+
+
+class AudioJobProgress:
+    """Job-indexed bridge from the audio encode threads to the batch ETA and counter.
+
+    encode_single_preference() runs on a nested pool inside each file's worker,
+    so every method here is reached from several threads at once. The counter is
+    read by the spinner's render thread, which is why it is lock-guarded rather
+    than a bare int.
+
+    A ``job`` of None means the preference is a stream copy: it advances the
+    visible counter but is never priced (see is_copy_only_preference).
+    """
+
+    def __init__(self, estimator, job_index_map):
+        self._estimator = estimator
+        self._job_index_map = job_index_map
+        self._lock = threading.Lock()
+        self._done = 0
+
+    def index_of(self, file_index, track_index, pref_index):
+        """Estimator index for this job, or None if it is not priced."""
+        return self._job_index_map.get((file_index, track_index, pref_index))
+
+    def start(self, job):
+        if job is not None and self._estimator is not None:
+            self._estimator.note_start(job)
+
+    def advance(self, job, fraction):
+        if job is not None and self._estimator is not None:
+            self._estimator.note_progress(job, fraction)
+
+    def finish(self, job):
+        if job is not None and self._estimator is not None:
+            self._estimator.note_complete(job)
+        with self._lock:
+            self._done += 1
+
+    def done(self):
+        with self._lock:
+            return self._done
+
+
+def audio_track_channels(file_info, track_id):
+    """Channel count for a source track from the mkvmerge JSON, or None."""
+    for track in file_info.get('tracks', []):
+        if track.get('id') == track_id:
+            return track.get('properties', {}).get('audio_channels')
+    return None
+
+
+def mkv_duration_seconds(file_info, path):
+    """Container duration in seconds: mkvmerge's own figure, else an ffprobe.
+
+    mkvmerge reports this in nanoseconds and omits it for some sources, so the
+    ffprobe is the fallback rather than the primary - it costs another process.
+    """
+    duration_ns = file_info.get('container', {}).get('properties', {}).get('duration')
+    if duration_ns:
+        return duration_ns / 1_000_000_000
+    try:
+        return probe_duration_seconds(path)
+    except Exception:
+        # A missing duration only costs the ETA its normaliser; the stage itself
+        # runs identically, and the estimator prices such a job from wall time.
+        return None
+
+
+def probe_audio_work(input_file, dirpath):
+    """Everything the batch ETA needs about one file, before any encoding.
+
+    Performs exactly the probe generate_audio_tracks_in_mkv_files_worker() used
+    to do itself, so hoisting this costs no extra mkvmerge call - and guarantees
+    the priced job list is the one the worker actually encodes.
+    """
+    input_path = os.path.join(dirpath, input_file)
+    pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
+    pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
+    remove_commentary = check_config(config, 'audio', 'remove_commentary')
+
+    file_info, _ = get_mkv_info(False, input_path, True)
+    wanted_audio = get_wanted_audio_tracks(
+        False, file_info, pref_audio_langs, remove_commentary, pref_audio_formats)
+
+    duration = mkv_duration_seconds(file_info, input_path)
+    channels = {c.track_id: audio_track_channels(file_info, c.track_id)
+                for c in wanted_audio.tracks_to_convert}
+    return wanted_audio, duration, channels
+
+
+def build_audio_jobs(input_files, probe_results, preferences):
+    """Split the batch into encode jobs and price the ones that are transcodes.
+
+    Returns (jobs, job_index_map, total_jobs). ``total_jobs`` counts every
+    (track x preference) unit including stream copies - that is what the visible
+    counter tracks - while ``jobs`` holds only the transcodes, since a copy
+    finishes near-instantly and would drag the estimator's cost median down.
+    """
+    jobs = []
+    job_index_map = {}
+    total_jobs = 0
+
+    for file_index, probe in enumerate(probe_results):
+        if probe is None:
+            continue
+        wanted_audio, duration, channels_by_id = probe
+        if not wanted_audio.needs_processing:
+            continue
+
+        for track_index, candidate in enumerate(wanted_audio.tracks_to_convert):
+            channels = channels_by_id.get(candidate.track_id) or AUDIO_DEFAULT_CHANNELS
+            for pref_index, (transformation, codec, ch_str) in enumerate(preferences):
+                total_jobs += 1
+                if is_copy_only_preference(transformation, codec):
+                    continue
+                job_index_map[(file_index, track_index, pref_index)] = len(jobs)
+                jobs.append({
+                    'index': len(jobs),
+                    'name': f"{input_files[file_index]}#{candidate.track_id}:{codec}",
+                    'duration': duration,
+                    # The estimator normalises by 'pixels' = width*height. For
+                    # audio the analogous cost driver is channel count, so a
+                    # 5.1 track is priced ~3x a stereo one of equal length.
+                    'width': channels,
+                    'height': 1,
+                    'is_4k': False,
+                    # ffmpeg's audio encoders are effectively single-threaded;
+                    # the parallelism here is across jobs, not within one.
+                    'threads': 1,
+                })
+
+    return jobs, job_index_map, total_jobs
+
+
+def generate_audio_tracks_in_mkv_files(logger, debug, media, dirpath):
+    """Transcode the wanted audio tracks and record them on each MediaFile.
+
+    ``need_processing_audio`` used to be passed in as a positional list; it now
+    lives on the records as ``needs_audio_processing``.
+    """
+    input_files = [m.name for m in media]
+    need_processing_audio = [m.needs_audio_processing for m in media]
+    total_files = len(media)
     pref_audio_formats = check_config(config, 'audio', 'pref_audio_formats')
     audio_format_preferences = parse_preferred_codecs(pref_audio_formats)
     audio_format_preferences_print = format_audio_preferences_print(audio_format_preferences)
@@ -716,6 +863,15 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
                                                   reporter.done, total_jobs, show_cpu=True))
         spinner.start()
 
+    # One encode pool shared by every file, rather than a private pool per file.
+    # The per-file split (max_worker_threads // num_workers) integer-divides to 1
+    # the moment there are at least as many files as threads, which serialized
+    # each episode's preferences and left most of the machine idle - measured at
+    # 12.7 of 32 cores on a 20-file batch, against 18.0 sharing one pool. The
+    # file workers only extract and then wait on their encode futures, so they
+    # cannot starve this pool.
+    encode_pool = concurrent.futures.ThreadPoolExecutor(max_workers=max_worker_threads)
+
     # Use ThreadPoolExecutor to handle multithreading
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -723,7 +879,8 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
                                        internal_threads, file_index=index,
                                        wanted_audio=probe_results[index][0],
                                        duration=probe_results[index][1],
-                                       reporter=reporter): index
+                                       reporter=reporter,
+                                       encode_pool=encode_pool): index
                        for index, input_file in enumerate(input_files)}
 
             for future in concurrent.futures.as_completed(futures):
@@ -731,9 +888,9 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
                     index = futures[future]
                     ready_audio_tracks, ready_subtitle_tracks = future.result()
                     if ready_audio_tracks is not None:
-                        all_ready_audio_tracks[index] = ready_audio_tracks
+                        media[index].audio_tracks_to_merge = ready_audio_tracks
                     if ready_subtitle_tracks is not None:
-                        all_ready_subtitle_tracks[index] = ready_subtitle_tracks
+                        media[index].subtitle_tracks_to_merge = ready_subtitle_tracks
                 except Exception as e:
                     # Fetch the variables that were passed to the thread
                     index = futures[future]
@@ -749,6 +906,7 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
                     print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                     raise
     finally:
+        encode_pool.shutdown()
         if spinner is not None:
             final_line = (f"{GREY}[UTC {get_timestamp_short()}] [{header}]{RESET} "
                           f"{description} {DONE}{CHECK}{RESET}")
@@ -759,12 +917,11 @@ def generate_audio_tracks_in_mkv_files(logger, debug, input_files, dirpath, need
         if estimator is not None:
             log_debug(logger, f"[AUDIO] ETA estimator: {estimator.debug_line()}")
 
-    return all_ready_audio_tracks, all_ready_subtitle_tracks
-
 
 def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, internal_threads,
                                               file_index=None, wanted_audio=None,
-                                              duration=None, reporter=None):
+                                              duration=None, reporter=None,
+                                              encode_pool=None):
     input_file = os.path.join(dirpath, input_file)
 
     ready_audio_paths = []
@@ -796,7 +953,8 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
 
         encoded_audio_tracks = encode_audio_tracks(
             internal_threads, debug, extracted_audio_tracks, pref_audio_formats,
-            file_index=file_index, duration=duration, reporter=reporter)
+            file_index=file_index, duration=duration, reporter=reporter,
+            encode_pool=encode_pool)
 
         ready_audio_paths = [t.path for t in encoded_audio_tracks]
         ready_audio_extensions = [t.extension for t in encoded_audio_tracks]
@@ -822,9 +980,10 @@ def generate_audio_tracks_in_mkv_files_worker(debug, input_file, dirpath, intern
     }
 
 
-def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
-    total_files = len(input_files)
-    all_subtitle_files = [None] * total_files
+def extract_subs_in_mkv_process(logger, debug, media, dirpath):
+    """Extract each file's internal subtitle tracks onto its own record."""
+    input_files = [m.name for m in media]
+    total_files = len(media)
 
     header = "MKVEXTRACT"
     description = "Extract internal subtitles"
@@ -837,29 +996,39 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
     max_worker_threads = get_worker_thread_count()
     num_workers, internal_threads = compute_thread_allocation(total_files, max_worker_threads)
 
+    # mkvextract reads the whole container to pull the subtitle tracks out, so
+    # the wait scales with source size, not with how many tracks come out. The
+    # extracted files are tiny and give no useful intra-file signal, so each
+    # file is credited on completion - the estimate appears once the first one
+    # lands rather than partway into it.
+    progress = ByteProgress(total_file_size(dirpath, input_files))
+    estimator = ThroughputEstimator(progress.total_bytes(), progress.done_bytes)
+
     if not disable_print:
         # Initialize progress
-        print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath)
+        print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath,
+                            estimator=estimator)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {
-            executor.submit(extract_subs_in_mkv_process_worker, logger, debug, input_file, dirpath, internal_threads): index for
-            index, input_file in enumerate(input_files)}
+            executor.submit(extract_subs_in_mkv_process_worker, logger, debug, item.name, dirpath,
+                            internal_threads): item for item in media}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
+            done_item = futures[future]
+            progress.finish(done_item.name, total_file_size(dirpath, [done_item.name]))
             if not disable_print:
                 print_with_progress(logger, completed_count, total_files, header=header, description=description,
-                                    disk_paths=dirpath)
+                                    disk_paths=dirpath, estimator=estimator)
             try:
-                index = futures[future]
+                item = futures[future]
                 subtitle_files = future.result()
                 if subtitle_files is not None:
-                    all_subtitle_files[index] = subtitle_files
+                    item.subtitle_files = subtitle_files
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
+                input_file = futures[future].name
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
@@ -870,7 +1039,6 @@ def extract_subs_in_mkv_process(logger, debug, input_files, dirpath):
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    return all_subtitle_files
 
 
 def has_dolby_vision(file_path):
@@ -1197,12 +1365,22 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     for wid in range(num_workers):
         worker_id_pool.put(wid)
 
+    # dovi_convert rewrites the file in place, so there is no growing
+    # destination to watch; each job is credited on completion and the batch
+    # estimate appears once the first conversion lands. The per-worker chips
+    # already carry the within-file progress from its [n/3] stage markers.
+    # Sized up front: a conversion can rename its file (DV -> DV HDR), so by the
+    # time a job finishes its original name may no longer exist on disk.
+    job_sizes = {filename: total_file_size(dirpath, [filename]) for _, filename in dovi_jobs}
+    byte_progress = ByteProgress(sum(job_sizes.values()))
+    estimator = ThroughputEstimator(byte_progress.total_bytes(), byte_progress.done_bytes)
+
     print()
     start_time = time.time()
 
     SPINNER = ContinuousSpinner()
     SPINNER.set_line_func(make_progress_line_no_temp(progress, header, description, start_time,
-                                                     disk_paths=dirpath))
+                                                     disk_paths=dirpath, estimator=estimator))
     SPINNER.start()
 
     results = {}
@@ -1225,12 +1403,14 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
 
-        futures = [
-            executor.submit(worker_wrapper, i, index, filename)
+        futures = {
+            executor.submit(worker_wrapper, i, index, filename): filename
             for i, (index, filename) in enumerate(dovi_jobs)
-        ]
+        }
 
         for future in concurrent.futures.as_completed(futures):
+            source_name = futures[future]
+            byte_progress.finish(source_name, job_sizes.get(source_name, 0))
             original_index, updated_filename, file_converted = future.result()
 
             results[original_index] = updated_filename
@@ -1286,20 +1466,25 @@ def extract_subs_in_mkv_process_worker(logger, debug, input_file, dirpath, inter
     return subtitle_files
 
 
-def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_list, errored_subs_bool):
-    sub_files = [
-        [t for t in (sublist or []) if t is not None and t.extension in ('srt', 'sup', 'ass', 'sub')]
-        for sublist in subtitle_files_list
-    ]
-    total_files = len(sub_files)
+def convert_to_srt_process(logger, debug, media, dirpath, errored_subs_bool):
+    """Convert every staged subtitle track to SRT, recording the results on each MediaFile.
 
-    all_ready_subtitle_tracks = [None] * total_files
-    subtitle_tracks_to_be_processed = [None] * total_files
-    all_replacements_list = [None] * total_files
-    all_errored_subs = [None] * total_files
-    all_missing_subs_langs = [None] * total_files
-    main_audio_track_langs_list = [None] * total_files
-    subtitle_tracks_all = [None] * total_files
+    Runs twice: the first pass over everything staged, and - if any track fails
+    OCR - a single-worker retry over just those failures. The retry deliberately
+    writes to ``retry_subs_to_process`` and leaves ``subs_all``, ``errored_ocr``
+    and ``subtitle_tracks_to_merge`` alone, because the first pass's results for
+    the tracks that did convert are still the ones that count.
+    """
+    jobs = [
+        (item, [t for t in ((item.errored_ocr if errored_subs_bool else item.subtitle_files) or [])
+                if t is not None and t.extension in ('srt', 'sup', 'ass', 'sub')])
+        for item in media
+    ]
+    sub_files = [tracks for _, tracks in jobs]
+    total_files = len(jobs)
+
+    all_replacements_list = []
+    all_errored_subs = []
 
     disable_print = False
 
@@ -1332,39 +1517,43 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(convert_to_srt_process_worker, logger, debug, input_file, dirpath, internal_threads,
-                                   sub_files[index], memory_per_thread): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(convert_to_srt_process_worker, logger, debug, item.name, dirpath, internal_threads,
+                                   tracks, memory_per_thread): (item, tracks) for item, tracks in jobs}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             try:
                 if not disable_print and completed_count < total_files:
                     print_with_progress(logger, completed_count, total_files, header=header, description=description)
-                index = futures[future]
-                ready_tracks, output_subtitles, subtitles_all, all_replacements, errored_subs, missing_subs_langs, main_audio_track_langs = future.result()
-                if ready_tracks is not None:
-                    all_ready_subtitle_tracks[index] = ready_tracks
-                if output_subtitles is not None:
-                    subtitle_tracks_to_be_processed[index] = output_subtitles
-                if subtitles_all is not None:
-                    subtitle_tracks_all[index] = subtitles_all
-                if all_replacements is not None:
-                    all_replacements_list[index] = all_replacements
-                if errored_subs is not None:
-                    all_errored_subs[index] = errored_subs
+                item, tracks = futures[future]
+                ready_tracks, output_subtitles, subtitles_all, all_replacements, errored_subs, missing_subs_langs = future.result()
+
+                if errored_subs_bool:
+                    if output_subtitles is not None:
+                        item.retry_subs_to_process = output_subtitles
+                else:
+                    if ready_tracks is not None:
+                        item.subtitle_tracks_to_merge = ready_tracks
+                    if output_subtitles is not None:
+                        item.subs_to_process = output_subtitles
+                    if subtitles_all is not None:
+                        item.subs_all = subtitles_all
+                    if errored_subs is not None:
+                        item.errored_ocr = errored_subs
                 if missing_subs_langs is not None:
-                    all_missing_subs_langs[index] = missing_subs_langs
-                if main_audio_track_langs is not None:
-                    main_audio_track_langs_list[index] = main_audio_track_langs
+                    item.missing_subs_langs = missing_subs_langs
+
+                if all_replacements:
+                    all_replacements_list.append(all_replacements)
+                if errored_subs:
+                    all_errored_subs.append(errored_subs)
 
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
-                subtitle_files = sub_files[index]
+                item, subtitle_files = futures[future]
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {item.name}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
                 print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
                 print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
@@ -1372,7 +1561,7 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
         if not disable_print:
-            if [item for list in all_errored_subs for item in list]:
+            if all_errored_subs:
                 print_with_progress(logger, completed_count, -1, header=header, description=description)
             else:
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
@@ -1392,7 +1581,7 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
                 log_debug(logger, replacement)
         log_debug(logger, '')
 
-    all_errored_subs_count = len([item for list in all_errored_subs for item in list])
+    all_errored_subs_count = len([sub for errored in all_errored_subs for sub in errored])
     if all_errored_subs_count:
         if errored_subs_bool:
             verb = 'were' if all_errored_subs_count > 1 else 'was'
@@ -1410,11 +1599,8 @@ def convert_to_srt_process(logger, debug, input_files, dirpath, subtitle_files_l
                 errored_subs_print.append(os.path.basename(errored_sub[0].path))
         errored_subs_print.sort()
 
-        for index, sub in enumerate(errored_subs_print):
+        for sub in errored_subs_print:
             log_debug(logger, f"[OCR ERROR] '{sub}'")
-
-    return (all_ready_subtitle_tracks, subtitle_tracks_to_be_processed, subtitle_tracks_all,
-            all_missing_subs_langs, all_errored_subs, main_audio_track_langs_list)
 
 
 def convert_to_srt_process_worker(logger, debug, input_file, dirpath, internal_threads, subtitle_files, memory_per_thread):
@@ -1444,49 +1630,47 @@ def convert_to_srt_process_worker(logger, debug, input_file, dirpath, internal_t
     errored_subs = errored_ass_subs + errored_ocr_subs
 
     return (build_subtitle_repack_dict(subtitles_all), output_subtitles, subtitles_all,
-            all_replacements, errored_subs, missing_subs_langs, main_audio_track_lang)
+            all_replacements, errored_subs, missing_subs_langs)
 
 
-def get_subtitle_tracks_metadata_for_repack(logger, subtitle_files_list):
-    all_ready_subtitle_tracks = [None] * len(subtitle_files_list)
+def get_subtitle_tracks_metadata_for_repack(logger, media):
+    """Rebuild each file's repack track list from the subtitles staged for it."""
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
     internal_threads = max(1, max_worker_threads // num_workers)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(return_subtitle_metadata_worker, subtitle_files_list[index], internal_threads): index
-                   for index, input_file in enumerate(subtitle_files_list)}
-        for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
+        futures = {executor.submit(return_subtitle_metadata_worker, item.subtitle_files, internal_threads): item
+                   for item in media}
+        for future in concurrent.futures.as_completed(futures):
             try:
-                index = futures[future]
+                item = futures[future]
                 ready_tracks = future.result()
                 if ready_tracks is not None:
-                    all_ready_subtitle_tracks[index] = ready_tracks
+                    item.subtitle_tracks_to_merge = ready_tracks
 
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                subtitle_files = subtitle_files_list[index]
+                item = futures[future]
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
-                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {item.subtitle_files}")
                 print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-
-    return all_ready_subtitle_tracks
 
 
 def return_subtitle_metadata_worker(subtitle_tracks, max_threads):
     return build_subtitle_repack_dict(subtitle_tracks)
 
 
-def remove_sdh_process(logger, debug, subtitle_files_to_process_list):
-    total_files = len(subtitle_files_to_process_list)
-    all_replacements_list = [None] * total_files
+def remove_sdh_process(logger, debug, media):
+    """Strip SDH markup from every subtitle staged for processing."""
+    total_files = len(media)
+    all_replacements_list = []
 
     always_remove_sdh = check_config(config, 'subtitles', 'always_remove_sdh')
     if not always_remove_sdh:
@@ -1508,31 +1692,28 @@ def remove_sdh_process(logger, debug, subtitle_files_to_process_list):
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(remove_sdh_process_worker, logger, debug, list, internal_threads,
-                                   memory_per_thread): index for index, list in enumerate(subtitle_files_to_process_list)}
+        futures = {executor.submit(remove_sdh_process_worker, logger, debug, item.subs_to_process,
+                                   internal_threads, memory_per_thread): item for item in media}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
-                index = futures[future]
                 all_replacements = future.result()
-                if all_replacements is not None:
-                    all_replacements_list[index] = all_replacements
+                if all_replacements:
+                    all_replacements_list.append(all_replacements)
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                subtitle_files = subtitle_files_to_process_list[index]
+                item = futures[future]
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {item.subs_to_process}")
                 print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    all_replacements_list_count = len([item for list in all_replacements_list for item in list])
-    return all_replacements_list_count
+    return len([r for replacements in all_replacements_list for r in replacements])
 
 
 def remove_sdh_process_worker(logger, debug, input_subtitles, internal_threads, memory_per_thread):
@@ -1583,30 +1764,31 @@ def to_alpha2(lang):
     return None
 
 
-def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
-                                    total_external_subs, all_missing_subs_langs):
-    total_files = len(input_files)
+def fetch_missing_subtitles_process(logger, debug, media, dirpath):
+    """Download the subtitle languages still missing, recording them on each MediaFile."""
+    total_files = len(media)
 
-    if all(sub == ['none'] for sub in all_missing_subs_langs) and not total_external_subs:
+    if all(m.missing_subs_langs == ['none'] for m in media) and not any(m.external_subs for m in media):
         return
 
-    all_truly_missing_subs_langs = []
-    all_downloaded_subs = [None] * total_files
-    all_failed_downloads = [None] * total_files
-    all_downloaded_subs_simple = [None] * total_files
-    all_failed_downloads_simple = [None] * total_files
+    all_downloaded_subs = []
+    all_failed_downloads = []
+    all_downloaded_subs_simple = []
+    all_failed_downloads_simple = []
 
     header = "SUBLIMINAL"
     description = f"Process missing subtitles"
 
-    for index, input_file in enumerate(input_files):
+    # (record, languages) pairs, so the language list a worker is handed can
+    # only ever belong to the file it was derived from.
+    wanted = []
+    for item in media:
         truly_missing_subs_langs = []
 
         # Languages already provided by this file's external subtitles
-        external_for_file = total_external_subs[index] if (total_external_subs and index < len(total_external_subs)) else []
-        episode_external_langs = {to_alpha2(t.language) for t in (external_for_file or []) if t}
+        episode_external_langs = {to_alpha2(t.language) for t in (item.external_subs or []) if t}
 
-        for lang in all_missing_subs_langs[index]:
+        for lang in item.missing_subs_langs:
             if not lang or lang == 'none' or lang.lower() == 'und':
                 continue
 
@@ -1617,7 +1799,7 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
             if lang2 not in episode_external_langs:
                 truly_missing_subs_langs.append(lang2)
 
-        all_truly_missing_subs_langs.append(truly_missing_subs_langs)
+        wanted.append((item, truly_missing_subs_langs))
 
     # Copy default or user subliminal config file to dirpath
     if os.path.exists('subliminal.toml'):
@@ -1636,45 +1818,43 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
     # Use ThreadPoolExecutor to handle multithreading
     # Max workers is set to 1 to throttle downloads with Subliminal
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, input_file, dirpath,
-                                   all_truly_missing_subs_langs[index], internal_threads, logger): index for index, input_file
-                   in enumerate(input_files)}
+        futures = {executor.submit(fetch_missing_subtitles_process_worker, debug, item.name, dirpath,
+                                   langs, internal_threads, logger): (item, langs) for item, langs in wanted}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
-                index = futures[future]
+                item, langs = futures[future]
                 downloaded_subs, failed_downloads, downloaded_subs_simple, failed_downloads_simple = future.result()
                 if downloaded_subs is not None:
-                    all_downloaded_subs[index] = downloaded_subs
+                    item.downloaded_subs = downloaded_subs
+                    all_downloaded_subs.extend(downloaded_subs)
                 if failed_downloads is not None:
-                    all_failed_downloads[index] = failed_downloads
+                    all_failed_downloads.extend(failed_downloads)
                 if downloaded_subs_simple is not None:
-                    all_downloaded_subs_simple[index] = downloaded_subs_simple
+                    all_downloaded_subs_simple.extend(downloaded_subs_simple)
                 if failed_downloads_simple is not None:
-                    all_failed_downloads_simple[index] = failed_downloads_simple
+                    all_failed_downloads_simple.extend(failed_downloads_simple)
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
-                subtitle_lang = all_truly_missing_subs_langs[index]
+                item, langs = futures[future]
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {item.name}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
-                print_no_timestamp(logger, f"  {BLUE}subtitle_langs{RESET}: {subtitle_lang}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_langs{RESET}: {langs}")
                 print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
-    success_len = len((set(f"'{item}'" for sublist in all_downloaded_subs for item in sublist)))
-    failed_len = len((set(f"'{item}'" for sublist in all_failed_downloads for item in sublist)))
-    truly_missing_subs_count = len((set(f"'{item}'" for sublist in all_truly_missing_subs_langs for item in sublist)))
+    success_len = len(set(f"'{sub}'" for sub in all_downloaded_subs))
+    failed_len = len(set(f"'{sub}'" for sub in all_failed_downloads))
+    truly_missing_subs_count = len(set(f"'{lang}'" for _, langs in wanted for lang in langs))
 
-    unique_items = set(item for sublist in all_truly_missing_subs_langs for item in sublist)
+    unique_items = set(lang for _, langs in wanted for lang in langs)
 
     colors = [GREY]
     if len(unique_items) > len(colors):
@@ -1695,8 +1875,8 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
         custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} "
                              f"{GREEN}{CHECK} {success_len}{RESET}  {RED}{CROSS} {failed_len}{RESET}")
 
-        combined_downloaded = [item for sublist in all_downloaded_subs_simple for item in sublist]
-        combined_failed = [item for sublist in all_failed_downloads_simple for item in sublist]
+        combined_downloaded = all_downloaded_subs_simple
+        combined_failed = all_failed_downloads_simple
 
         if combined_downloaded:
             downloaded_subs_info = return_media_info_string(logger, combined_downloaded, GREEN)
@@ -1713,8 +1893,6 @@ def fetch_missing_subtitles_process(logger, debug, input_files, dirpath,
                     custom_print_no_newline(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
                 else:
                     custom_print(logger, f"{GREY}[SUBLIMINAL]{RESET} {info}")
-
-    return all_downloaded_subs
 
 
 def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_subs_langs, internal_threads, logger):
@@ -1771,8 +1949,15 @@ def fetch_missing_subtitles_process_worker(debug, input_file, dirpath, missing_s
     return downloaded_subs, failed_downloads, downloaded_subs_simple, failed_downloads_simple
 
 
-def resync_sub_process(logger, debug, input_files, dirpath, subtitle_files_to_process_list):
-    total_files = len(subtitle_files_to_process_list)
+def resync_sub_process(logger, debug, dirpath, jobs):
+    """Resynchronize subtitles against their video.
+
+    ``jobs`` is a list of ``(MediaFile, [SubtitleTrack])`` pairs rather than a
+    record field, because the tracks worth resyncing are a transient selection
+    that differs between call sites (downloaded plus external on the first
+    pass, downloaded only on the OCR retry).
+    """
+    total_files = len(jobs)
 
     resync_subtitles = check_config(config, 'subtitles', 'resync_subtitles')
     if not resync_subtitles:
@@ -1793,31 +1978,28 @@ def resync_sub_process(logger, debug, input_files, dirpath, subtitle_files_to_pr
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(resync_subs_process_worker, debug, input_file, dirpath,
-                                   subtitle_files_to_process_list[index], internal_threads): index for index, input_file in enumerate(input_files)}
+        futures = {executor.submit(resync_subs_process_worker, debug, item.name, dirpath,
+                                   tracks, internal_threads): (item, tracks) for item, tracks in jobs}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             if not disable_print:
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
-                result = future.result()
+                future.result()
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
-                subtitle_files = subtitle_files_to_process_list[index]
+                item, subtitle_files = futures[future]
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {item.name}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
                 print_no_timestamp(logger, f"  {BLUE}subtitle_files{RESET}: {subtitle_files}")
                 print_no_timestamp(logger, f"  {BLUE}internal_threads{RESET}: {internal_threads}")
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-    return result
 
 
 def resync_subs_process_worker(debug, input_file, dirpath, subtitle_files_to_process, internal_threads):
@@ -1889,58 +2071,86 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
     return updated_filename
 
 
-def repack_mkv_tracks_process(logger, debug, input_files, dirpath, audio_tracks_list,
-                              subtitle_tracks_list):
-    total_files = len(input_files)
+def repack_mkv_tracks_process(logger, debug, media, dirpath):
+    """Mux each file's selected audio and subtitle tracks back into its MKV."""
+    total_files = len(media)
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
 
     header = "MKVMERGE"
     description = "Repack tracks into MKV"
 
+    # A mux costs roughly what it writes, and what it writes is the source plus
+    # every track being merged into it - with several audio preferences that is
+    # a good deal more than the source alone, so sizing this from the input
+    # would run the estimate out well before the stage finished.
+    progress = ByteProgress(sum(repack_output_size(item, dirpath) for item in media))
+    estimator = ThroughputEstimator(progress.total_bytes(), progress.done_bytes)
+
     # Initialize progress
-    print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath)
+    print_with_progress(logger, 0, total_files, header=header, description=description, disk_paths=dirpath,
+                        estimator=estimator)
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {
-            executor.submit(repack_mkv_tracks_process_worker, debug, input_file, dirpath, audio_tracks_list[index],
-                            subtitle_tracks_list[index]): index for index, input_file in enumerate(input_files)}
+            executor.submit(repack_mkv_tracks_process_worker, debug, item.name, dirpath, item.audio_tracks_to_merge,
+                            item.subtitle_tracks_to_merge, progress=progress,
+                            expected_bytes=repack_output_size(item, dirpath)): item for item in media}
 
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description,
-                                disk_paths=dirpath)
+                                disk_paths=dirpath, estimator=estimator)
             try:
-                result = future.result()
+                future.result()
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
-                audio_tracks = audio_tracks_list[index]
-                subtitle_tracks = subtitle_tracks_list[index]
+                item = futures[future]
 
                 # Print the error and traceback
                 custom_print(logger, f"{RED}[ERROR]{RESET} {e}")
                 print_no_timestamp(logger, f"  {BLUE}debug{RESET}: {debug}")
-                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {input_file}")
+                print_no_timestamp(logger, f"  {BLUE}input_file{RESET}: {item.name}")
                 print_no_timestamp(logger, f"  {BLUE}dirpath{RESET}: {dirpath}")
-                print_no_timestamp(logger, f"  {BLUE}audio_tracks{RESET}: {audio_tracks}")
-                print_no_timestamp(logger, f"  {BLUE}subtitle_tracks{RESET}: {subtitle_tracks}")
+                print_no_timestamp(logger, f"  {BLUE}audio_tracks{RESET}: {item.audio_tracks_to_merge}")
+                print_no_timestamp(logger, f"  {BLUE}subtitle_tracks{RESET}: {item.subtitle_tracks_to_merge}")
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
 
-def repack_mkv_tracks_process_worker(debug, input_file, dirpath, audio_tracks, subtitle_tracks):
+def repack_output_size(item, dirpath):
+    """Roughly what the repacked file will weigh: source plus merged-in tracks."""
+    total = total_file_size(dirpath, [item.name])
+    for tracks, key in ((item.audio_tracks_to_merge, 'audio_paths'),
+                        (item.subtitle_tracks_to_merge, 'sub_paths')):
+        for path in (tracks or {}).get(key) or []:
+            try:
+                total += os.path.getsize(path)
+            except (OSError, TypeError):
+                pass
+    return total
+
+
+def repack_mkv_tracks_process_worker(debug, input_file, dirpath, audio_tracks, subtitle_tracks,
+                                     progress=None, expected_bytes=0):
     input_file_with_path = os.path.join(dirpath, input_file)
 
-    repack_tracks_in_mkv(debug, input_file_with_path, audio_tracks, subtitle_tracks)
+    # mkvmerge writes "<name>_tmp.mkv" beside the source before replacing it
+    # (see repack_tracks_in_mkv), so its growth is this file's visible progress.
+    if progress is not None:
+        base, extension = os.path.splitext(input_file_with_path)
+        progress.start(input_file, base + "_tmp" + extension)
+    try:
+        repack_tracks_in_mkv(debug, input_file_with_path, audio_tracks, subtitle_tracks)
+    finally:
+        if progress is not None:
+            progress.finish(input_file, expected_bytes)
 
 
-def process_external_subs(logger, debug, dirpath, input_files, all_missing_subs_langs):
-    total_files = len(input_files)
-    subtitle_tracks_to_be_processed = [None] * total_files
-    updated_all_missing_subs_langs = [None] * total_files
+def process_external_subs(logger, debug, dirpath, media):
+    """Pick up sidecar subtitle files, recording them on each MediaFile."""
+    total_files = len(media)
 
     max_worker_threads = get_worker_thread_count()
     num_workers = min(total_files, max_worker_threads)
@@ -1953,24 +2163,23 @@ def process_external_subs(logger, debug, dirpath, input_files, all_missing_subs_
 
     # Use ThreadPoolExecutor to handle multithreading
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(process_external_subs_worker, debug, input_file, dirpath,
-                                   all_missing_subs_langs[index]): index for index, input_file in
-                   enumerate(input_files)}
+        futures = {executor.submit(process_external_subs_worker, debug, item.name, dirpath,
+                                   item.missing_subs_langs): item for item in media}
         for completed_count, future in enumerate(concurrent.futures.as_completed(futures), 1):
             print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
-                index = futures[future]
+                item = futures[future]
                 output_subtitles, missing_subs_langs = future.result()
                 if output_subtitles is not None:
-                    subtitle_tracks_to_be_processed[index] = output_subtitles
+                    item.external_subs = output_subtitles
                 if missing_subs_langs is not None:
-                    updated_all_missing_subs_langs[index] = missing_subs_langs
+                    item.missing_subs_langs = missing_subs_langs
 
             except Exception as e:
                 # Fetch the variables that were passed to the thread
-                index = futures[future]
-                input_file = input_files[index]
-                missing_subs_langs = all_missing_subs_langs[index]
+                item = futures[future]
+                input_file = item.name
+                missing_subs_langs = item.missing_subs_langs
 
                 # Print the error and traceback
                 custom_print(logger, f"\n{RED}[ERROR]{RESET} {e}")
@@ -1981,8 +2190,6 @@ def process_external_subs(logger, debug, dirpath, input_files, all_missing_subs_
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
-
-    return subtitle_tracks_to_be_processed, updated_all_missing_subs_langs
 
 
 def normalize_title(title):
@@ -2316,6 +2523,23 @@ def check_integrity_of_mkv(filename):
     result.check_returncode()
 
 
+def unify_codec(acodec):
+    """Collapse codec spellings that mean the same thing, for the ORIG dedupe.
+
+    repack drops a converted track whose (codec, language, channels) already
+    matches an original it is keeping - converting DTS-HD to DTS and keeping
+    both would just store the same audio twice.
+
+    Only the DTS family collapses. "eac3" must not fold into "ac3": AC-3 and
+    E-AC-3 are distinct codecs that PREFERRED_AUDIO_FORMATS names separately, so
+    folding them made a requested EAC3 track look like a duplicate of the kept
+    ORIG AC-3 and silently dropped it.
+    """
+    if acodec.startswith("dts"):
+        return "dts"
+    return acodec
+
+
 def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
     pref_audio_langs = check_config(config, 'audio', 'pref_audio_langs')
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
@@ -2337,13 +2561,6 @@ def repack_tracks_in_mkv(debug, filename, audio_tracks, subtitle_tracks):
         codec = unify_codec(lines[0].lower() if lines else "unknown")
         channels = int(lines[1]) if len(lines) > 1 else 0
         return codec, channels
-
-    def unify_codec(acodec):
-        if acodec.startswith("dts"):
-            return "dts"
-        if acodec.endswith("ac3"):
-            return "ac3"
-        return acodec
 
     all_tracks = []
     for name, ext, lang, track_id, track_file in zip(

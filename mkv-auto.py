@@ -10,7 +10,7 @@ import json
 import sys
 import traceback
 import argparse
-from itertools import groupby, zip_longest
+from itertools import groupby
 
 from modules.file_operations import *
 from modules.mkv import *
@@ -102,8 +102,6 @@ def mkv_auto(args):
     errored = False
     resolved_targets = {}
     origins = {}
-    # Populated by the encoder as it delivers each finished file, so both the
-    # normal and the error path below can tell what is already at the destination.
     moved_files = set()
 
     try:
@@ -168,8 +166,6 @@ def mkv_auto(args):
         if remove_samples:
             remove_sample_files_and_dirs(temp_dir)
 
-        # Name-based preprocessing runs on the real nested tree (before flattening)
-        # so it operates on the actual filenames, not an encoded working name.
         convert_all_videos_to_mkv(logger, debug, temp_dir, args.silent)
         rename_others_file_to_folder(temp_dir, logger)
 
@@ -177,9 +173,6 @@ def mkv_auto(args):
         remove_ds_store(temp_dir)
         remove_wsl_identifiers(temp_dir)
 
-        # Collapse everything to the top level with plain working names. The
-        # original subfolder path / name for each file is carried in the
-        # returned WorkingFile records instead of being encoded into the name.
         working_files = flatten_directories(logger, temp_dir)
         origins = {os.path.basename(wf.path): wf for wf in working_files}
 
@@ -204,15 +197,9 @@ def mkv_auto(args):
             Main loop
             """
 
-            # os.walk() hands back raw directory order, so sort once here, before
-            # any stage runs. Every later stage builds lists positionally parallel
-            # to filenames_mkv_only, so ordering the source list is what makes the
-            # whole pipeline - encoding included - run in episode order.
             filenames = sorted((f for f in filenames if not f.startswith('.')), key=natural_sort_key)
             filenames_covers = [f for f in filenames if f.lower().endswith(('.png', '.jpg'))
                                 and any(name in f.lower() for name in poster_base_names)]
-
-            total_external_subs = []
 
             filenames = [f for f in filenames if f.endswith(('.mkv', '.srt', '.sup', '.ass', '.sub', '.idx'))]
             filenames_mkv_only = [f for f in filenames if f.endswith('.mkv')]
@@ -251,88 +238,72 @@ def mkv_auto(args):
             update_replacement_lists(logger)
             start_time = time.time()
 
-            errored_ocr_list = []
-            all_subtitle_files = []
-            all_downloaded_subs = []
-            subtitle_files_to_process = []
-            subtitle_files_all = []
             external_subs_found = False
+            media = [MediaFile(name=f, origin=origins.get(f)) for f in filenames_mkv_only]
 
-            need_processing_audio, need_processing_subs, all_missing_subs_langs = trim_audio_in_mkv_files(logger, debug, filenames_mkv_only, dirpath)
-            audio_tracks_to_be_merged, subtitle_tracks_to_be_merged = generate_audio_tracks_in_mkv_files(logger, debug, filenames_mkv_only, dirpath, need_processing_audio)
+            trim_audio_in_mkv_files(logger, debug, media, dirpath)
+            generate_audio_tracks_in_mkv_files(logger, debug, media, dirpath)
 
             if any(file.endswith(('.srt', '.ass', '.sub', '.idx', '.sup')) for file in filenames) and download_missing_subs.lower() != 'override':
-                total_external_subs, all_missing_subs_langs = process_external_subs(logger, debug, dirpath, filenames_mkv_only, all_missing_subs_langs)
-                if any(sub for sub in total_external_subs):
+                process_external_subs(logger, debug, dirpath, media)
+                if any(m.external_subs for m in media):
                     external_subs_found = True
 
-            if any(need_processing_subs) or external_subs_found:
+            if any(m.needs_subs_processing for m in media) or external_subs_found:
                 if download_missing_subs.lower() != 'override':
-                    all_subtitle_files = extract_subs_in_mkv_process(logger, debug, filenames_mkv_only, dirpath)
+                    extract_subs_in_mkv_process(logger, debug, media, dirpath)
 
-                if any(sub for sub in total_external_subs):
-                    all_subtitle_files = merge_subtitles_with_priority(all_subtitle_files, total_external_subs)
+                if any(m.external_subs for m in media):
+                    for m in media:
+                        m.subtitle_files = merge_subtitles_with_priority(m.subtitle_files, m.external_subs)
 
-                if not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs) and download_missing_subs.lower() != 'false':
-                    all_downloaded_subs = fetch_missing_subtitles_process(logger, debug, filenames_mkv_only, dirpath, total_external_subs,
-                                                                          all_missing_subs_langs)
+                if not all(m.subs_langs_satisfied for m in media) and download_missing_subs.lower() != 'false':
+                    fetch_missing_subtitles_process(logger, debug, media, dirpath)
 
-                    all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, all_downloaded_subs, fillvalue=[])]
+                    for m in media:
+                        m.subtitle_files = m.subtitle_files + m.downloaded_subs
 
                     if download_missing_subs.lower() == 'override':
-                        subtitle_files_to_process = all_subtitle_files
-                        subtitle_tracks_to_be_merged = get_subtitle_tracks_metadata_for_repack(logger, all_subtitle_files)
+                        for m in media:
+                            m.subs_to_process = m.subtitle_files
+                        get_subtitle_tracks_metadata_for_repack(logger, media)
 
-                downloaded_or_external_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, total_external_subs, fillvalue=[])]
-                if downloaded_or_external_subtitle_files:
-                    # Filter the nested lists to only include .srt tracks
-                    subtitle_files = [[t for t in sublist if t.extension == 'srt'] for sublist in downloaded_or_external_subtitle_files]
-                    if any(sub for sub in subtitle_files):
-                        resync_sub_process(logger, debug, filenames_mkv_only, dirpath, subtitle_files)
+                resync_jobs = [(m, [t for t in m.downloaded_subs + m.external_subs if t.extension == 'srt'])
+                               for m in media]
+                if any(tracks for _, tracks in resync_jobs):
+                    resync_sub_process(logger, debug, dirpath, resync_jobs)
 
-                if all_subtitle_files and download_missing_subs.lower() != 'override':
-                    (subtitle_tracks_to_be_merged, subtitle_files_to_process, subtitle_files_all,
-                     all_missing_subs_langs, errored_ocr_list, main_audio_track_langs) = convert_to_srt_process(logger, debug, filenames_mkv_only, dirpath, all_subtitle_files, False)
+                if media and download_missing_subs.lower() != 'override':
+                    convert_to_srt_process(logger, debug, media, dirpath, False)
 
                 # Additional processing if any OCR subtitles were to fail
-                if (not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs)
-                        and any(sub for sub in errored_ocr_list)):
+                if not all(m.subs_langs_satisfied for m in media) and any(m.errored_ocr for m in media):
 
                     custom_print_no_newline(logger, f"{GREY}[SUBTITLES]{RESET} Limiting simultaneous OCR workers to 1.")
 
-                    a, new_subtitle_files_to_process, d, all_missing_subs_langs, b, c = convert_to_srt_process(logger, debug,
-                                                                                                            filenames_mkv_only,
-                                                                                                            dirpath,
-                                                                                                            errored_ocr_list,
-                                                                                                            True)
+                    convert_to_srt_process(logger, debug, media, dirpath, True)
+
                     if (download_missing_subs.lower() != 'false' and
-                            not all(sub == ['none'] or sub == [''] or sub == [] for sub in all_missing_subs_langs)):
-                        all_downloaded_subs = fetch_missing_subtitles_process(logger, debug,
-                                                                              filenames_mkv_only, dirpath,
-                                                                              total_external_subs,
-                                                                              all_missing_subs_langs)
+                            not all(m.subs_langs_satisfied for m in media)):
+                        fetch_missing_subtitles_process(logger, debug, media, dirpath)
 
-                    all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(subtitle_files_all, new_subtitle_files_to_process, fillvalue=[])]
-                    all_subtitle_files = [[*(a or []), *(b or [])] for a, b in zip_longest(all_subtitle_files, all_downloaded_subs, fillvalue=[])]
+                    for m in media:
+                        m.subtitle_files = m.subs_all + m.retry_subs_to_process + m.downloaded_subs
+                        m.subs_to_process = m.downloaded_subs + m.subs_to_process + m.retry_subs_to_process
 
-                    subtitle_files_to_process = [[*(a or []), *(b or [])] for a, b in zip_longest(subtitle_files_to_process, new_subtitle_files_to_process, fillvalue=[])]
-                    subtitle_files_to_process = [[*(a or []), *(b or [])] for a, b in zip_longest(all_downloaded_subs, subtitle_files_to_process, fillvalue=[])]
+                    resync_jobs = [(m, [t for t in m.downloaded_subs if t.extension == 'srt']) for m in media]
+                    if any(tracks for _, tracks in resync_jobs):
+                        resync_sub_process(logger, debug, dirpath, resync_jobs)
 
-                    if all_downloaded_subs:
-                        # Filter the nested lists to only include .srt tracks
-                        subtitle_files = [[t for t in sublist if t.extension == 'srt'] for sublist in all_downloaded_subs]
-                        if any(sub for sub in subtitle_files):
-                            resync_sub_process(logger, debug, filenames_mkv_only, dirpath, subtitle_files)
+                    get_subtitle_tracks_metadata_for_repack(logger, media)
 
-                    subtitle_tracks_to_be_merged = get_subtitle_tracks_metadata_for_repack(logger, all_subtitle_files)
+                if any(m.subs_to_process for m in media):
+                    remove_sdh_process(logger, debug, media)
 
-                if subtitle_files_to_process and any(sub for sub in subtitle_files_to_process):
-                    remove_sdh_process(logger, debug, subtitle_files_to_process)
-
-            if (any(any(value for value in d.values()) for d in audio_tracks_to_be_merged) or
-                    any(any(value for value in d.values()) for d in subtitle_tracks_to_be_merged) or
+            if (any(any(m.audio_tracks_to_merge.values()) for m in media) or
+                    any(any(m.subtitle_tracks_to_merge.values()) for m in media) or
                     remove_all_subtitles):
-                repack_mkv_tracks_process(logger, debug, filenames_mkv_only, dirpath, audio_tracks_to_be_merged, subtitle_tracks_to_be_merged)
+                repack_mkv_tracks_process(logger, debug, media, dirpath)
 
             pre_clutter = list(filenames_mkv_only)
             filenames_mkv_only = remove_clutter_process(logger, debug, filenames_mkv_only, dirpath)
@@ -347,8 +318,6 @@ def mkv_auto(args):
                 filenames_mkv_only = convert_dovi_files(logger, debug, filenames_mkv_only, dirpath)
                 remap_origins(origins, pre_dovi, filenames_mkv_only)
 
-            # The encoder delivers each file as its own encode finishes, so with
-            # it enabled this stage is usually left with just the cover art.
             all_filenames = [f for f in filenames_mkv_only + filenames_covers if f not in moved_files]
             if all_filenames:
                 move_files_to_output_process(logger, debug, all_filenames, dirpath, origins, output_dir, errored,
@@ -360,7 +329,7 @@ def mkv_auto(args):
             print()
             print_no_timestamp(logger, '')
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} {len(filenames_mkv_only)} {print_multi_or_single(len(filenames_mkv_only), 'file')} "
-                                       f"{'successfully ' if not any(sub for sub in errored_ocr_list) else ''}processed.")
+                                       f"{'successfully ' if not any(m.errored_ocr for m in media) else ''}processed.")
             print_no_timestamp(logger, f"{GREY}[INFO]{RESET} Processing took {format_time(int(processing_time))} to complete.\n")
             if hide_cursor:
                 show_the_cursor()

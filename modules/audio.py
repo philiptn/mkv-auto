@@ -575,7 +575,16 @@ def encode_single_preference(audio_track, debug, transformation, codec, ch_str,
 
 
 def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_string,
-                        file_index=None, duration=None, reporter=None):
+                        file_index=None, duration=None, reporter=None, encode_pool=None):
+    """Transcode one file's audio tracks into every requested preference.
+
+    ``encode_pool`` lets the caller supply a pool shared across all files. The
+    stage's own per-file thread budget is an even split of the available threads,
+    which integer-divides to 1 as soon as there are more files than threads - so
+    an episode pack would run every file's preferences serially while most of the
+    machine sat idle. Sharing one pool lets the jobs from all files fill it.
+    Without it, fall back to a private pool of ``internal_threads``.
+    """
     if not audio_tracks:
         return []
 
@@ -585,9 +594,15 @@ def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_s
     if debug:
         print(f"{GREY}[UTC {get_timestamp()}] [AUDIO DEBUG] {RESET}Audio format preferences:\n\n{GREEN}{preferences}{RESET}\n")
 
+    executor = encode_pool
+    own_pool = executor is None
+    if own_pool:
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=internal_threads)
+
     # Store futures by (track_index, preference_index) for ordering later
     futures_map = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=internal_threads) as executor:
+    results_map = {}
+    try:
         for track_index, audio_track in enumerate(audio_tracks):
             # Probe once per track; reused across all preferences for this track.
             source_channels, source_layout = detect_source_channels_and_layout(
@@ -605,7 +620,6 @@ def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_s
                 futures_map[future] = (track_index, pref_index)
 
         # Collect results
-        results_map = {}
         for future in concurrent.futures.as_completed(futures_map):
             track_idx, pref_idx = futures_map[future]
             try:
@@ -618,6 +632,10 @@ def encode_audio_tracks(internal_threads, debug, audio_tracks, preferred_codec_s
                     traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                     print(f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                     raise
+    finally:
+        # A shared pool outlives this call - only shut down one we created.
+        if own_pool:
+            executor.shutdown()
 
     if not results_map:
         return []

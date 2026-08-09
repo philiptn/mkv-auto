@@ -14,7 +14,7 @@ from queue import Queue
 import concurrent.futures
 
 from modules.misc import *
-from modules.file_operations import resolve_output_target, move_resolved_to_output
+from modules.file_operations import resolve_output_target, move_resolved_to_output, total_file_size
 from modules.mkv import move_files_to_output_process_worker, print_arr_summary
 from modules.encode_estimator import (
     EncodeEstimator,

@@ -24,6 +24,54 @@ class WorkingFile:
 
 
 @dataclass
+class MediaFile:
+    """One media file moving through the pipeline, with everything the stages
+    learn about it hanging off the record itself.
+
+    Stages used to communicate through lists kept index-parallel to the list of
+    filenames - one list per fact, stitched back together with zip_longest. That
+    worked, but nothing enforced the alignment: a stage that returned its
+    results in a different order attached episode 2's subtitles to episode 1 and
+    the run still reported success. Keeping each file's findings on its own
+    record removes the possibility rather than relying on care.
+
+    ``name`` is the current basename in the working directory, which stages do
+    rename as they go; ``origin`` remembers where the file came from so the
+    output path can still be rebuilt.
+    """
+    name: str
+    origin: WorkingFile = None
+
+    # --- audio ---
+    needs_audio_processing: bool = False
+    audio_tracks_to_merge: dict = field(default_factory=dict)
+
+    # --- subtitles ---
+    needs_subs_processing: bool = False
+    missing_subs_langs: list = field(default_factory=list)
+    external_subs: list = field(default_factory=list)      # list[SubtitleTrack]
+    subtitle_files: list = field(default_factory=list)     # everything staged
+    downloaded_subs: list = field(default_factory=list)
+    subs_to_process: list = field(default_factory=list)    # need SDH removal
+    subs_all: list = field(default_factory=list)
+    errored_ocr: list = field(default_factory=list)
+    # Output of the second OCR pass, which retries only the tracks that failed
+    # the first one. Kept separate so it cannot overwrite the first pass's
+    # findings for the tracks that converted fine.
+    retry_subs_to_process: list = field(default_factory=list)
+
+    @property
+    def subs_langs_satisfied(self):
+        """True when no subtitle language is still outstanding for this file.
+
+        The stages record "nothing missing" three different ways depending on
+        which one of them last touched the record, so treat all three alike.
+        """
+        return self.missing_subs_langs in (['none'], [''], [])
+    subtitle_tracks_to_merge: dict = field(default_factory=dict)
+
+
+@dataclass
 class SubtitleTrack:
     """A single subtitle track extracted to / staged as a file on disk."""
     path: str                 # temp file on disk; plain name

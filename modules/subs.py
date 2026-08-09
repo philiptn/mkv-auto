@@ -508,55 +508,51 @@ def resync_srt_subs_worker(debug, input_file, subtitle_track, max_retries, retry
             time.sleep(retry_delay)  # Wait before retrying
 
 
-def merge_subtitles_with_priority(all_subtitle_files, total_external_subs):
-    updated_subs = []
+def merge_subtitles_with_priority(built_in, external):
+    """Pick one subtitle track per language from a single file's two sources.
+
+    Operates on one file's tracks. It used to walk two whole-batch lists in
+    lockstep by index, which meant it could only be called with both lists in
+    exactly the same file order - a constraint nothing enforced.
+    """
     prioritize_subtitles = check_config(config, 'subtitles', 'prioritize_subtitles').lower()
 
-    max_len = max(len(all_subtitle_files), len(total_external_subs))
-
-    for i in range(max_len):
-        built_in = all_subtitle_files[i] if i < len(all_subtitle_files) else []
-        external = total_external_subs[i] if i < len(total_external_subs) else []
-
-        def group_subs(subs):
-            """Groups SubtitleTracks by language, keeping .sub/.idx pairs together."""
-            sub_dict = {}
-            for track in subs or []:
-                if track is None:
-                    continue
-                lang = track.language
-                if track.extension in {"sub", "idx"}:
-                    sub_dict.setdefault(lang, {}).update({track.extension: track})
-                else:
-                    sub_dict[lang] = {"file": track}
-            return sub_dict
-
-        built_in_dict = group_subs(built_in)
-        external_dict = group_subs(external)
-
-        final_dict = {}
-
-        for lang in set(built_in_dict.keys()) | set(external_dict.keys()):
-            if prioritize_subtitles == "external":
-                # prefer external, fall back to built-in if external missing
-                final_dict[lang] = external_dict.get(lang) or built_in_dict.get(lang)
+    def group_subs(subs):
+        """Groups SubtitleTracks by language, keeping .sub/.idx pairs together."""
+        sub_dict = {}
+        for track in subs or []:
+            if track is None:
+                continue
+            lang = track.language
+            if track.extension in {"sub", "idx"}:
+                sub_dict.setdefault(lang, {}).update({track.extension: track})
             else:
-                # prefer built-in, fall back to external if built-in missing
-                final_dict[lang] = built_in_dict.get(lang) or external_dict.get(lang)
+                sub_dict[lang] = {"file": track}
+        return sub_dict
 
-        # Convert dictionary back to a flat list of SubtitleTracks
-        final_list = []
-        for subs in final_dict.values():
-            if "file" in subs:
-                final_list.append(subs["file"])
-            elif "sub" in subs and "idx" in subs:
-                final_list.extend([subs["idx"], subs["sub"]])
-            else:
-                final_list.extend(subs.values())
+    built_in_dict = group_subs(built_in)
+    external_dict = group_subs(external)
 
-        updated_subs.append(final_list)
+    final_dict = {}
+    for lang in set(built_in_dict.keys()) | set(external_dict.keys()):
+        if prioritize_subtitles == "external":
+            # prefer external, fall back to built-in if external missing
+            final_dict[lang] = external_dict.get(lang) or built_in_dict.get(lang)
+        else:
+            # prefer built-in, fall back to external if built-in missing
+            final_dict[lang] = built_in_dict.get(lang) or external_dict.get(lang)
 
-    return updated_subs
+    # Convert dictionary back to a flat list of SubtitleTracks
+    final_list = []
+    for subs in final_dict.values():
+        if "file" in subs:
+            final_list.append(subs["file"])
+        elif "sub" in subs and "idx" in subs:
+            final_list.extend([subs["idx"], subs["sub"]])
+        else:
+            final_list.extend(subs.values())
+
+    return final_list
 
 
 def extract_subs_in_mkv(logger, max_threads, debug, filename, track_numbers, output_filetypes, subs_languages, subs_forced,

@@ -55,6 +55,29 @@ def total_file_size(base_dir, rel_paths):
     return total
 
 
+def uncompressed_size(archive_path):
+    """Bytes the archive will expand to, read from its index.
+
+    What an extraction costs is what it writes, and for a compressed archive
+    that is not the size on disk. Both readers expose per-entry sizes in the
+    central directory, so this is a header read rather than a trial extraction.
+    Falls back to the on-disk size when the index cannot be read - a wrong
+    weighting is still better than a zero one, which would leave the whole
+    stage with no estimate at all.
+    """
+    try:
+        if archive_path.lower().endswith('.rar'):
+            with rarfile.RarFile(archive_path) as handle:
+                return sum(info.file_size for info in handle.infolist() if not info.is_dir())
+        with zipfile.ZipFile(archive_path) as handle:
+            return sum(info.file_size for info in handle.infolist() if not info.is_dir())
+    except Exception:
+        try:
+            return os.path.getsize(archive_path)
+        except OSError:
+            return 0
+
+
 def extract_archives(logger, input_folder):
     header = "FILES"
     description = "Extracting archives"
@@ -71,7 +94,18 @@ def extract_archives(logger, input_folder):
     if total == 0:
         return
 
-    print_with_progress(logger, completed, total, header=header, description=description, disk_paths=input_folder)
+    # Sized by what will be written, not by archive count: one 40GB rar and a
+    # handful of small ones are the same "N of M" and nothing like the same
+    # wait. Read from the archive index, so no decompression happens twice.
+    archive_sizes = {}
+    for root, archive_file in archives:
+        archive_sizes[os.path.join(root, archive_file)] = uncompressed_size(
+            os.path.join(root, archive_file))
+    progress = ByteProgress(sum(archive_sizes.values()))
+    estimator = ThroughputEstimator(progress.total_bytes(), progress.done_bytes)
+
+    print_with_progress(logger, completed, total, header=header, description=description, disk_paths=input_folder,
+                        estimator=estimator)
 
     for root, archive_file in archives:
         archive_path = os.path.join(root, archive_file)
@@ -114,8 +148,9 @@ def extract_archives(logger, input_folder):
                             pass
 
             completed += 1
+            progress.finish(archive_path, archive_sizes.get(archive_path, 0))
             print_with_progress(logger, completed, total, header=header, description=description,
-                                disk_paths=input_folder)
+                                disk_paths=input_folder, estimator=estimator)
 
         except Exception as e:
             try:
