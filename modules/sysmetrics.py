@@ -36,9 +36,11 @@ SAMPLE_INTERVAL = 1.0   # seconds between raw samples
 STALE_AFTER = 10.0      # gap after which a delta is discarded, not reported
 EMA_ALPHA = 0.4         # smoothing of the displayed value
 
-# Below this the disk counts as doing nothing worth reporting. Set well under
-# the hundreds of KB/s that subtitle and remux work runs at, so those stages
-# still get a chip; it only has to clear the background noise of an idle disk.
+# Below this the disk counts as idle. It no longer gates what gets rendered —
+# the chip stays on the line either way — only whether the next reading is
+# treated as the start of new work. Set well under the hundreds of KB/s that
+# subtitle and remux work runs at, so those stages read as active; it only has
+# to clear the background noise of an idle disk.
 IDLE_FLOOR = 32 * 1024  # bytes/s
 
 # Resolved device sets, keyed by the path tuple asked for. Resolution walks
@@ -117,37 +119,32 @@ class _Sampler:
                 self._prev = cur
                 self._prev_time = now
                 self._displayed = None
+                self.reset()
                 return None
 
             raw = self.rates(self._prev, cur, elapsed)
             self._prev = cur
             self._prev_time = now
-
-            if self.should_reanchor(raw):
-                # Report nothing rather than a figure known to be wrong. The
-                # next reading starts from scratch instead of easing out of a
-                # baseline that belongs to a different situation.
-                self._displayed = None
-                return None
-
-            if self._displayed is None:
-                self._displayed = raw
-            else:
-                self._displayed = tuple(
-                    d + (r - d) * EMA_ALPHA
-                    for d, r in zip(self._displayed, raw)
-                )
+            self._displayed = self.blend(raw, self._displayed)
 
         return self._displayed
 
-    def should_reanchor(self, raw):
-        """True to discard this reading and display nothing for now.
+    def blend(self, raw, displayed):
+        """What to display, given this reading and what is already displayed.
 
-        The EMA is there to smooth jitter within a stage, not to carry a value
-        across a change of situation. A subclass that can tell the two apart
-        says so here.
+        The default eases toward the reading, so jitter within a stage does not
+        reach the line. A subclass overrides this where a reading has to be
+        taken as-is, or where easing from the current value would be wrong.
         """
-        return False
+        if displayed is None:
+            return raw
+        return tuple(
+            d + (r - d) * EMA_ALPHA
+            for d, r in zip(displayed, raw)
+        )
+
+    def reset(self):
+        """Drop any state derived from readings, after a prime or a long gap."""
 
 
 class CpuSampler(_Sampler):
@@ -183,28 +180,57 @@ class DiskSampler(_Sampler):
         self._devices = devices
         self._source = source or self._psutil_counters
         self._idle = True
+        self._anchor = False
 
-    def should_reanchor(self, raw):
-        """Show nothing while idle, and drop the window work started inside.
+    def reset(self):
+        self._idle = True
+        self._anchor = False
 
+    def blend(self, raw, displayed):
+        """Keep a figure on the line at all times, idle included.
+
+        This used to blank the chip for any window under the idle floor, which
+        on a real copy is most of them: writes reach the device in flush bursts,
+        so a second at 600MB/s is regularly followed by a second at nothing.
+        With the chip sitting between the header and the description, blanking
+        it shifted the whole line back and forth every couple of seconds and
+        read as a glitch. A figure easing down to 0B/s and back reads as the
+        disk catching its breath, which is what actually happened.
+
+        What the blanking was really protecting was the transition *into* work.
         Sampling runs continuously, so when a stage begins the displayed value
-        is whatever the disk was doing before it - near zero. Easing out of that
-        made a disk running flat out open at a small fraction of its real rate
-        and take about six seconds to admit the truth, which is worse than
-        showing nothing. Two readings are discarded instead:
+        is whatever the disk was doing before it - near zero - and easing out of
+        that made a disk running flat out open at a small fraction of its real
+        rate and take about six seconds to admit the truth. That protection is
+        kept, without the blanking:
 
-          * every idle one, since "0B/s" is not information, and
-          * the first active one, whose window straddles the moment work began
-            and so averages in the idle part before it.
+          * the window straddling the moment work starts is part idle and so
+            understates badly; the line holds its current figure through it, and
+          * the full window after it is taken as-is rather than eased.
 
-        The reading after those is a full window of real work, and it is taken
-        as-is rather than eased. In practice the chip then appears within a
-        second or two of a stage starting - about when its time estimate does.
+        Everything else is eased, so the figure falls away over a few seconds
+        once a stage stops working the disk instead of being inherited whole by
+        whichever stage comes next.
         """
         active = max(raw) >= IDLE_FLOOR
         straddling = active and self._idle
         self._idle = not active
-        return straddling or not active
+
+        if straddling:
+            self._anchor = True
+            return displayed if displayed is not None else tuple(0.0 for _ in raw)
+
+        if self._anchor:
+            self._anchor = False
+            if active:
+                return raw
+
+        eased = super().blend(raw, displayed)
+        if not active and max(eased) < IDLE_FLOOR:
+            # An idle disk lands on a clean zero rather than trailing the last
+            # few kilobytes of an EMA that is still remembering finished work.
+            return tuple(0.0 for _ in eased)
+        return eased
 
     def _psutil_counters(self):
         if self._devices is None:
@@ -397,6 +423,10 @@ def disk_chip(paths):
     Down is read, up is write, matching the direction bytes travel relative to
     the process. paths is a single path or an iterable of them; passing both
     ends of a cross-device copy makes the chip cover the union.
+
+    The empty string means there is no reading yet - the first second of a cold
+    device set, or psutil declining to answer - not that the disk is idle. An
+    idle disk renders "↓0B/s"; see DiskSampler.blend.
     """
     try:
         _ensure_running()

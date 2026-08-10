@@ -7,10 +7,12 @@ chmod 666 "$log_file"
 
 # Answers output-path lookups from the shared queue folder (used by the
 # qBittorrent live-copy integration). Runs alongside the poll loop below, which
-# blocks for the whole duration of a processing run.
+# blocks for the whole duration of a processing run. Its output is discarded so
+# it cannot interleave with the pipeline's console output - run the worker by
+# hand to see its log.
 if [ "${RESOLVE_WORKER,,}" = "true" ]; then
     . /pre/venv/bin/activate
-    python3 -u /mkv-auto/resolve-worker.py &
+    python3 -u /mkv-auto/resolve-worker.py > /dev/null 2>&1 &
 fi
 
 while true; do

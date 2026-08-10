@@ -7,10 +7,10 @@ Both samplers need two readings before they say anything, and the sampling gate
 means a reading only lands once SAMPLE_INTERVAL has passed, so most tests here
 drive sample() with explicit timestamps.
 
-The disk sampler additionally reports nothing while the disk is idle, and
-discards the one reading whose window straddles the moment work started - see
-DiskSampler.should_reanchor. So a disk test needs *three* readings before a rate
-appears, and `warm()` below is the shorthand for getting there.
+The disk sampler additionally holds the line through the one reading whose
+window straddles the moment work started - see DiskSampler.blend. So a disk test
+needs *three* readings before a real rate appears, and `warm()` below is the
+shorthand for getting there.
 """
 
 import os
@@ -50,7 +50,8 @@ def warm(sampler, start=100.0):
     """Drive a disk sampler past the prime and the straddling first reading.
 
     Returns the timestamp of the last reading taken, so callers can carry on
-    from there. Consumes two source readings.
+    from there. Consumes two source readings, and leaves the sampler showing
+    zero: the straddling window holds the line rather than reporting itself.
     """
     sampler.sample(now=start)
     sampler.sample(now=start + SAMPLE_INTERVAL)
@@ -122,17 +123,20 @@ def test_the_first_full_window_of_work_yields_the_rate():
 
 def test_the_straddling_reading_is_not_reported():
     """Its window is partly the idle time before the stage began, so it
-    understates the disk - the symptom this discard exists to remove."""
+    understates the disk. The line holds what it was showing - here, nothing
+    yet, so zero - rather than putting that figure up."""
     sampler = DiskSampler(('sda',), source=feeder([(0, 0), (20 * MB, 0)]))
     sampler.sample(now=100.0)
-    assert sampler.sample(now=101.0) is None
+    assert sampler.sample(now=101.0) == (0.0, 0.0)
 
 
-def test_an_idle_disk_reports_nothing_rather_than_zero():
+def test_an_idle_disk_reports_zero_rather_than_nothing():
+    """A chip that blanks itself shifts the whole status line; "0B/s" says the
+    same thing and stays put."""
     sampler = DiskSampler(('sda',), source=feeder([(0, 0), (0, 0), (0, 0)]))
     sampler.sample(now=100.0)
-    assert sampler.sample(now=101.0) is None
-    assert sampler.sample(now=102.0) is None
+    assert sampler.sample(now=101.0) == (0.0, 0.0)
+    assert sampler.sample(now=102.0) == (0.0, 0.0)
 
 
 def test_the_first_reported_rate_is_exact_not_eased_from_idle():
@@ -156,12 +160,52 @@ def test_a_slow_stage_still_gets_a_chip():
     assert read == slow
 
 
-def test_going_idle_again_clears_the_chip():
+def test_going_idle_again_eases_the_figure_down_instead_of_clearing_it():
     sampler = DiskSampler(('sda',), source=feeder([
         (0, 0), (100 * MB, 0), (200 * MB, 0), (200 * MB, 0)]))
     last = warm(sampler)
-    assert sampler.sample(now=last + SAMPLE_INTERVAL) is not None
-    assert sampler.sample(now=last + 2 * SAMPLE_INTERVAL) is None
+    read, _ = sampler.sample(now=last + SAMPLE_INTERVAL)
+    assert read == 100 * MB
+    # The disk stopped; the chip stays on the line and falls toward zero.
+    read, _ = sampler.sample(now=last + 2 * SAMPLE_INTERVAL)
+    assert read == 100 * MB * (1 - EMA_ALPHA)
+
+
+def test_a_lull_mid_stage_never_blanks_and_snaps_back_after():
+    """The shape of a real copy: bursts of flushed writes with idle seconds
+    between them. The figure dips and recovers, but the chip never leaves."""
+    sampler = DiskSampler(('sda',), source=feeder([
+        (0, 0),
+        (100 * MB, 0),          # straddling, holds
+        (600 * MB, 0),          # 500 MB/s
+        (600 * MB, 0),          # lull: nothing reached the device
+        (1100 * MB, 0),         # work again - straddles the restart, holds
+        (1600 * MB, 0),         # 500 MB/s again
+    ]))
+    last = warm(sampler)
+    assert sampler.sample(now=last + SAMPLE_INTERVAL)[0] == 500 * MB
+
+    lull, _ = sampler.sample(now=last + 2 * SAMPLE_INTERVAL)
+    assert 0 < lull < 500 * MB
+
+    # The lull left the disk idle, so the next window straddles the restart and
+    # holds; the one after it snaps back rather than ramping up from the dip.
+    assert sampler.sample(now=last + 3 * SAMPLE_INTERVAL)[0] == lull
+    assert sampler.sample(now=last + 4 * SAMPLE_INTERVAL)[0] == 500 * MB
+
+
+def test_a_long_idle_stretch_settles_on_zero():
+    """So the next stage to watch this disk opens on its own reading rather
+    than inheriting the previous stage's rate."""
+    idle_samples = 20
+    counters = ([(0, 0), (100 * MB, 0), (600 * MB, 0)]
+                + [(600 * MB, 0)] * idle_samples)
+    sampler = DiskSampler(('sda',), source=feeder(counters))
+    last = warm(sampler)
+    sampler.sample(now=last + SAMPLE_INTERVAL)
+    for i in range(2, idle_samples + 2):
+        sampler.sample(now=last + i * SAMPLE_INTERVAL)
+    assert sampler.current() == (0.0, 0.0)
 
 
 def test_reading_is_held_between_sample_intervals():
@@ -212,17 +256,17 @@ def test_current_reads_back_without_taking_a_reading():
         (0, 0), (50 * MB, 0), (150 * MB, 0)]))
     assert sampler.current() is None
     last = warm(sampler)
-    assert sampler.current() is None
+    assert sampler.current() == (0.0, 0.0)
     sampler.sample(now=last + SAMPLE_INTERVAL)
     assert sampler.current() == sampler.current() == (100 * MB, 0.0)
 
 
-def test_counter_going_backwards_shows_nothing():
+def test_counter_going_backwards_reads_as_idle():
     """A drop means a device left the sum or the counter wrapped. rates() floors
-    it at zero, and zero is not a reading worth putting on the line."""
+    it at zero, and the line shows that rather than a negative rate."""
     sampler = DiskSampler(('sda',), source=feeder([(500 * MB, 0), (0, 0)]))
     sampler.sample(now=100.0)
-    assert sampler.sample(now=101.0) is None
+    assert sampler.sample(now=101.0) == (0.0, 0.0)
 
 
 # --------------------------------------------------------------------------
