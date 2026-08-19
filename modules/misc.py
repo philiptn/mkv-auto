@@ -534,9 +534,6 @@ def system_metrics_chip(show_cpu=False, disk_paths=None):
     nothing to show, which keeps the line byte-identical to what it was before
     this existed.
     """
-    if not check_config(config, 'general', 'show_system_metrics'):
-        return ""
-
     if show_cpu:
         chip = sysmetrics.cpu_chip()
     elif disk_paths:
@@ -2417,7 +2414,6 @@ config = {
         'max_ram_usage': get_config('general', 'MAX_RAM_USAGE', variables_defaults),
         'debug': get_config('general', 'DEBUG', variables_defaults).lower() == "true",
         'hide_cursor': get_config('general', 'HIDE_CURSOR', variables_defaults).lower() == "true",
-        'show_system_metrics': get_config('general', 'SHOW_SYSTEM_METRICS', variables_defaults).lower() == "true",
         'keep_original_file_structure': get_config('general', 'KEEP_ORIGINAL_FILE_STRUCTURE', variables_defaults),
         'remove_all_title_names': get_config('general', 'REMOVE_ALL_TITLE_NAMES', variables_defaults).lower() == "true",
         'make_season_folders': get_config('general', 'MAKE_SEASON_FOLDERS', variables_defaults).lower() == "true"

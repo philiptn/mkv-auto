@@ -36,6 +36,13 @@ x11_lock = threading.Lock()
 reserved_displays = set()
 
 
+# A line that is nothing but digits is never dialogue: it is an on-screen sign
+# translation, an OCR artifact, or a stray index that survived a conversion.
+# The test is deliberately strict - "154:" and "458!" are real lines, and a
+# number that shares its line with words ("Room 325") is real too.
+NUMERIC_ONLY_LINE = re.compile(r'\d+')
+
+
 def clean_invalid_utf8(input_file, output_file):
     # Read the file, replacing invalid characters with '�'
     with open(input_file, 'r', encoding='utf-8', errors='ignore') as f:
@@ -252,6 +259,28 @@ def run_with_xvfb(command, memory_per_thread):
     return return_code
 
 
+def remove_numeric_only_lines(input_file):
+    """Drop digit-only lines, and any entry left with nothing to show.
+
+    Runs on every track the SDH pass touches, not just the music-filtered ones,
+    since a lone number is a leftover regardless of what else was removed.
+    Entries that were already empty before this ran (asstosrt emits one for an
+    ASS line that was pure override tags) go with them.
+    """
+    clean_invalid_utf8(input_file, f'{input_file}.tmp.srt')
+    shutil.move(f'{input_file}.tmp.srt', input_file)
+
+    subs = pysrt.open(input_file)
+    for sub in subs:
+        sub.text = '\n'.join(
+            line for line in sub.text.split('\n')
+            if not NUMERIC_ONLY_LINE.fullmatch(line.strip())
+        )
+    subs[:] = [sub for sub in subs if sub.text.strip()]
+    subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
+    shutil.move(f"{input_file}.tmp.srt", input_file)
+
+
 def remove_sdh_worker(logger, debug, subtitle_track, remove_music, subtitleedit, memory_per_thread):
     input_file = subtitle_track.path
     language = subtitle_track.language
@@ -352,6 +381,8 @@ def remove_sdh_worker(logger, debug, subtitle_track, remove_music, subtitleedit,
         subs = pysrt.SubRipFile([sub for sub in subs if not sub.text.isupper()])
         subs.save(f"{input_file}.tmp.srt", encoding='utf-8')
         shutil.move(f"{input_file}.tmp.srt", input_file)
+
+    remove_numeric_only_lines(input_file)
 
     if debug:
         print(f'\n{GREY}[UTC {get_timestamp()}] [SDH DEBUG]{GREEN} Current language is set to "{language}"{RESET}')
