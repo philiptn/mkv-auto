@@ -8,10 +8,12 @@ reported the failure by printing `result.stderr` - and mkvtoolnix writes its
 errors to stdout, so the [ERROR] line was blank and the crash was undiagnosable.
 
 These tests pin the replacement behaviour: retry a failure a few times in case
-it was transient, fall back to applying the edits one at a time, and report what
-mkvpropedit actually said instead of taking the run down.
+it was transient, fall back to applying the edits one at a time, rebuild the
+container when mkvpropedit cannot navigate it, and record what mkvpropedit
+actually said in the debug log instead of taking the run down or spamming the
+console with it.
 
-No mkvpropedit, no media, no disk - subprocess.run is stubbed throughout.
+No mkvpropedit, no media - subprocess.run is stubbed throughout.
 """
 
 import os
@@ -20,6 +22,11 @@ import subprocess
 import pytest
 
 from modules import mkv
+
+# What mkvpropedit says about a container it cannot edit in place
+UNNAVIGABLE = ("The file is being analyzed.\nError: Modification of properties in the section "
+               "'Track headers' was requested, but no corresponding level 1 element was found "
+               "in the file. The file has not been modified.")
 
 
 class FakeRun:
@@ -79,7 +86,8 @@ def test_a_transient_failure_is_retried(runner):
 
 
 def test_a_permanent_failure_warns_instead_of_raising(runner, capsys):
-    """The reported crash: exit 2 on every attempt must not raise."""
+    """The reported crash: exit 2 on every attempt must not raise, and must not
+    print anything - the message is returned for the debug log."""
     fake = runner([2] * 20, stdout="Error: no track corresponding to track:v1")
 
     warning = mkv.remove_all_mkv_track_tags(False, "/mkv-auto/files/tmp/file.mkv")
@@ -89,6 +97,7 @@ def test_a_permanent_failure_warns_instead_of_raising(runner, capsys):
     assert "file.mkv" in warning
     # 3 attempts at the combined command, then 2 each for the three single edits
     assert len(fake.commands) == 3 + 3 * 2
+    assert capsys.readouterr().out == ""
 
 
 def test_the_message_comes_from_stdout(runner):
@@ -119,6 +128,75 @@ def test_the_edits_that_work_are_still_applied(runner):
     assert "--edit info" not in warning
     applied = [c for c, code in zip(fake.commands[3:], [0, 2, 2, 0]) if code == 0]
     assert [c[2] for c in applied] == ["--tags", "--edit"]
+
+
+# --- the container mkvpropedit cannot navigate --------------------------------
+
+@pytest.fixture
+def rebuild(monkeypatch, tmp_path, no_sleep):
+    """A file mkvpropedit rejects structurally, with mkvmerge stubbed out."""
+    def install(mkvmerge_code=0, writes_output=True):
+        source = tmp_path / "file.mkv"
+        source.write_text("original")
+        monkeypatch.setattr(mkv, "get_mkv_video_track_id", lambda path: 0)
+
+        commands = []
+
+        def fake_run(command, *args, **kwargs):
+            commands.append(command)
+            if command[0] == "mkvmerge":
+                if writes_output:
+                    output = command[command.index("--output") + 1]
+                    with open(output, "w") as handle:
+                        handle.write("rebuilt")
+                return subprocess.CompletedProcess(command, mkvmerge_code, stdout="", stderr="")
+            return subprocess.CompletedProcess(command, 2, stdout=UNNAVIGABLE, stderr="")
+
+        monkeypatch.setattr(mkv.subprocess, "run", fake_run)
+        return source, commands
+
+    return install
+
+
+def test_an_unnavigable_container_is_not_retried(rebuild):
+    """Retrying an in-place edit the container cannot support only wastes the
+    backoff - each invocation gets exactly one attempt before the rebuild."""
+    source, commands = rebuild()
+
+    mkv.remove_all_mkv_track_tags(False, str(source))
+
+    edits = [c for c in commands if c[0] == "mkvpropedit"]
+    assert len(edits) == 1 + 3  # combined once, then each of the three edits once
+
+
+def test_an_unnavigable_container_is_rebuilt(rebuild):
+    """mkvmerge writes a container every tool can navigate, clearing the tags,
+    the title and the video track name in the same pass."""
+    source, commands = rebuild()
+
+    note = mkv.remove_all_mkv_track_tags(False, str(source))
+
+    assert note.startswith("Rebuilt the container of 'file.mkv'")
+    assert source.read_text() == "rebuilt"
+    assert list(source.parent.glob("*_clean.mkv")) == []
+
+    merge = next(c for c in commands if c[0] == "mkvmerge")
+    assert "--no-global-tags" in merge and "--no-track-tags" in merge
+    assert merge[merge.index("--title") + 1] == ""
+    assert merge[merge.index("--track-name") + 1] == "0:"
+    assert merge[merge.index("--default-track-flag") + 1] == "0:yes"
+    assert merge[-1] == str(source)
+
+
+def test_a_failed_rebuild_leaves_the_source_alone(rebuild):
+    """A half-written remux must never replace the file it came from."""
+    source, _ = rebuild(mkvmerge_code=2)
+
+    note = mkv.remove_all_mkv_track_tags(False, str(source))
+
+    assert "could not rebuild the container" in note
+    assert source.read_text() == "original"
+    assert list(source.parent.glob("*_clean.mkv")) == []
 
 
 def test_tags_are_cleared_with_an_empty_tags_xml(runner):
@@ -153,19 +231,19 @@ def test_the_temporary_xml_is_cleaned_up(runner, monkeypatch):
 # --- the stage around it ------------------------------------------------------
 
 class FakeLogger:
+    """The debug sink log_debug() writes to, kept apart from the console."""
+
     def __init__(self):
-        self.messages = []
+        self.debug_messages = []
 
-    def info(self, message):
-        self.messages.append(message)
-
-    debug = info
-    color = info
+    def debug(self, message):
+        self.debug_messages.append(message)
 
 
 def test_a_failed_cleanup_does_not_stop_the_batch(monkeypatch, capsys):
     """remove_clutter_process keeps every filename and finishes the batch, and
-    the warning reaches the log rather than the top-level error handler."""
+    what happened reaches the debug log rather than the console or the top-level
+    error handler."""
     monkeypatch.setattr(mkv, "get_worker_thread_count", lambda: 2)
     monkeypatch.setattr(mkv, "has_closed_captions", lambda path: False)
     monkeypatch.setattr(
@@ -179,4 +257,5 @@ def test_a_failed_cleanup_does_not_stop_the_batch(monkeypatch, capsys):
     result = mkv.remove_clutter_process(logger, False, ["a.mkv", "b.mkv", "c.mkv"], "/tmp")
 
     assert result == ["a.mkv", "b.mkv", "c.mkv"]
-    assert sum("boom" in message for message in logger.messages) >= 1
+    assert sum("boom" in message for message in logger.debug_messages) == 1
+    assert "boom" not in capsys.readouterr().out

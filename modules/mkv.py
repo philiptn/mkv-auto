@@ -275,8 +275,15 @@ def get_main_audio_track_language(file_info):
                         return main_audio_track_lang
 
 
-# mkvpropedit exits 0 on success, 1 when it only had warnings and 2 on error.
-MKVPROPEDIT_ERROR = 2
+# mkvpropedit and mkvmerge both exit 0 on success, 1 on warnings and 2 on error.
+MKVTOOLNIX_ERROR = 2
+
+# mkvpropedit edits a container in place, which it can only do where it finds
+# the level 1 element holding the section being changed. Some muxers leave a
+# file it cannot navigate ("Modification of properties in the section 'Track
+# headers' was requested, but no corresponding level 1 element was found in the
+# file"). Retrying never helps - only rebuilding the container does.
+UNNAVIGABLE_CONTAINER = 'no corresponding level 1 element'
 
 # Replacing every tag with an empty <Tags> set is what actually clears them all;
 # `--tags all:` with no file leaves some behind.
@@ -316,10 +323,13 @@ def run_mkvpropedit(debug, filename, edit_args, attempts=1, retry_wait=(2, 5)):
         output = (result.stdout or result.stderr or '').strip()
 
         # A negative code means a signal killed it, which is not a success
-        if 0 <= result.returncode < MKVPROPEDIT_ERROR:
+        if 0 <= result.returncode < MKVTOOLNIX_ERROR:
             if output and debug:
                 print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{output}{RESET}")
             return None
+
+        if UNNAVIGABLE_CONTAINER in output:
+            break
 
         if attempt < attempts:
             # Could be a momentary disk hiccup or a file still being flushed
@@ -329,14 +339,60 @@ def run_mkvpropedit(debug, filename, edit_args, attempts=1, retry_wait=(2, 5)):
             f"{output or 'no output'}")
 
 
+def rebuild_mkv_container(debug, filename):
+    """Remux with mkvmerge, applying the cleanup mkvpropedit could not.
+
+    mkvmerge writes a fresh container whose level 1 elements are where every
+    tool expects them, and it can clear the tags, the title and the video track
+    name on the way through, so the rebuild costs one pass rather than two.
+    """
+    base, extension = os.path.splitext(filename)
+    temp_filename = base + '_clean' + extension
+
+    command = ['mkvmerge', '--output', temp_filename,
+               '--no-global-tags', '--no-track-tags', '--title', '']
+
+    video_id = get_mkv_video_track_id(filename)
+    if video_id is not None:
+        command += ['--track-name', f'{video_id}:', '--default-track-flag', f'{video_id}:yes']
+    command.append(filename)
+
+    if debug:
+        print(f"{GREY}[UTC {get_timestamp()}] {YELLOW}{' '.join(command)}{RESET}")
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    output = (result.stdout or result.stderr or '').strip()
+
+    if result.returncode >= MKVTOOLNIX_ERROR or not os.path.exists(temp_filename):
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
+        return f"mkvmerge could not rebuild the container: {output or 'no output'}"
+
+    os.remove(filename)
+    shutil.move(temp_filename, filename)
+    return None
+
+
+def get_mkv_video_track_id(filename):
+    """The mkvmerge track ID of the first video track, or None if there is none."""
+    parsed_json, _ = get_mkv_info(False, filename, True)
+    for track in (parsed_json or {}).get('tracks', []):
+        if track['type'] == 'video':
+            return track['id']
+    return None
+
+
 def remove_all_mkv_track_tags(debug, filename):
     """Strip tags, track names and the segment title from an MKV.
 
-    Returns None on success, or a warning message the caller can surface once
-    every retry and per-edit fallback has been exhausted.
+    Returns None when there is nothing to say, or a line for the debug log:
+    cleaning metadata is cosmetic, so neither a rebuild nor a failure belongs on
+    the console among the progress output.
     """
     if debug:
         print(f"\n{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Cleaning MKV metadata...")
+
+    name = os.path.basename(filename)
 
     # Create a temporary empty tags XML
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xml", mode="w") as tmp:
@@ -356,8 +412,13 @@ def remove_all_mkv_track_tags(debug, filename):
         if not failures:
             return None
 
-        # Returned rather than printed: the caller owns the progress line
-        return f"Could not clean metadata in '{os.path.basename(filename)}': " + '; '.join(failures)
+        if any(UNNAVIGABLE_CONTAINER in message for message in failures):
+            rebuild_failure = rebuild_mkv_container(debug, filename)
+            if rebuild_failure is None:
+                return f"Rebuilt the container of '{name}': " + '; '.join(failures)
+            failures.append(rebuild_failure)
+
+        return f"Could not clean metadata in '{name}': " + '; '.join(failures)
     finally:
         # In a finally so a raising run cannot leave the XML behind in /tmp
         os.remove(empty_xml_path)
@@ -2078,7 +2139,7 @@ def remove_clutter_process(logger, debug, input_files, dirpath):
 
     max_worker_threads = get_worker_thread_count()
     num_workers = max(1, max_worker_threads)
-    warnings = []
+    notes = []
 
     header = "FFMPEG"
     description = f"Remove hidden CC in video stream"
@@ -2097,19 +2158,20 @@ def remove_clutter_process(logger, debug, input_files, dirpath):
                 print_with_progress(logger, completed_count, total_files, header=header, description=description)
             try:
                 index = futures[future]
-                updated_filename, warning = future.result()
+                updated_filename, note = future.result()
                 if updated_filename is not None:
                     all_updated_input_files[index] = updated_filename
-                if warning is not None:
-                    warnings.append(warning)
+                if note is not None:
+                    notes.append(note)
             except Exception as e:
                 traceback_str = ''.join(traceback.format_tb(e.__traceback__))
                 print_no_timestamp(logger, f"\n{RED}[TRACEBACK]{RESET}\n{traceback_str}")
                 raise
 
-    # Printed after the progress line is done rendering, so it stays readable
-    for warning in warnings:
-        custom_print(logger, f"{YELLOW}[WARNING]{RESET} {warning}")
+    # Metadata cleanup is cosmetic, so how it went belongs in the debug log
+    # rather than on the console among the progress output
+    for note in notes:
+        log_debug(logger, f"[CLUTTER] {note}")
 
     return all_updated_input_files
 
@@ -2121,7 +2183,7 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
     file_tag = check_config(config, 'general', 'file_tag')
     remove_all_title_names = check_config(config, 'general', 'remove_all_title_names')
 
-    warning = remove_all_mkv_track_tags(debug, input_file_with_path)
+    note = remove_all_mkv_track_tags(debug, input_file_with_path)
     if remove_all_title_names:
         strip_mkv_title_and_track_names(debug, input_file_with_path)
 
@@ -2137,7 +2199,7 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
         updated_filename_with_path = os.path.join(dirpath, updated_filename)
         shutil.move(input_file_with_path, updated_filename_with_path)
 
-    return updated_filename, warning
+    return updated_filename, note
 
 
 def repack_mkv_tracks_process(logger, debug, media, dirpath):
