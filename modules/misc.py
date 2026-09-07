@@ -1169,7 +1169,7 @@ def get_timestamp():
 
 def get_timestamp_short():
     current_time = datetime.now(timezone.utc)
-    return current_time.strftime("%H:%M:%S")
+    return current_time.strftime("%y-%m-%d %H:%M:%S")
 
 
 def flatten_season_folders(root_dir):
