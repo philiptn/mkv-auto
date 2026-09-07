@@ -2352,7 +2352,8 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
     main_audio_language_subs_only = check_config(config, 'subtitles', 'main_audio_language_subs_only')
     pref_subs_langs = check_config(config, 'subtitles', 'pref_subs_langs')
 
-    pattern_season_episode = re.compile(r's(\d{2})e(\d{2})', re.IGNORECASE)
+    # Open-ended episode group: a two-digit capture read S01E100 as episode 10.
+    pattern_season_episode = re.compile(r's(\d{2})e(\d{2,})', re.IGNORECASE)
     match = pattern_season_episode.search(input_file)
 
     if not match:
@@ -2360,6 +2361,9 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
 
     season, episode = match.groups()
     season_episode = f's{season}e{episode}'.lower()
+    # Matched against sidecar names below with a digit boundary, so the key for
+    # episode 10 does not also claim "Show.S01E100.eng.srt".
+    season_episode_pattern = re.compile(re.escape(season_episode) + r'(?!\d)', re.IGNORECASE)
 
     show_name_raw = input_file[:match.start()]
     show_name = re.sub(r'[._]+', ' ', show_name_raw).strip()
@@ -2397,7 +2401,7 @@ def process_external_subs_worker(debug, input_file, dirpath, missing_subs_langs)
         sub_base_lower = sub_base.lower()
         sub_base_normalized = normalize_title(sub_base)
 
-        if season_episode not in sub_base_lower:
+        if not season_episode_pattern.search(sub_base_lower):
             continue
 
         if show_name_normalized not in sub_base_normalized:

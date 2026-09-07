@@ -1430,7 +1430,9 @@ def reformat_filename(filename, names_only, full_info_found, is_extra, logger):
         return media_type
 
     # Regular expression to match TV shows with season and episode, with or without year
-    tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})e(\d{2,3})", re.IGNORECASE)
+    # Episode group is open-ended so absolute-numbered anime (E1088) survives;
+    # see extract_season_episode() for the reasoning.
+    tv_show_pattern1 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})e(\d{2,})", re.IGNORECASE)
     # Regular expression to match TV shows with season range, with or without year
     tv_show_pattern2 = re.compile(r"^(.*?)([. \-]((?:19|20)\d{2}))?[. \-]+s(\d{2,3})-s(\d{2,3})", re.IGNORECASE)
     # Regular expression to match movies
@@ -1647,7 +1649,11 @@ def get_tv_episode_metadata(logger, debug, input_str):
         if debug:
             custom_print(logger, f"Input string: {YELLOW}'{input_str}'{RESET}")
 
-        match = re.match(r'^(.*?)\s*(?:-\s*)?S(\d{2})E(\d{2})(?:-E?(\d{2}))?$', input_str, re.IGNORECASE)
+        # Open-ended digit runs: the caller builds this string from
+        # extract_season_episode()/compact_episode_list(), which emit three
+        # digits for seasons and episodes above 99. A fixed two-digit capture
+        # made the anchored match fail outright on "Show - S01E100".
+        match = re.match(r'^(.*?)\s*(?:-\s*)?S(\d{2,3})E(\d{2,})(?:-E?(\d{2,}))?$', input_str, re.IGNORECASE)
         if not match:
             raise ValueError()
 
@@ -1899,8 +1905,21 @@ def natural_sort_key(name):
 
 
 def extract_season_episode(filename):
-    # Extract single or multi-episode patterns like S01E01 or S01E01-E02
-    match = re.search(r'[sS](\d{2})[eE](\d{2})(?:-[eE]?(\d{2}))?', filename)
+    # Extract single or multi-episode patterns like S01E01 or S01E01-E02.
+    #
+    # The episode groups are open-ended: seasons with 100+ episodes are common
+    # (soaps, long kids' shows, anime with absolute numbering), and a fixed
+    # two-digit capture silently truncated S01E100 to episode 10 - collapsing
+    # every episode above 99 onto E10-E12 and overwriting the real ones.
+    #
+    # The season group deliberately stays two-wide. No show has 100 seasons,
+    # and it is what keeps the S000E### extras sentinel (see rename_extras)
+    # from parsing as season 0 / episode 1 here.
+    #
+    # The lookahead on the end-of-range group keeps a resolution suffix out of
+    # the episode range: without it "Show.S01E01-1080p.mkv" would read as
+    # episodes 1 through 1080.
+    match = re.search(r'[sS](\d{2})[eE](\d{2,})(?:-[eE]?(\d{2,})(?![ip\d]))?', filename)
     if match:
         season = int(match.group(1))
         start_episode = int(match.group(2))
