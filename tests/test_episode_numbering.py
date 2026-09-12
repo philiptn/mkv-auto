@@ -7,6 +7,11 @@ and a whole season's worth of episodes above 99 collapsed onto E10-E12 and
 overwrote each other. Seasons with 100+ episodes are routine (soaps, long-running
 kids' shows, anime with absolute numbering).
 
+The fix removed the ceiling rather than raising it - the captures are open-ended
+and the padding widens only as far as a number needs - so four-digit absolute
+numbering is pinned here alongside three, to keep a later edit from
+reintroducing a fixed width one digit further out.
+
 Network-free: every TVMaze entry point is stubbed.
 """
 
@@ -36,8 +41,11 @@ LOGGER = setup_quiet_logger("mkv-auto.tests")
     # Control: two-digit episodes were always fine and must stay fine.
     ("Animaniacs (1993) - S01E99 - Cookies for Einstein.mkv", (1, [99])),
     ("Some.Show.S01E02.1080p.mkv", (1, [2])),
-    # Absolute numbering runs past three digits too.
-    ("One Piece - S01E1088 - Title.mkv", (1, [1088])),
+    # Absolute numbering runs past three digits, and past four.
+    ("Show - S01E1088 - Title.mkv", (1, [1088])),
+    ("Show - S01E1000-E1002 - Multi.mkv", (1, [1000, 1001, 1002])),
+    # Four digits do not turn a resolution suffix into a range either.
+    ("Show.S01E1000-1080p.WEB.mkv", (1, [1000])),
     # Multi-episode forms, with and without the repeated E.
     ("Show - S01E01-E02 - Two.mkv", (1, [1, 2])),
     ("Show - S01E01-02 - Two.mkv", (1, [1, 2])),
@@ -73,6 +81,9 @@ def test_unnumbered_file_is_still_unmatched():
     # Mixed width across a range is what the current code produces. Documented,
     # not changed - the padding rule is "3 digits only when it needs 3".
     ([99, 100], "E99-E100"),
+    # The rule widens only as far as the number needs: no fixed ceiling above.
+    ([1000], "E1000"),
+    ([999, 1000], "E999-E1000"),
 ])
 def test_compact_episode_list_pads_past_99(episodes, expected):
     assert compact_episode_list(episodes, True, True) == expected
@@ -95,6 +106,7 @@ def test_metadata_lookup_accepts_a_three_digit_episode(monkeypatch):
 
     assert get_tv_episode_metadata(LOGGER, False, "Animaniacs (1993) - S01E100") is None
     assert get_tv_episode_metadata(LOGGER, False, "Animaniacs (1993) - S01E100-E102") is None
+    assert get_tv_episode_metadata(LOGGER, False, "Some Show - S01E1088") is None
     # Control: something with no S..E.. at all still fails the parse.
     assert get_tv_episode_metadata(LOGGER, False, "Animaniacs (1993)") == {}
 
@@ -176,3 +188,22 @@ def test_episodes_past_99_do_not_collide(naming_config, recorded_lookups):
         for n in range(100, 123)
     }
     assert len(paths) == 23
+
+
+def test_episodes_across_the_1000_boundary_do_not_collide(naming_config, recorded_lookups):
+    """The same guarantee one digit further out.
+
+    A run spanning 999 -> 1000 is where a reintroduced fixed width would show
+    up first: three-digit padding would still render 999 correctly while
+    truncating its successors onto paths that already exist.
+    """
+    paths = {
+        _resolve(f"Some Show (2010) - S01E{n} - Title.mkv")["output_path"]
+        for n in range(995, 1006)
+    }
+    assert len(paths) == 11
+
+    result = _resolve("Some Show (2010) - S01E1000 - Title.mkv")
+    assert "Some Show (2010) - S01E1000" in recorded_lookups
+    assert "Some Show (2010) - S01E100" not in recorded_lookups
+    assert "S01E1000" in result["restored_filename"]
