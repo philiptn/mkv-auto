@@ -1418,26 +1418,11 @@ def dovi_scan_and_convert_single(logger, debug, input_file, dirpath,
     elapsed = time.time() - start_time
     log_debug(logger, f"[DOVI] Finished {input_file} in {elapsed:.2f}s")
     file_converted = "true"
-    # -------------------------------------------------
-    # Stage 4: Upgrade filename (Profile 7 → DV HDR)
-    # -------------------------------------------------
-    try:
-        new_filename = upgrade_dv_to_dv_hdr_filename(input_file)
 
-        if new_filename != input_file:
-            old_path = media_file
-            new_path = os.path.join(dirpath, new_filename)
-
-            if not os.path.exists(new_path):
-                os.rename(old_path, new_path)
-                log_debug(logger, f"[DOVI] Renamed DV → DV HDR: {input_file} -> {new_filename}")
-                input_file = new_filename
-            else:
-                log_debug(logger, f"[DOVI] Rename skipped (target exists): {new_filename}")
-
-    except Exception as e:
-        log_debug(logger, f"[DOVI] Filename upgrade failed: {e}")
-
+    # The DV -> DV HDR rename is not done here. It belongs to every file that
+    # *ends up* at Profile 8.1, not just the ones this worker converted, so
+    # convert_dovi_files() applies it once the classification and the outcome
+    # are both known.
     progress.finish_worker(worker_id)
 
     return input_file, filesize_info, file_converted
@@ -1455,21 +1440,67 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     # Pre-scan: find files that contain Dolby Vision
     # -------------------------------------------------
     dovi_jobs = []
+    classification_by_index = {}
 
     for index, f in enumerate(input_files):
         if not f.lower().endswith((".mkv", ".mp4", ".m2ts", ".ts")):
             continue
 
         full_path = os.path.join(dirpath, f)
+        classification = classify_dolby_vision(full_path)
+        classification_by_index[index] = classification
 
         # Only enqueue files with real work: files needing conversion, or
         # Profile 5 (reported as a skip). Files already at Profile 8.1 are
-        # left out so the stage produces no output at all when nothing is done.
-        if classify_dolby_vision(full_path) in ("convert", "p5"):
+        # left out so the stage produces no output at all when nothing is done -
+        # they still get the DV HDR rename below, which costs nothing.
+        if classification in ("convert", "p5"):
             dovi_jobs.append((index, f))
 
+    def apply_dv_hdr_renames(names, outcome_by_index):
+        """Rename every file that ends up at Profile 8.1 from DV to DV HDR.
+
+        The name reflects what the file *is*, not whether this run had to do
+        anything to it: an already-8.1 file and a freshly converted Profile 7
+        file are the same output and must land on the same name. Anything the
+        pre-copy predicted from the filename alone therefore still matches, so
+        the placeholder is overwritten instead of left behind as a duplicate.
+
+        Profile 5 has no HDR10 base layer and a failed conversion is still
+        Profile 7, so neither is renamed.
+        """
+        renamed = list(names)
+
+        for index, classification in classification_by_index.items():
+            if classification == "convert" and outcome_by_index.get(index) != "true":
+                continue
+            if classification not in ("convert", "skip"):
+                continue
+
+            current = renamed[index]
+            try:
+                new_filename = upgrade_dv_to_dv_hdr_filename(current)
+                if new_filename == current:
+                    continue
+
+                new_path = os.path.join(dirpath, new_filename)
+                if os.path.exists(new_path):
+                    log_debug(logger, f"[DOVI] Rename skipped (target exists): {new_filename}")
+                    continue
+
+                os.rename(os.path.join(dirpath, current), new_path)
+                renamed[index] = new_filename
+                log_debug(logger, f"[DOVI] Renamed DV → DV HDR: {current} -> {new_filename}")
+            except Exception as e:
+                log_debug(logger, f"[DOVI] Filename upgrade failed for '{current}': {e}")
+
+        return renamed
+
+    # No conversions to run, but files already at Profile 8.1 still need the
+    # rename - which is the common case, and the one that used to leave a
+    # duplicate behind.
     if not dovi_jobs:
-        return original_files
+        return apply_dv_hdr_renames(original_files, {})
 
     total_files = len(dovi_jobs)
 
@@ -1491,8 +1522,8 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     # destination to watch; each job is credited on completion and the batch
     # estimate appears once the first conversion lands. The per-worker chips
     # already carry the within-file progress from its [n/3] stage markers.
-    # Sized up front: a conversion can rename its file (DV -> DV HDR), so by the
-    # time a job finishes its original name may no longer exist on disk.
+    # Sized up front, while every job still has the name it was enqueued under:
+    # the DV -> DV HDR rename runs once the pool has drained.
     job_sizes = {filename: total_file_size(dirpath, [filename]) for _, filename in dovi_jobs}
     byte_progress = ByteProgress(sum(job_sizes.values()))
     estimator = ThroughputEstimator(byte_progress.total_bytes(), byte_progress.done_bytes)
@@ -1506,6 +1537,7 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     SPINNER.start()
 
     results = {}
+    outcome_by_index = {}
     files_converted = []
 
     def worker_wrapper(job_index, original_index, filename):
@@ -1536,6 +1568,7 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
             original_index, updated_filename, file_converted = future.result()
 
             results[original_index] = updated_filename
+            outcome_by_index[original_index] = file_converted
             files_converted.append(file_converted)
 
 
@@ -1543,6 +1576,8 @@ def convert_dovi_files(logger, debug, input_files, dirpath):
     for index, new_name in results.items():
         if new_name:
             final_files[index] = new_name
+
+    final_files = apply_dv_hdr_renames(final_files, outcome_by_index)
 
     converted_any = any(c == 'true' for c in files_converted)
     failed_any = any(c == 'fail' for c in files_converted)

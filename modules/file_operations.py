@@ -416,6 +416,60 @@ def upgrade_dv_to_dv_hdr_filename(filename):
     return name + ext
 
 
+def downgrade_dv_hdr_to_dv_filename(filename):
+    """Inverse of upgrade_dv_to_dv_hdr_filename(): collapse 'DV<sep>HDR' back to 'DV'."""
+    name, ext = os.path.splitext(filename)
+    name = re.sub(r'(?i)(?P<sep>[.\- _])dv(?P=sep)hdr(?=$|[.\- _])', r'\g<sep>DV', name, count=1)
+    return name + ext
+
+
+# The dynamic-range / quality suffixes resolve_output_target() can append. Order
+# matters: 'DV HDR' must be tried before 'DV' so the longer suffix wins.
+DYNAMIC_RANGE_SUFFIXES = ('DV HDR', 'DV', 'HDR', '4K')
+
+
+def dynamic_range_variant_filenames(restored_filename, sep, include_suffix_variants=True):
+    """Every other filename resolve_output_target() could have produced for this file.
+
+    The dynamic range is decided from the filename, which is only a proxy for the
+    stream: the pre-copy (the encoder placeholder, or the qBittorrent live copy via
+    modules/preview.py) predicts a name before anything has probed the file, and can
+    land on a different suffix than the finished output does. Knowing the alternatives
+    is what lets the final move clean up a placeholder it would otherwise leave behind
+    as a duplicate.
+
+    Two shapes, because the trailing suffix only exists under normalized naming:
+      normalized         "Movie (2020) - DV HDR.mkv" -> the other suffixes, and bare
+      original-structure "Movie.2020.DV.HDR.x265.mkv" -> the DV <-> DV HDR rewrites
+
+    `include_suffix_variants` turns the first shape off for
+    KEEP_ORIGINAL_FILE_STRUCTURE=true, where the suffix is never appended and those
+    names are unreachable - the set stays as narrow as what could really be written.
+
+    Returns names only - no paths, no I/O - and never includes the input itself.
+    """
+    base, ext = os.path.splitext(restored_filename)
+
+    variants = set()
+
+    if include_suffix_variants:
+        stem = base
+        for suffix in DYNAMIC_RANGE_SUFFIXES:
+            tail = f"{sep}{suffix}"
+            if base.endswith(tail):
+                stem = base[:-len(tail)]
+                break
+
+        variants.update(f"{stem}{sep}{suffix}{ext}" for suffix in DYNAMIC_RANGE_SUFFIXES)
+        variants.add(stem + ext)
+
+    variants.add(upgrade_dv_to_dv_hdr_filename(restored_filename))
+    variants.add(downgrade_dv_hdr_to_dv_filename(restored_filename))
+    variants.discard(restored_filename)
+
+    return sorted(variants)
+
+
 def detect_dynamic_range_from_filename(filename):
     dv_pattern = re.compile(
         r'(?i)(?:^|[.\- _])(dv|dovi|dolby[ ._-]?vision)(?=$|[.\- _])'
@@ -667,6 +721,14 @@ def resolve_output_target(logger, debug, input_file_path, output_folder, relativ
         "full_info_found": full_info_found,
         "metadata_lookup_attempted": metadata_lookup_attempted,
         "is_extra": is_extra,
+        # Same destination folder, same media, different dynamic-range suffix:
+        # what a pre-copy may already have written under a mispredicted name.
+        "variant_paths": [
+            os.path.join(output_folder, new_folders, name)
+            for name in dynamic_range_variant_filenames(
+                restored_filename, sep,
+                include_suffix_variants=keep_original_file_structure != 'true')
+        ],
     }
 
 
@@ -680,6 +742,18 @@ def move_resolved_to_output(logger, input_file_path, target, copy=False):
             shutil.copy2(input_file_path, output_path)
         else:
             shutil.move(input_file_path, output_path)
+
+    # Only the real output cleans up: a pre-copy is itself a placeholder, and
+    # must never delete the finished file it is standing in for.
+    if not copy:
+        for variant in target.get("variant_paths", ()):
+            if variant == output_path or not os.path.exists(variant):
+                continue
+            try:
+                os.remove(variant)
+                log_debug(logger, f"Removed mispredicted pre-copy '{variant}'")
+            except OSError as e:
+                log_debug(logger, f"Could not remove mispredicted pre-copy '{variant}': {e}")
 
     return {
         "output_folder": target["output_folder"],
