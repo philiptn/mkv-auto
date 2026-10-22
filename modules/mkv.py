@@ -424,6 +424,30 @@ def remove_all_mkv_track_tags(debug, filename):
         os.remove(empty_xml_path)
 
 
+def remove_mkv_cover_attachments(debug, filename):
+    """Delete the image attachments (cover art) from an MKV.
+
+    Only images go: fonts are attachments too, and ASS subtitles render with
+    them. Returns None or a line for the debug log, like remove_all_mkv_track_tags.
+    """
+    parsed_json, _ = get_mkv_info(False, filename, True)
+    covers = [attachment for attachment in (parsed_json or {}).get('attachments', [])
+              if (attachment.get('content_type') or '').lower().startswith('image/')]
+    if not covers:
+        return None
+
+    if debug:
+        print(f"{GREY}[UTC {get_timestamp()}] [DEBUG]{RESET} Removing {len(covers)} cover attachment(s)...")
+
+    # Selected by UID rather than ID, as IDs could shift as earlier ones are deleted
+    edit_args = [arg for attachment in covers
+                 for arg in ('--delete-attachment', f"={attachment['properties']['uid']}")]
+    failure = run_mkvpropedit(debug, filename, edit_args, attempts=2)
+    if failure is None:
+        return None
+    return f"Could not remove covers from '{os.path.basename(filename)}': {failure}"
+
+
 def convert_mp4_to_mkv_with_subtitles(debug, mp4_file):
     def clean_srt_file(srt_file):
         with open(srt_file, 'r', encoding='utf-8') as file:
@@ -2221,6 +2245,9 @@ def remove_clutter_process_worker(debug, input_file, dirpath):
     note = remove_all_mkv_track_tags(debug, input_file_with_path)
     if remove_all_title_names:
         strip_mkv_title_and_track_names(debug, input_file_with_path)
+        cover_note = remove_mkv_cover_attachments(debug, input_file_with_path)
+        if cover_note is not None:
+            note = cover_note if note is None else f"{note}; {cover_note}"
 
     mkv_video_codec = get_mkv_video_codec(input_file_with_path)
     if has_closed_captions(input_file_with_path):

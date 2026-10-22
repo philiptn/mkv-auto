@@ -259,3 +259,38 @@ def test_a_failed_cleanup_does_not_stop_the_batch(monkeypatch, capsys):
     assert result == ["a.mkv", "b.mkv", "c.mkv"]
     assert sum("boom" in message for message in logger.debug_messages) == 1
     assert "boom" not in capsys.readouterr().out
+
+
+def attachments_info(monkeypatch, attachments):
+    monkeypatch.setattr(mkv, "get_mkv_info", lambda debug, filename, silent: ({"attachments": attachments}, ""))
+
+
+def test_cover_images_are_deleted_by_uid_and_fonts_kept(monkeypatch, runner):
+    """ASS subtitles render with the attached fonts, so only images may go."""
+    attachments_info(monkeypatch, [
+        {"id": 1, "content_type": "image/jpeg", "file_name": "cover.jpg", "properties": {"uid": 111}},
+        {"id": 2, "content_type": "font/ttf", "file_name": "Arial.ttf", "properties": {"uid": 222}},
+        {"id": 3, "content_type": "image/png", "file_name": "small_cover.png", "properties": {"uid": 333}},
+    ])
+    fake = runner([0])
+    assert mkv.remove_mkv_cover_attachments(False, "/tmp/file.mkv") is None
+    assert fake.commands == [["mkvpropedit", "/tmp/file.mkv",
+                              "--delete-attachment", "=111", "--delete-attachment", "=333"]]
+
+
+def test_no_covers_means_no_mkvpropedit(monkeypatch, runner):
+    attachments_info(monkeypatch, [
+        {"id": 1, "content_type": "application/x-truetype-font", "file_name": "a.ttf", "properties": {"uid": 1}},
+    ])
+    fake = runner([])
+    assert mkv.remove_mkv_cover_attachments(False, "/tmp/file.mkv") is None
+    assert fake.commands == []
+
+
+def test_failed_cover_removal_is_a_note_not_a_crash(monkeypatch, runner):
+    attachments_info(monkeypatch, [
+        {"id": 1, "content_type": "image/jpeg", "file_name": "cover.jpg", "properties": {"uid": 7}},
+    ])
+    runner([2, 2])
+    note = mkv.remove_mkv_cover_attachments(False, "/tmp/file.mkv")
+    assert "Could not remove covers from 'file.mkv'" in note
