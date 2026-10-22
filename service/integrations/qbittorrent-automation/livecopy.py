@@ -40,6 +40,13 @@ PIECE_DOWNLOADED = 2
 CHECKING_STATES = {'checkingDL', 'checkingUP', 'checkingResumeData', 'moving'}
 DEAD_STATES = {'error', 'missingFiles'}
 
+# qBittorrent's "downloading" filter means "not complete", not "running": a
+# paused or queue-throttled torrent is listed there too, and its pieces may not
+# move for hours. qBittorrent 5.0 renamed "paused" to "stopped"; both spellings
+# are in the wild. stalledDL is deliberately absent - that is a live download
+# with no peers, which is exactly what the stall timeout is for.
+IDLE_STATES = {'pausedDL', 'stoppedDL', 'queuedDL'}
+
 SAMPLE_PATTERN = re.compile(r'(?:^sample|[-_.]sample)$', re.IGNORECASE)
 
 # Extras keywords, mirroring modules/misc.py extras_definitions. process_extras()
@@ -335,6 +342,14 @@ class LiveCopyManager:
         if state in CHECKING_STATES:
             # Freeze every watermark: the piece map is not trustworthy mid-check.
             return
+        if state in IDLE_STATES:
+            # Stop the workers rather than let them burn the stall timeout on a
+            # watermark that will not move, and leave the sequential-download
+            # toggles alone on a torrent the user stopped on purpose. The
+            # partial and its state file are kept, so the copy picks up where it
+            # left off once the torrent runs again.
+            self._stop_jobs(torrent_hash, delete=False, reason=f"torrent {state}")
+            return
 
         self._ensure_sequential(torrent)
 
@@ -351,16 +366,22 @@ class LiveCopyManager:
 
         for index, entry in enumerate(files):
             key = (torrent_hash, entry['index'])
+            watermark = contiguous_prefix(
+                entry, entry['index'], files, piece_size, piece_states)
             job = self._jobs.get(key)
 
             if job is None:
+                # Nothing safe to read yet. Starting now would spend a resolver
+                # round-trip on the main loop and create an empty file in the
+                # library, which _resume_offset() would later refuse to touch.
+                if watermark <= 0:
+                    continue
                 job = self._maybe_start(torrent, tag, entry, files, mappings)
                 if job is None:
                     continue
 
             job.sources = self._source_candidates(torrent, entry, mappings)
-            job.watermark = contiguous_prefix(
-                entry, entry['index'], files, piece_size, piece_states)
+            job.watermark = watermark
 
     def _ensure_sequential(self, torrent):
         """Turn on sequential download and first/last piece priority.

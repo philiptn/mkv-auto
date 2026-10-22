@@ -9,6 +9,7 @@ Pure functions only - no network, no qBittorrent, no disk.
 """
 
 import importlib.util
+import json
 import logging
 import os
 import time
@@ -300,6 +301,8 @@ class _FakeQBittorrent:
         self.data = data
         self.done = 0
         self.toggles = {'seq': 0, 'flp': 0}
+        self.state = 'downloading'
+        self.calls = []
 
     def advance(self):
         """Write the next piece's real bytes and mark it downloaded."""
@@ -316,13 +319,14 @@ class _FakeQBittorrent:
         return {
             'hash': 'abc123', 'name': 'Show.S01E01.1080p.mkv',
             'save_path': os.path.dirname(self.source),
-            'content_path': self.source, 'state': 'downloading',
+            'content_path': self.source, 'state': self.state,
             'seq_dl': self.toggles['seq'] > 0,
             'f_l_piece_prio': self.toggles['flp'] > 0,
             'tags': 'mkv-auto', 'progress': self.done / PIECE_COUNT,
         }
 
     def request(self, method, endpoint, **kwargs):
+        self.calls.append(endpoint)
         if endpoint == "/api/v2/torrents/info":
             return _Response([self._torrent()])
         if endpoint == "/api/v2/torrents/files":
@@ -349,7 +353,11 @@ class _FakeQBittorrent:
 class _FakeResolver:
     relative = "TV Shows/Show (2019)/Season 1/Show (2019) - S01E01.mkv"
 
+    def __init__(self):
+        self.lookups = 0
+
     def relative_output_path(self, tag, relative_path):
+        self.lookups += 1
         return {'ok': True, 'relative_path': self.relative,
                 'full_info_found': True, 'normalize_filenames': 'full'}
 
@@ -454,6 +462,87 @@ def test_an_existing_destination_is_never_clobbered(live_copy):
         time.sleep(0.05)
 
     assert destination.read_bytes() == b"already processed by MKV-Auto"
+
+
+def test_no_destination_is_created_before_any_bytes_land(live_copy):
+    """An empty file in the library would be picked up as a real output, and
+    _resume_offset() would then refuse to ever live copy this episode."""
+    manager, qbittorrent, _, destination, _ = live_copy
+
+    for _ in range(5):
+        manager.tick({})                                 # no advance() - 0 pieces
+
+    assert not destination.exists()
+    assert manager._resolver.lookups == 0, "resolved a path with nothing to copy"
+
+
+# --- paused and queued torrents -----------------------------------------------
+#
+# qBittorrent's "downloading" filter lists these too, and their pieces may not
+# move for hours. Copying them stalls a worker for LIVE_COPY_STALL_TIMEOUT.
+
+def _wait_for_jobs_to_drain(manager, timeout=10):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not manager._jobs:
+            return
+        time.sleep(0.05)
+    raise AssertionError(f"jobs still running: {list(manager._jobs)}")
+
+
+@pytest.mark.parametrize("state", ['pausedDL', 'stoppedDL', 'queuedDL'])
+def test_idle_torrents_are_never_live_copied(live_copy, state):
+    """'stoppedDL' is qBittorrent 5.0+'s spelling of 'pausedDL'."""
+    manager, qbittorrent, _, destination, _ = live_copy
+    qbittorrent.state = state
+
+    for _ in range(5):
+        qbittorrent.advance()
+        manager.tick({})
+        time.sleep(0.05)
+
+    assert not destination.exists()
+    assert manager._resolver.lookups == 0
+    # The piece map is never even fetched, and a torrent the user stopped on
+    # purpose does not get its download settings toggled.
+    assert qbittorrent.toggles == {'seq': 0, 'flp': 0}
+    assert set(qbittorrent.calls) == {"/api/v2/torrents/info"}
+
+
+def test_pausing_keeps_the_partial_and_resumes_from_it(live_copy):
+    manager, qbittorrent, data, destination, _ = live_copy
+    state_file = os.path.join(manager._state_dir, "abc123-0.json")
+
+    # Copy a few pieces, then pause.
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        qbittorrent.advance()
+        manager.tick({})
+        if destination.exists() and destination.stat().st_size >= 3 * PIECE_SIZE:
+            break
+        time.sleep(0.05)
+
+    qbittorrent.state = 'pausedDL'
+    manager.tick({})
+    _wait_for_jobs_to_drain(manager)
+
+    # The bytes and the resume offset survive; a restart would lose both. Read
+    # the size only once the worker is gone - it may land another chunk first.
+    partial = destination.stat().st_size
+    assert 0 < partial < FILE_SIZE, f"nothing to resume from: {partial} bytes"
+    with open(state_file, encoding='utf-8') as handle:
+        assert json.load(handle)['copied'] == partial
+
+    # Pieces landing while paused are not copied - the worker is gone.
+    for _ in range(5):
+        qbittorrent.advance()
+        manager.tick({})
+        time.sleep(0.05)
+    assert destination.stat().st_size == partial
+
+    qbittorrent.state = 'downloading'
+    _drain(manager, qbittorrent, destination)
+    assert destination.read_bytes() == data
 
 
 # --- folder map configuration -------------------------------------------------
